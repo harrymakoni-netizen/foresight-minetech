@@ -10,11 +10,11 @@ Run `npm ci` then `npm run dev -- --port 5180`.
 
 ## Gemini configuration
 
-Create an ignored .env.local in this directory with GEMINI_API_KEY and GEMINI_MODEL, then restart. Choose an enabled text model supporting generateContent and structured JSON output. Never prefix the key with NEXT_PUBLIC or put it in browser code. No key was supplied for this build.
+Create an ignored .env.local in this directory with GEMINI_API_KEY and GEMINI_MODEL, then restart. Choose an enabled text model supporting generateContent and structured JSON output. Never prefix the key with NEXT_PUBLIC or put it in browser code. The key is configured only in ignored local and Vercel environment settings.
 
 Only server-selected synthetic replay evidence is sent to Google. No worker details, workflow notes, arbitrary prompts or tools are sent. Current and retained evidence remain distinct. Each paragraph must cite a known source. Citation existence is validated; factual entailment still requires human review. Model output cannot change scores or records.
 
-Hosted AI calls are disabled pending authenticated access and durable usage limits. Missing configuration and upstream errors are shown honestly. Live provider access and answer quality still need verification.
+Hosted AI calls use a shared 30-request daily cap persisted with conditional writes. Failed calls consume quota. Requests use fixed questions and server-selected synthetic evidence. Missing configuration and upstream errors are shown honestly. Live provider access and answer quality still need verification.
 
 API reference: https://ai.google.dev/gemini-api/docs/generate-content/structured-output
 
