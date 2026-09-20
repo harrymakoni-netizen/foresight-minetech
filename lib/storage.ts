@@ -1,3 +1,4 @@
+import {readCloudState,saveCloudState,BlobPreconditionFailedError as CloudConflict} from './storage-cloud';
 import { mkdir, readFile, open, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -9,6 +10,7 @@ export class BlobPreconditionFailedError extends Error {}
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 function assertLocal() { if (process.env.VERCEL) throw new Error('MineTech hosted storage has not been configured.'); }
 export async function readState(): Promise<{ state: State; etag: string | undefined }> {
+  if(process.env.VERCEL) return readCloudState();
   assertLocal();
   try {
     const raw = await readFile(filename, 'utf8');
@@ -19,6 +21,7 @@ export async function readState(): Promise<{ state: State; etag: string | undefi
   }
 }
 export async function saveState(state: State, etag?: string) {
+  if(process.env.VERCEL){try{return await saveCloudState(state,etag);}catch(error:any){if(error instanceof CloudConflict)throw new BlobPreconditionFailedError();throw error;}}
   assertLocal();
   await mkdir(directory, { recursive: true });
   const lockfile = path.join(directory, 'write.lock');

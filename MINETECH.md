@@ -4,7 +4,7 @@ Isolated software development edition for MineTech 2026.
 
 Expo baseline: f9e054ad8e3813913d4f798587c1a91cd18ebd51; local tag expo-2026.
 New branch: codex/minetech. Existing production https://foresight-mining.vercel.app is unchanged.
-Do not push MineTech changes to main, copy the Expo .vercel binding or reuse its storage credentials.
+Do not push MineTech changes to the original worksafe repository main branch, copy the Expo .vercel binding or reuse its storage credentials.
 
 Run `npm ci` then `npm run dev -- --port 5180`.
 
@@ -18,14 +18,16 @@ Hosted AI calls are disabled pending authenticated access and durable usage limi
 
 API reference: https://ai.google.dev/gemini-api/docs/generate-content/structured-output
 
-Local workflow records persist independently in ignored .minetech-data/workspace.json with exclusive write locking and optimistic concurrency checks. No Blob credentials are read. Hosted storage remains to be configured. A process crash during a write may leave write.lock; stop all local servers and inspect the data before removing this lock.
+Local workflow records persist independently in ignored .minetech-data/workspace.json with exclusive write locking and optimistic concurrency checks. On Vercel, a dedicated MineTech Blob store persists records with conditional writes. The Expo store is never shared. A process crash during a write may leave write.lock; stop all local servers and inspect the data before removing this lock.
 
 ## Remaining milestones
 
 - Fresh simulator runs connected to the UI.
 - Offline inspection/check-in queue with idempotent synchronization.
 - Supervisor follow-up ownership and readable exports.
-- Separate hosted storage, accounts, permissions and AI usage controls.
+- Accounts, permissions and AI usage controls.
 - Unseen simulator scenarios, practitioner feedback and live Gemini evaluation.
 
 All original safety boundaries remain. No field-validation claims, hardware, automatic evacuation, equipment control or zone clearance.
+
+Dedicated private repository: https://github.com/harrymakoni-netizen/foresight-minetech (main).
