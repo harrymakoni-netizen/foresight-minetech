@@ -1,6 +1,6 @@
 {
-  "name": "worksafe",
-  "version": "0.1.0",
+  "name": "foresight-minetech",
+  "version": "0.2.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:assistant": "node --experimental-strip-types --test tests/assistant.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

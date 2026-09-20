@@ -47,3 +47,5 @@ next-env.d.ts
 
 *.tsbuildinfo
 ACCESS.txt
+
+/.minetech-data/
