@@ -3,6 +3,7 @@ import path from 'node:path';
 import { evidenceContext, generateExplanation, selectionSchema } from '@/lib/assistant';
 import { reserveAiRequest } from '@/lib/ai-budget';
 export const runtime = 'nodejs';
+export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
     if (!await reserveAiRequest()) return Response.json({ error: 'The shared demo has reached its 30-request daily AI limit. Please try again after midnight UTC. Engine evidence remains available.' }, { status: 429 });
     const answer = await generateExplanation(context, selection.question, key, model);
     return Response.json({ ...answer, context, model, generatedAt: new Date().toISOString(), label: 'AI-generated draft — verify every statement against the cited evidence.' }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch {
+  } catch (error) {
+    console.error('Gemini explanation failed:', error instanceof Error ? error.message : 'Unknown error');
     return Response.json({ error: 'An evidence-linked explanation could not be produced. The engine evidence remains available; try again or check Gemini configuration.' }, { status: 502 });
   }
 }

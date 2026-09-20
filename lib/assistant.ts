@@ -49,7 +49,7 @@ Keep answers under 350 words. Produce only the requested JSON. No chain of thoug
 
 export async function generateExplanation(context: ReturnType<typeof evidenceContext>, question: keyof typeof questions, apiKey: string, model: string, transport: typeof fetch = fetch) {
   const response = await transport(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', signal: AbortSignal.timeout(30000),
+    method: 'POST', signal: AbortSignal.timeout(60000),
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemInstruction }] },
