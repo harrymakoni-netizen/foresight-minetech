@@ -48,8 +48,10 @@ Explain uncertainty and missing data. These are development simulations, not ope
 Keep answers under 350 words. Produce only the requested JSON. No chain of thought; provide a concise evidence-based explanation.`;
 
 export async function generateExplanation(context: ReturnType<typeof evidenceContext>, question: keyof typeof questions, apiKey: string, model: string, transport: typeof fetch = fetch) {
-  const response = await transport(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', signal: AbortSignal.timeout(60000),
+  let response!: Response;
+  for (let attempt = 0; attempt < 2; attempt++) {
+  response = await transport(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST', signal: AbortSignal.timeout(35000),
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -59,6 +61,10 @@ export async function generateExplanation(context: ReturnType<typeof evidenceCon
       } },
     }),
   });
+  if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 1) break;
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  if (response.status === 503 || response.status === 429) throw new Error('Gemini is temporarily busy or rate-limited. Please try again in a few minutes. Your assessment evidence is still available.');
   if (!response.ok) throw new Error('Gemini is unavailable. Check the configured model, API access and quota.');
   const result = await response.json();
   const candidate = result.candidates?.[0];

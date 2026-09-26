@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     return Response.json({ ...answer, context, model, generatedAt: new Date().toISOString(), label: 'AI-generated draft — verify every statement against the cited evidence.' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Gemini explanation failed:', error instanceof Error ? error.message : 'Unknown error');
+    if (error instanceof Error && error.message.startsWith('Gemini is temporarily')) return Response.json({error: error.message}, {status:503});
     return Response.json({ error: 'An evidence-linked explanation could not be produced. The engine evidence remains available; try again or check Gemini configuration.' }, { status: 502 });
   }
 }

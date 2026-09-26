@@ -26,6 +26,12 @@ test('Gemini uses server key and structured responses', async () => {
   assert.equal((await generateExplanation(context, 'explain', 'test-key', 'test-model', mock)).paragraphs.length, 1);
 });
 test('provider failure and truncation do not produce false success', async () => {
-  await assert.rejects(generateExplanation(context, 'explain', 'test', 'test', async () => new Response('secret', { status: 429 })), /Gemini is unavailable/);
+  await assert.rejects(generateExplanation(context, 'explain', 'test', 'test', async () => new Response('secret', { status: 429 })), /Gemini is temporarily/);
   await assert.rejects(generateExplanation(context, 'explain', 'test', 'test', async () => Response.json({ candidates: [{ finishReason: 'MAX_TOKENS' }] })), /could not complete/);
+});
+
+test('transient provider overload is retried once', async () => {
+ let calls=0;
+ const mock: typeof fetch=async()=>{calls++;if(calls===1)return new Response('{}',{status:503});return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({paragraphs:[{text:'Review simulator evidence.',citations:['assessment']}]})}]}}]})};
+ await generateExplanation(context,'explain','test','test',mock);assert.equal(calls,2);
 });
