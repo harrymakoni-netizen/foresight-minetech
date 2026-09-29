@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { evidenceContext, selectionSchema, validateAnswer, evidenceSummary, generateExplanation } from '../lib/assistant.ts';
+import { evidenceContext, selectionSchema, validateAnswer, preparedDemoAnswer, evidenceSummary, generateExplanation } from '../lib/assistant.ts';
 const snapshot = JSON.parse(readFileSync(new URL('../lib/initial.json', import.meta.url), 'utf8'));
 const context = evidenceContext(snapshot, 'zone-b');
 test('preserves current and retained evidence and register', () => {
@@ -41,4 +41,16 @@ test('provider-independent summary preserves exact scores and valid sources', ()
  assert.match(result.paragraphs[0].text,new RegExp(String(snapshot.zones[1].score)));
  assert.match(result.paragraphs[2].text,/person must review/);
  validateAnswer(result,context.sources.map(s=>s.id));
+});
+
+test('prepared answers cover every scenario, time, zone and fixed question', () => {
+ for (const scenario of ['wet','wet-control','dry','dry-control','wet-retrospective']) {
+  const replay=JSON.parse(readFileSync(new URL(`../public/replay/${scenario}.json`,import.meta.url),'utf8'));
+  for(const snapshot of replay.snapshots) for(const zone of snapshot.zones) {
+   const answers=['explain','missing','handover'].map(question=>preparedDemoAnswer(snapshot,zone.zone_id,question as 'explain'|'missing'|'handover'));
+   for(const answer of answers){assert.equal(answer.mode,'prepared-demo');assert.match(answer.label,/not live AI/);assert.equal(answer.context.time,snapshot.time);validateAnswer({paragraphs:answer.paragraphs},answer.context.sources.map(s=>s.id));}
+   assert.notEqual(answers[0].paragraphs[0].text,answers[1].paragraphs[0].text);
+   assert.ok(answers[0].paragraphs[0].text.includes(zone.score.toFixed(1)));
+  }
+ }
 });

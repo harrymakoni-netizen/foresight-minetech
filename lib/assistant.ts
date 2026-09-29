@@ -85,3 +85,35 @@ export function evidenceSummary(context: ReturnType<typeof evidenceContext>, que
   ];
   return validateAnswer({ paragraphs }, context.sources.map(s => s.id));
 }
+
+export function preparedDemoAnswer(snapshot: any, zoneId: string, question: keyof typeof questions) {
+  const context = evidenceContext(snapshot, zoneId);
+  const zone = snapshot.zones.find((z: any) => z.zone_id === zoneId);
+  const score = (value: number) => value.toFixed(1);
+  const at = new Date(snapshot.time).toLocaleString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' UTC';
+  const name = 'Zone ' + zoneId.slice(-1).toUpperCase();
+  const factors = zone.factors.filter((f: any) => f.contribution > 0).sort((a: any, b: any) => b.contribution - a.contribution).slice(0, 3);
+  const unknown = zone.factors.filter((f: any) => f.raw.status !== 'valid');
+  const current = `${name} at ${at}: the current evidence subtotal is ${score(zone.score)} and the displayed evidence score is ${score(zone.displayed_score)} out of 100. These scores are not accident probabilities.`;
+  const status = zone.compound_detected ? 'The current simulated assessment meets the register criteria for compound risk.' : 'No compound risk detected in the current assessment. Missing inputs and unmodelled hazards still limit this result.';
+  const retained = zone.open_alert ? `A historical compound alert remains open. The retained peak score is ${score(zone.peak_evidence.score)}, evaluated at ${new Date(zone.peak_evidence.evaluated_at).toLocaleString('en-GB', {timeZone:'UTC'})} UTC. Its original evidence remains separate from the current factors.` : 'There is no open compound alert in this replay snapshot. This is not a declaration that the zone is safe.';
+  const gaps = unknown.length ? `Inputs that are unknown, stale or otherwise not valid: ${unknown.map((f: any) => f.id.replaceAll('_', ' ') + ' (' + f.raw.status + ')').join('; ')}. Missing information is not treated as zero.` : 'All listed inputs are marked valid in this snapshot. This does not establish complete hazard coverage or professional validation.';
+  const gapRefs = unknown.length ? unknown.map((f: any) => 'factor:' + f.id) : ['assessment'];
+  const limit = `This is a simulator result using ${zone.register_version}, a provisional and unvalidated register. A person must review the evidence. This demonstration cannot change scores, resolve alerts or clear a zone.`;
+  const paragraphs = question === 'missing' ? [
+    {text: gaps, citations: gapRefs},
+    ...unknown.slice(0, 3).map((f: any) => ({text: `${f.id.replaceAll('_', ' ')}: ${f.raw.reason}`, citations: ['factor:' + f.id]})),
+    {text: 'Review the source records for completeness and timing, and retain the unknown status until adequate evidence is available. Do not invent values to complete an assessment. ' + limit, citations: ['assessment']},
+  ] : question === 'handover' ? [
+    {text: 'Prepared demonstration handover for human review. ' + current, citations: ['assessment']},
+    {text: status + ' ' + retained, citations: ['assessment','retained']},
+    {text: gaps, citations: gapRefs},
+    {text: 'Review the current factors and retained evidence, document outstanding information, and record the named reviewer’s response separately from this historical replay. ' + limit, citations: ['assessment','retained']},
+  ] : [
+    {text: current + ' ' + status, citations: ['assessment']},
+    {text: factors.length ? 'Largest current factor contributions: ' + factors.map((f: any) => f.id.replaceAll('_', ' ') + ' (+' + score(f.contribution) + ')').join('; ') + '. These are current contributions, not necessarily the factors at the retained peak. Related inputs are grouped; one factor alone cannot create a compound alert.' : 'No listed current factor has a positive contribution. One changing factor alone cannot create a compound alert.', citations: factors.length ? factors.map((f: any) => 'factor:' + f.id) : ['assessment']},
+    {text: retained, citations: ['retained']},
+    {text: gaps + ' ' + limit, citations: [...gapRefs, 'assessment']},
+  ];
+  return { ...validateAnswer({paragraphs}, context.sources.map(s => s.id)), context, mode: 'prepared-demo', model: 'Prepared demo response', label: 'Prepared demo answer - not live AI', generatedAt: new Date().toISOString() };
+}
