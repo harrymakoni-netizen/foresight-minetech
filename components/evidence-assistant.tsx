@@ -22,7 +22,7 @@ export default function EvidenceAssistant({ scenario, index, zone, time }: { sce
     const a = document.createElement('a'); a.href = url; a.download = 'foresight-ai-draft.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <section className="panel minetech-assistant">
-    <div className="panel-head"><div><span className="tiny-label">EXPLAINABLE EVIDENCE</span><h2><Sparkles size={21} /> Evidence assistant</h2><p>Understand the evidence. Keep the decision human.</p></div><span className="pill teal">{configured === null ? 'Checking assistant�' : configured ? 'Gemini configured' : 'Gemini not connected'}</span></div>
+    <div className="panel-head"><div><span className="tiny-label">EXPLAINABLE EVIDENCE</span><h2><Sparkles size={21} /> Evidence assistant</h2><p>Understand the evidence. Keep the decision human.</p></div><span className="pill teal">{configured === null ? 'Checking assistant...' : configured ? 'Gemini configured' : 'Gemini not connected'}</span></div>
     <p>Zone {zone.slice(-1).toUpperCase()} · {new Date(time).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC · {scenario}</p>
     <p className="info-note">Only the selected synthetic assessment is sent to Google Gemini. Worker names, contacts and new workflow notes are excluded. AI drafts can be wrong; inspect the sources before use.</p>
     {configured === false && <p role="status">The assistant is ready for a server-side Gemini API key and model configuration. No AI response is being simulated.</p>}
