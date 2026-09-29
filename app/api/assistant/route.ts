@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { evidenceContext, generateExplanation, selectionSchema } from '@/lib/assistant';
+import { evidenceContext, evidenceSummary, generateExplanation, selectionSchema } from '@/lib/assistant';
 import { reserveAiRequest } from '@/lib/ai-budget';
 export const runtime = 'nodejs';
 export const maxDuration = 90;
@@ -26,8 +26,13 @@ export async function POST(request: Request) {
     const snapshot = replay.snapshots[selection.index];
     if (!snapshot) return Response.json({ error: 'Replay time not found.' }, { status: 400 });
     const context = evidenceContext(snapshot, selection.zone);
-    if (!await reserveAiRequest()) return Response.json({ error: 'The shared demo has reached its 30-request daily AI limit. Please try again after midnight UTC. Engine evidence remains available.' }, { status: 429 });
-    const answer = await generateExplanation(context, selection.question, key, model);
+    if (!await reserveAiRequest()) return Response.json({ ...evidenceSummary(context, selection.question), context, model: 'Source summary (not AI)', mode: 'source-summary', generatedAt: new Date().toISOString(), label: 'Evidence summary - not AI-generated', notice: 'The shared demo has reached its daily AI limit. This is a direct source summary, not an AI response. AI requests reset at midnight UTC.' }, { headers: { 'Cache-Control': 'no-store' } });
+    let answer;
+    try { answer = await generateExplanation(context, selection.question, key, model); }
+    catch (error) {
+      console.error('Gemini provider unavailable', model, error instanceof Error ? error.message : 'Unknown error');
+      return Response.json({ ...evidenceSummary(context, selection.question), context, model: 'Source summary (not AI)', mode: 'source-summary', generatedAt: new Date().toISOString(), label: 'Evidence summary - not AI-generated', notice: 'Gemini could not produce an answer. This summary displays the supplied engine evidence directly; it is not an AI explanation or handover draft.' }, {headers:{'Cache-Control':'no-store'}});
+    }
     return Response.json({ ...answer, context, model, generatedAt: new Date().toISOString(), label: 'AI-generated draft — verify every statement against the cited evidence.' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Gemini explanation failed:', error instanceof Error ? error.message : 'Unknown error');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { evidenceContext, selectionSchema, validateAnswer, generateExplanation } from '../lib/assistant.ts';
+import { evidenceContext, selectionSchema, validateAnswer, evidenceSummary, generateExplanation } from '../lib/assistant.ts';
 const snapshot = JSON.parse(readFileSync(new URL('../lib/initial.json', import.meta.url), 'utf8'));
 const context = evidenceContext(snapshot, 'zone-b');
 test('preserves current and retained evidence and register', () => {
@@ -34,4 +34,11 @@ test('transient provider overload is retried once', async () => {
  let calls=0;
  const mock: typeof fetch=async()=>{calls++;if(calls===1)return new Response('{}',{status:503});return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({paragraphs:[{text:'Review simulator evidence.',citations:['assessment']}]})}]}}]})};
  await generateExplanation(context,'explain','test','test',mock);assert.equal(calls,2);
+});
+
+test('provider-independent summary preserves exact scores and valid sources', () => {
+ const result=evidenceSummary(context,'handover');
+ assert.match(result.paragraphs[0].text,new RegExp(String(snapshot.zones[1].score)));
+ assert.match(result.paragraphs[2].text,/person must review/);
+ validateAnswer(result,context.sources.map(s=>s.id));
 });

@@ -72,3 +72,16 @@ export async function generateExplanation(context: ReturnType<typeof evidenceCon
   const text = candidate.content?.parts?.filter((p: any) => !p.thought && typeof p.text === 'string').map((p: any) => p.text).join('');
   return validateAnswer(JSON.parse(text || '{}'), context.sources.map(s => s.id));
 }
+
+// Deterministic source display, never presented as a generated AI explanation.
+export function evidenceSummary(context: ReturnType<typeof evidenceContext>, question: keyof typeof questions) {
+  const assessment = context.sources.find(s => s.id === 'assessment')!.evidence;
+  const factors = context.sources.filter(s => s.id.startsWith('factor:'));
+  const unknown = factors.filter(s => s.evidence.raw.status !== 'valid');
+  const paragraphs = [
+    { text: `Simulator evidence at ${context.time}, ${context.zone}. Current evidence subtotal: ${assessment.score}. Displayed evidence score: ${assessment.displayed_score}. Display basis: ${assessment.displayed_score_basis}. These are not accident probabilities.`, citations: ['assessment'] },
+    { text: unknown.length ? `Inputs marked unavailable, stale or otherwise not valid: ${unknown.map(s => s.title + ' (' + s.evidence.raw.status + ')').join(', ')}. These inputs must not be treated as zero or inferred measurements.` : 'All listed factor inputs are marked valid in this simulated assessment. This does not establish complete hazard coverage or field validity.', citations: unknown.length ? unknown.map(s => s.id) : ['assessment'] },
+    { text: `Register: ${assessment.register_version}. Provisional and unvalidated. This source summary does not change scores, resolve retained alerts or clear a zone. ${question === 'handover' ? 'A person must review the current factors and retained evidence before preparing a handover.' : 'Inspect the supplied source records for current and retained evidence.'}`, citations: ['assessment','retained'] },
+  ];
+  return validateAnswer({ paragraphs }, context.sources.map(s => s.id));
+}
