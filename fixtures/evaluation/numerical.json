@@ -1,0 +1,3733 @@
+{
+  "schemaVersion": "1.0",
+  "authoredBy": "Codex; constructed software fixtures",
+  "independentReviewer": null,
+  "predeclaredChecks": {
+    "relativeConservationTolerance": 1e-06,
+    "analyticVolumeAbsoluteToleranceM3": 1e-05,
+    "convergenceFinalDifferenceM3": 0.01
+  },
+  "parametersFrozenBeforeEvaluation": true,
+  "cases": [
+    {
+      "id": "N01",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610180,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.019003315985665428
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.01525747748203632,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N02",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610181,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.005210452272511954
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.0172599968385467,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N03",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610182,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.011923046665343563
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.010956053231872947,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 33.48117636049422
+    },
+    {
+      "id": "N04",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610183,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.007845579005703953
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.006206974904278815,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 65.393848590783
+    },
+    {
+      "id": "N05",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610184,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.0027108755680819653
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.01394497043685861,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N06",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610185,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.00647348183342123
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.010054741625920427,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N07",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610186,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.01487627551274937
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.003003895933834433,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N08",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610187,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.014523351941898402
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.009793962162877558,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 47.02580320447504
+    },
+    {
+      "id": "N09",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610188,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.009028505800848775
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.00703309585180596,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N10",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610189,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.009124813617837638
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.013684347110029027,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N11",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610190,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.0014460533938519826
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.013512308870519341,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N12",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610191,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.0023349282516038137
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.009706867453021595,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 3.4610188748959843
+    },
+    {
+      "id": "N13",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610192,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.009404588505124056
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.009810788726322385,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 21.226075222116066
+    },
+    {
+      "id": "N14",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610193,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.019785753531041134
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.005738664169558056,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N15",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610194,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.00600270611264033
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.0057144671632061005,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 31.03766021796323
+    },
+    {
+      "id": "N16",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610195,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.015709614065148456
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.009678583228537442,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N17",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610196,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.010290337445652376
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.011417474930808797,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 5.653830320621296
+    },
+    {
+      "id": "N18",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610197,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.01968397236785495
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.006109975755840837,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N19",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610198,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.007451000014594246
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.005992433599152896,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 61.50503457353317
+    },
+    {
+      "id": "N20",
+      "partition": "development",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610199,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.01462302062129993
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.002960860725320167,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N21",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610200,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.003145996452764923
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.00041309879450414534,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    },
+    {
+      "id": "N22",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610201,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.009144899125924798
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.00992326986419641,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 13.187192053333163
+    },
+    {
+      "id": "N23",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610202,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.0064167218051792195
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.010739893598797087,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N24",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610203,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.007291489872534502
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.014803888790053968,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N25",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 86400,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610204,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.01718418796557641
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.019806722019912834,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N26",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610205,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.00375900571589165
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.012431567837449593,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 0
+    },
+    {
+      "id": "N27",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610206,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.015018052623069085
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.01055778083911567,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 46.05697842223229
+    },
+    {
+      "id": "N28",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610207,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.0011231948364822531
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.008776008459902373,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 2.4498709556875653
+    },
+    {
+      "id": "N29",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 3600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610208,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.010702614720391301
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.0011580432515505845,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 64.36045728782658
+    },
+    {
+      "id": "N30",
+      "partition": "locked",
+      "scenario": {
+        "schemaVersion": "1.0",
+        "workspaceId": "test-workspace",
+        "baselineSnapshotId": "test-baseline",
+        "modelId": "lumped-water-v1",
+        "modelVersion": "lumped-water-1.0.0",
+        "timeOrigin": "2026-10-17T10:00:00Z",
+        "horizonSeconds": 21600,
+        "outputIntervalSeconds": 60,
+        "maxStepSeconds": 10,
+        "seed": 202610209,
+        "units": {
+          "volume": "m3",
+          "level": "m",
+          "time": "s",
+          "flow": "m3/s"
+        },
+        "nodes": [
+          {
+            "id": "S1",
+            "zoneId": "zone-b",
+            "geometry": [
+              {
+                "volumeM3": 0,
+                "levelM": 0
+              },
+              {
+                "volumeM3": 150,
+                "levelM": 5
+              }
+            ],
+            "initialVolumeM3": 30,
+            "inflowM3s": 0.010471759495771431
+          }
+        ],
+        "pumps": [
+          {
+            "id": "P1",
+            "nodeId": "S1",
+            "capacityM3s": 0.0005304689270549723,
+            "available": true,
+            "startLevelM": null,
+            "stopLevelM": null
+          }
+        ],
+        "transfers": [],
+        "events": [],
+        "thresholds": [
+          {
+            "id": "limit",
+            "nodeId": "S1",
+            "levelM": 5,
+            "edgeIds": [
+              "direct"
+            ],
+            "label": "Storage limit",
+            "source": "Constructed analytic fixture"
+          }
+        ],
+        "routeGraph": {
+          "version": "test-1",
+          "nodes": [
+            {
+              "id": "east",
+              "zoneId": "zone-b"
+            },
+            {
+              "id": "exit",
+              "zoneId": null
+            },
+            {
+              "id": "south",
+              "zoneId": "zone-c"
+            }
+          ],
+          "edges": [
+            {
+              "id": "direct",
+              "from": "east",
+              "to": "exit",
+              "zoneId": "zone-b",
+              "lengthM": 300,
+              "speedMps": 1,
+              "delaySeconds": 0,
+              "availability": "available",
+              "bidirectional": true,
+              "source": "Fictional graph"
+            }
+          ]
+        },
+        "movements": [
+          {
+            "id": "crew",
+            "startNodes": [
+              "east"
+            ],
+            "targetNode": "exit",
+            "departureSeconds": 0,
+            "responseDelaySeconds": 0,
+            "assumption": "Fictional crew at east; no queues"
+          }
+        ],
+        "provenance": [
+          {
+            "id": "S1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          },
+          {
+            "id": "P1",
+            "source": "Constructed analytic fixture",
+            "quality": "assumed",
+            "originalUnit": "m3/h",
+            "checkedAt": null
+          }
+        ]
+      },
+      "expectedFinalStorageM3": 150
+    }
+  ]
+}

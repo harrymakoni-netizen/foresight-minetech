@@ -1,0 +1,3 @@
+observedAt,nodeId,level,unit,pumpStatus,measuredFlowM3s
+2026-10-17T10:00:00Z,S1,1.0,m,fictional-unverified,
+2026-10-17T11:00:00Z,S1,1.2,m,fictional-unverified,

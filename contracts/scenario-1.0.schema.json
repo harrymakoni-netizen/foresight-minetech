@@ -1,0 +1,683 @@
+{
+  "$ref": "#/definitions/scenario-1.0",
+  "definitions": {
+    "scenario-1.0": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0"
+        },
+        "workspaceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "baselineSnapshotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "modelId": {
+          "type": "string",
+          "const": "lumped-water-v1"
+        },
+        "modelVersion": {
+          "type": "string",
+          "const": "lumped-water-1.0.0"
+        },
+        "timeOrigin": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "horizonSeconds": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "outputIntervalSeconds": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "maxStepSeconds": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 30
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "units": {
+          "type": "object",
+          "properties": {
+            "volume": {
+              "type": "string",
+              "const": "m3"
+            },
+            "level": {
+              "type": "string",
+              "const": "m"
+            },
+            "time": {
+              "type": "string",
+              "const": "s"
+            },
+            "flow": {
+              "type": "string",
+              "const": "m3/s"
+            }
+          },
+          "required": [
+            "volume",
+            "level",
+            "time",
+            "flow"
+          ],
+          "additionalProperties": false
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "zoneId": {
+                "type": "string",
+                "enum": [
+                  "zone-a",
+                  "zone-b",
+                  "zone-c"
+                ]
+              },
+              "geometry": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "volumeM3": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "levelM": {
+                      "type": "number",
+                      "minimum": -10000,
+                      "maximum": 10000
+                    }
+                  },
+                  "required": [
+                    "volumeM3",
+                    "levelM"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 2,
+                "maxItems": 100
+              },
+              "initialVolumeM3": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "inflowM3s": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "id",
+              "zoneId",
+              "geometry",
+              "initialVolumeM3",
+              "inflowM3s"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 3
+        },
+        "pumps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "nodeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "capacityM3s": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "startLevelM": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "stopLevelM": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "nodeId",
+              "capacityM3s",
+              "available",
+              "startLevelM",
+              "stopLevelM"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 6
+        },
+        "transfers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "from": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "capacityM3s": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "assumption": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "capacityM3s",
+              "assumption"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 12
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "inflow"
+                  },
+                  "atSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "nodeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "rateM3s": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "type",
+                  "atSeconds",
+                  "nodeId",
+                  "rateM3s"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "pump_availability"
+                  },
+                  "atSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "pumpId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "available": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "type",
+                  "atSeconds",
+                  "pumpId",
+                  "available"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "pump_capacity"
+                  },
+                  "atSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "pumpId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "capacityM3s": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "type",
+                  "atSeconds",
+                  "pumpId",
+                  "capacityM3s"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "route_availability"
+                  },
+                  "atSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "edgeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "available": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "type",
+                  "atSeconds",
+                  "edgeId",
+                  "available"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "maxItems": 200
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "nodeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "levelM": {
+                "type": "number"
+              },
+              "edgeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "maxItems": 80
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "source": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "id",
+              "nodeId",
+              "levelM",
+              "edgeIds",
+              "label",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "routeGraph": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "zoneId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "zone-a",
+                          "zone-b",
+                          "zone-c"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "zoneId"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 50
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "from": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "to": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "zoneId": {
+                    "type": "string",
+                    "enum": [
+                      "zone-a",
+                      "zone-b",
+                      "zone-c"
+                    ]
+                  },
+                  "lengthM": {
+                    "type": "number",
+                    "minimum": 0.01,
+                    "maximum": 100000
+                  },
+                  "speedMps": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 5
+                  },
+                  "delaySeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 86400
+                  },
+                  "availability": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "blocked",
+                      "unknown"
+                    ]
+                  },
+                  "bidirectional": {
+                    "type": "boolean"
+                  },
+                  "source": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "id",
+                  "from",
+                  "to",
+                  "zoneId",
+                  "lengthM",
+                  "speedMps",
+                  "delaySeconds",
+                  "availability",
+                  "bidirectional",
+                  "source"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 80
+            }
+          },
+          "required": [
+            "version",
+            "nodes",
+            "edges"
+          ],
+          "additionalProperties": false
+        },
+        "movements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "startNodes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "minItems": 1,
+                "maxItems": 50
+              },
+              "targetNode": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "departureSeconds": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "responseDelaySeconds": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "assumption": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "id",
+              "startNodes",
+              "targetNode",
+              "departureSeconds",
+              "responseDelaySeconds",
+              "assumption"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "source": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 1000
+              },
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "assumed",
+                  "measured",
+                  "stale",
+                  "unverified"
+                ]
+              },
+              "originalUnit": {
+                "type": "string",
+                "enum": [
+                  "m3",
+                  "m3/h",
+                  "m3/s",
+                  "m"
+                ]
+              },
+              "checkedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "quality",
+              "originalUnit",
+              "checkedAt"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 40
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "workspaceId",
+        "baselineSnapshotId",
+        "modelId",
+        "modelVersion",
+        "timeOrigin",
+        "horizonSeconds",
+        "outputIntervalSeconds",
+        "maxStepSeconds",
+        "seed",
+        "units",
+        "nodes",
+        "pumps",
+        "transfers",
+        "events",
+        "thresholds",
+        "routeGraph",
+        "movements",
+        "provenance"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
