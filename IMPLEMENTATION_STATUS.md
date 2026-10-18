@@ -1,6 +1,6 @@
 # Foresight upgrade implementation status
 
-Branch: `codex/atu-foresight-upgrade`. Baseline: `5c1b21850f9c4ce405bf1bd179acebbc507641de` (clean main, checked 2026-10-17 UTC). Product direction: supplied Foresight Development Specification v1.0. No production changes, paid resources, live records or external notifications were made. **This is a working development release, not the complete validated core release.**
+Branch: `codex/atu-foresight-upgrade`. Baseline: `5c1b21850f9c4ce405bf1bd179acebbc507641de` (clean main, checked 2026-10-17 UTC). Product direction: supplied Foresight Development Specification v1.0. The initial development upgrade did not change production or live records. Hosted work is recorded below; no paid plan upgrade or external notification was made. **This is a working development release, not the complete validated core release.**
 
 ## Hosted persistence follow-up (2026-10-18)
 
@@ -71,4 +71,4 @@ Private-site member administration, TLS/credential rotation, scheduled retention
 
 ## Review and preview
 
-A working local production-build preview runs at `http://localhost:3001` with a separate local simulator at port 8100. It can be reproduced from the README. The Supabase-backed preview at `https://foresight-minetech-i15za2g43-hjm-technologies.vercel.app` passes hosted acceptance checks described in `docs/HOSTED_SETUP.md`. All changes remain on the isolated upgrade branch; default branch and production are unchanged. See the draft review request when published for the concrete diff.
+A working local production-build preview runs at `http://localhost:3001` with a separate local simulator at port 8100. It can be reproduced from the README. The Supabase-backed preview at `https://foresight-minetech-i15za2g43-hjm-technologies.vercel.app` passes hosted acceptance checks described in `docs/HOSTED_SETUP.md`. Source changes remain on the isolated upgrade branch; the default branch is unchanged. Production releases are managed explicitly in Vercel. See the draft review request when published for the concrete diff.

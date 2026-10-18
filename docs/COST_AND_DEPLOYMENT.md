@@ -1,6 +1,6 @@
 # Development resources and release boundaries
 
-No purchases, production deployments, real mine record changes or external notifications were made.
+The initial implementation used local development resources; the hosted follow-up below records the subsequent deployment work. No paid plan upgrade, real mine record change or external notification was made.
 
 | Resource | Actual use / known requirement | Price |
 | --- | --- | --- |
