@@ -6,7 +6,7 @@ Five-section mine safety evidence and scenario-planning application, built in th
 
 ## Hosted PostgreSQL setup
 
-The hosted database adapter, migrations, sessions, private Blob uploads and Vercel Python compute are implemented. Follow [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md) to connect a free Supabase/Neon PostgreSQL resource and verify the deployment. The hosted resource still needs to be connected in Vercel; a build success does not establish a working workspace.
+The hosted database adapter, migrations, sessions, private Blob uploads and Vercel Python compute are implemented. Follow [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md) to connect a free Supabase/Neon PostgreSQL resource and verify the deployment. Supabase is connected, and hosted browser checks verify sessions, evidence workflows, simulations, offline sync and private uploads. A build success alone does not establish a working workspace.
 
 ## Reproduce locally
 
@@ -118,4 +118,4 @@ The tool backs up the source, hashes it, imports full original records/audit ref
 
 Mine Map uses versioned conceptual zones and checked fictional route topology. A self-contained GLB2 mesh can be imported with source/capture permission and transform metadata, initially as an unscaled walkthrough. No reconstruction is fabricated. A real captured area, independently measured registration, calibrated 3D annotation and a Gaussian-splat viewer remain outstanding. See [tools/reconstruction/README.md](tools/reconstruction/README.md).
 
-Hosted workspaces use the PostgreSQL adapter and private Blob storage described in [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md). Vercel water runs use bundled stateless Python compute with PostgreSQL job state; an external worker remains supported. Supabase resource connection, hosted verification, private staff onboarding, optional vision hosting and retention/operational review remain outstanding. No paid resource upgrade or external SMS/USSD/emergency integration was made.
+Hosted workspaces use the PostgreSQL adapter and private Blob storage described in [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md). Vercel water runs use bundled stateless Python compute with PostgreSQL job state; an external worker remains supported. Private staff onboarding, optional vision hosting and retention/operational review remain outstanding. Hosted verification evidence is recorded in the setup guide. No paid resource upgrade or external SMS/USSD/emergency integration was made.

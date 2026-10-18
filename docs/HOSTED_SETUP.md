@@ -11,7 +11,7 @@ The hosted workspace uses PostgreSQL (Supabase or Neon) and Better Auth. It neve
 5. Leave `FORESIGHT_SIMULATOR_URL` unset on Vercel to use the bundled Python function. Keep `BLOB_READ_WRITE_TOKEN` connected to the existing **private** `foresight-minetech-records` Blob store. New assets use `evidence/<workspace-id>/...`; historical record objects are not migrated or overwritten.
 6. Deploy the upgrade branch as a preview. Check `/api/health`, then verify an actual session and saved report before promotion. A successful frontend build alone is not a release check.
 
-Supabase creation/connection is a dashboard step because the connected Vercel tool surface cannot provision integration resources and the workspace CLI is logged out. Database creation has **not** been claimed complete until the resource is connected and verified.
+Supabase creation/connection is a dashboard step because the connected Vercel tool surface cannot provision integration resources and the workspace CLI is logged out. The user connected Supabase on 2026-10-18. Its PostgreSQL and authentication migrations now initialize successfully on Vercel, and the hosted preview has passed the checks below.
 
 ## Migrations and access
 
@@ -47,4 +47,12 @@ The optional vision service still needs approved model weights and a hosted CPU 
 - `npm run test:python`: 34 numerical, worker, serverless compute and vision policy checks.
 - Five browser tests on a production Next build with PostgreSQL 17: evidence → review → assessment → case/action → human muster → fresh water comparisons, plus role denial, asset validation, session isolation, offline reload/sync and phone/tablet layouts.
 
-Local PostgreSQL verification is not proof of connectivity to an unprovisioned Supabase resource. Hosted sign-in, private Blob uploads and Python compute must be tested against the connected preview before changing production.
+## Hosted acceptance on 2026-10-18
+
+Verified preview: `https://foresight-minetech-i15za2g43-hjm-technologies.vercel.app` (code commit `b189799`). Supabase is connected through `POSTGRES_URL` on its transaction pooler. The verified TLS client includes Supabase's published root CA, retrieved from `https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt` (SHA256 `700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7`, valid through 2031-04-26). Hostname and certificate verification remain enabled. Vercel packages this public certificate with the functions.
+
+Live database health and authentication checks return HTTP 200. Three hosted browser workflows pass (28.8 seconds total): report/manual review/assessment/case/action/muster and fresh baseline/backup water comparisons; separate workspace sessions, duplicate submissions and offline reload/sync; phone/tablet navigation. The simulator uses the deployed Python function and saves outcomes to PostgreSQL.
+
+A separate actual browser-to-private-Blob upload of a **5,243,244-byte** explicitly synthetic GLB passed, exceeding Vercel's ordinary request-body limit. Finalization and authenticated streaming download passed; a different workspace received 404. This is storage and viewer transport evidence, not a captured reconstruction.
+
+Test artifacts are isolated fictional demonstration records. No legacy Blob objects were imported, reset or overwritten. These checks do not establish vision/model accuracy, private staff onboarding or operational mine readiness. Production must receive the same verified code and its environment, followed by health and browser smoke checks.
