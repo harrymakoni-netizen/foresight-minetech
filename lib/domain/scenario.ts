@@ -392,3 +392,64 @@ export function fictionalScenario(
     })),
   };
 }
+
+/** Explicitly fictional pump-failure exercise; never inferred from a report. */
+export function pumpFailureDemonstration(
+  base: Scenario,
+  backupHour: number,
+): Scenario {
+  const s = fictionalScenario(
+    base.workspaceId,
+    base.baselineSnapshotId,
+    base.timeOrigin,
+  );
+  s.pumps[1].capacityM3s = 24 / 3600;
+  s.events = [
+    {
+      type: "pump_availability",
+      atSeconds: 3600,
+      pumpId: "P1",
+      available: false,
+    },
+    {
+      type: "pump_availability",
+      atSeconds: backupHour * 3600,
+      pumpId: "P2",
+      available: true,
+    },
+  ];
+  s.thresholds[0].levelM = 2;
+  s.thresholds[0].label = "Reviewed fictional direct-route limit: 2 m";
+  s.thresholds[0].source =
+    "Reviewed for this fictional exercise only; not an operational water-depth limit";
+  s.movements[0].departureSeconds = 2 * 3600 + 18 * 60;
+  s.movements[0].responseDelaySeconds = 0;
+  s.movements[0].assumption =
+    "Assumed crew at east, departing at 2 h 18 min at 1 m/s with zero response delay; direct edge takes 5 min, alternative route 17 min 30 s. Calculated arrival is not human muster.";
+  s.provenance = [
+    {
+      id: "S1",
+      source:
+        "Fictional: initial 30 m³; inflow 18 m³/h; linear storage area 30 m²; capacity 150 m³",
+      quality: "assumed",
+      originalUnit: "m3/h",
+      checkedAt: null,
+    },
+    {
+      id: "P1",
+      source:
+        "Fictional: primary 12 m³/h fails at exactly 1 h; failure time is not extracted from a report",
+      quality: "assumed",
+      originalUnit: "m3/h",
+      checkedAt: null,
+    },
+    {
+      id: "P2",
+      source: `Fictional: backup 24 m³/h activates at ${backupHour} h`,
+      quality: "assumed",
+      originalUnit: "m3/h",
+      checkedAt: null,
+    },
+  ];
+  return scenarioSchema.parse(s);
+}

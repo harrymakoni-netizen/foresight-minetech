@@ -111,6 +111,7 @@ export async function startRun(ctx: Context, id: string, key: string) {
         "run",
         {
           scenarioId: id,
+          name: scenario.data.name,
           status: "queued",
           progress: 0,
           scenario: scenario.data.scenario,
@@ -205,6 +206,7 @@ export async function startSensitivity(
         "run",
         {
           scenarioId: id,
+          name: scenario.data.name,
           status: "queued",
           progress: 0,
           scenario: scenario.data.scenario,

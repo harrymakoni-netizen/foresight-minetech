@@ -1,3 +1,4 @@
+import { validateGlb } from "../domain/glb.ts";
 import { get as getBlob, put, del } from "@vercel/blob";
 import { lock } from "./db.ts";
 import { formBody, jsonBody } from "./http.ts";
@@ -20,6 +21,16 @@ const metadataSchema = z
     title: z.string().min(3).max(140),
     source: z.string().min(3).max(1000),
     captureAt: instant,
+    reconstructionMethod: z
+      .string()
+      .min(3)
+      .max(1000)
+      .default("Not recorded in legacy import"),
+    coverage: z
+      .string()
+      .min(3)
+      .max(2000)
+      .default("Coverage not recorded; inspect captured surfaces only"),
     consent: z.literal(true),
     scaleStatus: z.enum(["unverified", "measured"]),
     metresPerUnit: z.number().positive().max(1000),
@@ -113,44 +124,15 @@ export async function assetsPost(ctx: Context, request: Request) {
       "REGISTRATION",
       "Measured scale needs residuals and reference notes.",
     );
-  if (
-    buffer.toString("ascii", 0, 4) !== "glTF" ||
-    buffer.readUInt32LE(4) !== 2 ||
-    buffer.readUInt32LE(8) !== buffer.length
-  )
-    throw new DomainError(
-      422,
-      "ASSET_FORMAT",
-      "A valid GLB 2.0 container is required.",
-    );
-  const length = buffer.readUInt32LE(12);
-  if (
-    buffer.toString("ascii", 16, 20) !== "JSON" ||
-    20 + length > buffer.length
-  )
-    throw new DomainError(422, "ASSET_FORMAT", "Invalid GLB JSON chunk.");
-  let document: any;
   try {
-    document = JSON.parse(buffer.toString("utf8", 20, 20 + length));
-  } catch {
-    throw new DomainError(422, "ASSET_FORMAT", "Invalid GLB document.");
-  }
-  if (document.asset?.version !== "2.0" || !document.meshes?.length)
+    validateGlb(buffer);
+  } catch (error) {
     throw new DomainError(
       422,
       "ASSET_FORMAT",
-      "A mesh in GLB 2.0 format is required. Gaussian splats need a separate supported viewer.",
+      error instanceof Error ? error.message : "Invalid GLB mesh.",
     );
-  if (
-    [...(document.buffers || []), ...(document.images || [])].some(
-      (x: any) => x.uri && !x.uri.startsWith("data:"),
-    )
-  )
-    throw new DomainError(
-      422,
-      "ASSET_EXTERNAL",
-      "External asset URLs are disabled. Embed all buffers and images.",
-    );
+  }
   if (cloud) {
     if (!request.headers.get("content-type")?.includes("application/json"))
       await put(storageKey, buffer, {
@@ -184,7 +166,8 @@ export async function assetsPost(ctx: Context, request: Request) {
           bytes: buffer.length,
           sha256: createHash("sha256").update(buffer).digest("hex"),
           viewer: "three-gltf",
-          dimensionalCalculations: metadata.scaleStatus === "measured",
+          dimensionalCalculations: false,
+          role: "captured-visual-surface",
         },
         metadata.zoneId,
       );

@@ -1,4 +1,5 @@
 "use client";
+import { ResponseCase } from "./response-case";
 import { useEffect, useState } from "react";
 import {
   Play,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   scenarioSchema,
+  pumpFailureDemonstration,
   type Scenario,
   type SimulationResult,
 } from "@/lib/domain/scenario";
@@ -36,6 +38,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
     [advanced, setAdvanced] = useState(""),
     [dirty, setDirty] = useState(false),
     [backupDelay, setBackupDelay] = useState(1),
+    [demonstration, setDemonstration] = useState(false),
     [playing, setPlaying] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [ranges, setRanges] = useState({
@@ -118,10 +121,12 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
     setScenario(next);
     setAdvanced(JSON.stringify(next, null, 2));
     setDirty(true);
+    setDemonstration(false);
     setPlaying(false);
   }
   async function clone() {
     const response = await post("snapshots");
+    setDemonstration(false);
     setScenario(response.scenarioTemplate);
     setAdvanced(JSON.stringify(response.scenarioTemplate, null, 2));
     setDirty(true);
@@ -136,18 +141,28 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
     if (!accepted)
       throw new Error("Review and accept the laboratory assumptions.");
     const input = structuredClone(scenario);
-    if (!withBackup)
+    if (demonstration) {
+      const demo = pumpFailureDemonstration(input, withBackup ? 1 : 4);
+      Object.assign(input, demo);
+      setScenario(demo);
+      setBackupDelay(withBackup ? 1 : 4);
+      setAdvanced(JSON.stringify(demo, null, 2));
+    }
+    if (!withBackup && !demonstration)
       input.events = input.events.filter(
         (e) => !(e.type === "pump_availability" && e.pumpId === "P2"),
       );
     const parsed = scenarioSchema.parse(input);
     const saved = await post("scenarios", {
-      name: name + (withBackup ? " · backup" : " · baseline"),
+      name: demonstration
+        ? `Primary failure · backup at ${withBackup ? "one hour" : "four hours"}`
+        : name + (withBackup ? " · backup" : " · baseline"),
       baselineSnapshotId: parsed.baselineSnapshotId,
       scenario: parsed,
       assumptionsAccepted: true,
     });
     const run = await post(`scenarios/${saved.id}/runs`);
+    if (active?.data.status === "completed") setBaselineId(active.id);
     setActive(run);
     setDirty(false);
     setIndex(0);
@@ -182,6 +197,12 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
     setAdvanced(JSON.stringify(input, null, 2));
     setDirty(false);
     setAccepted(true);
+    setDemonstration(false);
+    if (baselineId === run.id) setBaselineId("");
+    const start = input.events.find(
+      (e) => e.type === "pump_availability" && e.pumpId === "P2" && e.available,
+    );
+    setBackupDelay(start ? start.atSeconds / 3600 : 0);
     setName(
       String(
         data.entities.find((e) => e.id === run.data.scenarioId)?.data.name ||
@@ -214,7 +235,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
       <div className="fs-lab-notice">
         <FlaskIcon />
         <div>
-          <strong>Laboratory mode · isolated from workspace records</strong>
+          <strong>Fictional laboratory · results require human review</strong>
           <p>
             Water accumulation, effective pumping and assumed movement only. No
             field calibration or automatic control.
@@ -223,6 +244,50 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
         <Tag>lumped-water-v1</Tag>
       </div>
       <ErrorText message={error} />
+      {result?.status === "completed" && (
+        <section className="fs-panel" aria-label="Main calculated outcome">
+          <h2>{String(active?.data.name || "Calculated water outcome")}</h2>
+          <p>
+            Final storage{" "}
+            <strong>{result.summary.finalStorageM3.toFixed(2)} m³</strong> ·
+            peak level{" "}
+            <strong>
+              {peakLevel(
+                active?.data.scenario,
+                nodeId,
+                result.summary.peakVolumeM3[nodeId],
+              ).toFixed(2)}{" "}
+              m
+            </strong>
+            .
+          </p>
+          <p>
+            {result.thresholds
+              .map(
+                (t) =>
+                  `${t.label}: ${t.firstCrossingSeconds === null ? "not crossed in this run" : `crossed at ${formatElapsed(t.firstCrossingSeconds)}`}`,
+              )
+              .join(". ")}
+            .
+          </p>
+          {baseline && (
+            <p role="status">
+              Under these fictional assumptions, the selected run ends with{" "}
+              {result.summary.finalStorageM3.toFixed(2)} m³ of water, compared
+              with {baseline.summary.finalStorageM3.toFixed(2)} m³ in the
+              comparison run (
+              {Math.abs(
+                baseline.summary.finalStorageM3 - result.summary.finalStorageM3,
+              ).toFixed(2)}{" "}
+              m³{" "}
+              {baseline.summary.finalStorageM3 >= result.summary.finalStorageM3
+                ? "less"
+                : "more"}
+              ). Compare the saved assumptions as well as the outcome.
+            </p>
+          )}
+        </section>
+      )}
       <details className="fs-panel">
         <summary>Verification and independent evaluation status</summary>
         <button
@@ -298,6 +363,41 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                 are fictional. No measured physical baseline is configured.
               </p>
             </div>
+            <details>
+              <summary>Fictional pump-failure exercise</summary>
+              <p>
+                Assume 30 m³ initially, 18 m³/h inflow, 30 m² storage area, 150
+                m³ capacity, primary pumping 12 m³/h failing at 1 h, and backup
+                pumping 24 m³/h. Compare activation at 4 h and 1 h over 6 h. The
+                reviewed fictional 2 m limit restricts the direct route at 2 h
+                20 min in the delayed run. Assumed movement departs at 2 h 18
+                min, so the direct traversal overlaps that restriction. All
+                values and the crew location are assumptions.
+              </p>
+              <button
+                type="button"
+                className="fs-button secondary"
+                onClick={() => {
+                  const demo = pumpFailureDemonstration(scenario, 4);
+                  setScenario(demo);
+                  setAdvanced(JSON.stringify(demo, null, 2));
+                  setName("Primary failure exercise");
+                  setBackupDelay(4);
+                  setDemonstration(true);
+                  setAccepted(false);
+                  setDirty(true);
+                }}
+              >
+                Load fictional pump-failure exercise
+              </button>
+            </details>
+            {demonstration && (
+              <p role="status">
+                Exercise loaded. Review the assumptions, run delayed backup
+                first, then earlier backup. Editing an input leaves exercise
+                mode so your changes are preserved.
+              </p>
+            )}
             <form
               className="fs-form"
               onSubmit={(e) => {
@@ -313,6 +413,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
+                    setDemonstration(false);
                     setDirty(true);
                   }}
                 />
@@ -441,6 +542,48 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                   </label>
                 </div>
               ))}
+              <Field label="Primary P1 failure time (hours; blank means no scheduled failure)">
+                <input
+                  type="number"
+                  min={0}
+                  max={scenario.horizonSeconds / 3600}
+                  step="any"
+                  value={
+                    scenario.events.find(
+                      (e) =>
+                        e.type === "pump_availability" &&
+                        e.pumpId === "P1" &&
+                        !e.available,
+                    )?.atSeconds === undefined
+                      ? ""
+                      : scenario.events.find(
+                          (e) =>
+                            e.type === "pump_availability" &&
+                            e.pumpId === "P1" &&
+                            !e.available,
+                        )!.atSeconds / 3600
+                  }
+                  onChange={(e) =>
+                    edit((s) => {
+                      s.events = s.events.filter(
+                        (x) =>
+                          !(
+                            x.type === "pump_availability" &&
+                            x.pumpId === "P1" &&
+                            !x.available
+                          ),
+                      );
+                      if (e.target.value !== "")
+                        s.events.push({
+                          type: "pump_availability",
+                          atSeconds: Number(e.target.value) * 3600,
+                          pumpId: "P1",
+                          available: false,
+                        });
+                    })
+                  }
+                />
+              </Field>
               <Field label="Backup P2 start delay (hours)">
                 <input
                   type="number"
@@ -509,7 +652,11 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
               <div className="fs-button-row">
                 <button className="fs-button" disabled={busy || !accepted}>
                   <Play size={15} />
-                  {busy ? "Submitting…" : "Run with backup"}
+                  {busy
+                    ? "Submitting…"
+                    : demonstration
+                      ? "Run earlier backup (1 h)"
+                      : "Run with backup"}
                 </button>
                 <button
                   type="button"
@@ -517,7 +664,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                   disabled={busy || !accepted}
                   onClick={() => void task(() => execute(false))}
                 >
-                  Run baseline
+                  {demonstration ? "Run delayed backup (4 h)" : "Run baseline"}
                 </button>
               </div>
             </form>
@@ -540,6 +687,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                   void task(async () => {
                     const parsed = scenarioSchema.parse(JSON.parse(advanced));
                     setScenario(parsed);
+                    setDemonstration(false);
                     setDirty(true);
                   })
                 }
@@ -708,8 +856,8 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                     <div>
                       <h2>Calculated water outcomes</h2>
                       <p>
-                        Run {active?.id.slice(0, 8)} · {date(active?.createdAt)}{" "}
-                        · simulated
+                        {String(active?.data.name || "Saved water run")} ·{" "}
+                        {date(active?.createdAt)} · simulated
                       </p>
                     </div>
                     <button
@@ -739,12 +887,14 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                       </strong>
                     </div>
                     <div>
-                      <small>Conservation residual</small>
+                      <small>Peak level</small>
                       <strong>
-                        {result.diagnostics.conservationResidualM3.toExponential(
-                          2,
-                        )}{" "}
-                        <em>m³</em>
+                        {peakLevel(
+                          active?.data.scenario,
+                          nodeId,
+                          result.summary.peakVolumeM3[nodeId],
+                        ).toFixed(2)}{" "}
+                        <em>m</em>
                       </strong>
                     </div>
                   </div>
@@ -857,8 +1007,17 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                     ))}
                     <small>{result.routes.method}</small>
                   </section>
-                  <section className="fs-panel">
-                    <h2>Mass balance and assumptions</h2>
+                  <details className="fs-panel">
+                    <summary>
+                      Mass balance, hashes and technical assumptions
+                    </summary>
+                    <p>
+                      Run ID: {active?.id}. Conservation residual:{" "}
+                      {result.diagnostics.conservationResidualM3.toExponential(
+                        2,
+                      )}{" "}
+                      m³.
+                    </p>
                     <dl className="fs-meta">
                       <dt>Initial volume</dt>
                       <dd>{result.summary.initialStorageM3.toFixed(3)} m³</dd>
@@ -882,8 +1041,18 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
                         <li key={w}>{w}</li>
                       ))}
                     </ul>
-                  </section>
+                  </details>
                 </div>
+                {active && (
+                  <ResponseCase
+                    key={active.id}
+                    sourceId={active.id}
+                    sourceKind="run"
+                    post={post}
+                    refresh={refresh}
+                    notify={notify}
+                  />
+                )}
                 <details className="fs-panel">
                   <summary>
                     Accessible numerical series and technical export
@@ -957,6 +1126,23 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
     </>
   );
 }
+function formatElapsed(seconds: number) {
+  const minutes = Math.round(seconds / 60);
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+function peakLevel(scenario: Scenario | undefined, id: string, volume: number) {
+  const curve = scenario?.nodes.find((n) => n.id === id)?.geometry;
+  if (!curve || !Number.isFinite(volume)) return NaN;
+  for (let i = 1; i < curve.length; i++)
+    if (volume <= curve[i].volumeM3)
+      return (
+        curve[i - 1].levelM +
+        ((volume - curve[i - 1].volumeM3) /
+          (curve[i].volumeM3 - curve[i - 1].volumeM3)) *
+          (curve[i].levelM - curve[i - 1].levelM)
+      );
+  return curve.at(-1)!.levelM;
+}
 function round(n: number) {
   return Math.round(n * 1e6) / 1e6;
 }
@@ -976,7 +1162,8 @@ function SavedRuns({
       {runs.slice(0, 12).map((r) => (
         <button className="fs-saved-run" key={r.id} onClick={() => onSelect(r)}>
           <span>
-            {r.id.slice(0, 8)} · {date(r.createdAt)}
+            {String(r.data.name || "Saved water calculation")} ·{" "}
+            {date(r.createdAt)}
           </span>
           <Tag tone={r.data.status === "completed" ? "teal" : "muted"}>
             {r.data.status}

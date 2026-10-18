@@ -9,7 +9,6 @@ import {
   Field,
   Tag,
   rows,
-  localInput,
   fromLocal,
   type ViewProps,
   type Row,
@@ -27,8 +26,10 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
     [error, setError] = useState(""),
     [file, setFile] = useState<File | null>(null),
     [title, setTitle] = useState(""),
+    [method, setMethod] = useState(""),
+    [coverage, setCoverage] = useState(""),
     [source, setSource] = useState(""),
-    [capture, setCapture] = useState(localInput()),
+    [capture, setCapture] = useState(""),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false);
   const assets = rows(data, "spatial-asset", selected),
@@ -59,6 +60,8 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
         zoneId: selected,
         title,
         source,
+        reconstructionMethod: method,
+        coverage,
         captureAt: fromLocal(capture),
         consent,
         scaleStatus: "unverified",
@@ -356,6 +359,15 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
                     {asset.data.source} · captured {date(asset.data.captureAt)}
                   </p>
                   <p>
+                    Method: {asset.data.reconstructionMethod || "Not recorded"}.
+                    Coverage: {asset.data.coverage || "Not recorded"}.
+                  </p>
+                  <p>
+                    Captured visual surfaces are separate from the reviewed
+                    route graph and simulation geometry. They do not establish
+                    clearance, stability or route safety.
+                  </p>
+                  <p>
                     Registration: {asset.data.scaleStatus}. Dimensional
                     calculations disabled until measured references and
                     residuals are reviewed.
@@ -485,7 +497,26 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
               onChange={(e) => setSource(e.target.value)}
             />
           </Field>
-          <Field label="Captured at · Africa/Harare">
+          <Field label="Reconstruction method and software version">
+            <input
+              required
+              minLength={3}
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+            />
+          </Field>
+          <Field label="Captured coverage and known gaps">
+            <textarea
+              required
+              minLength={3}
+              value={coverage}
+              onChange={(e) => setCoverage(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Captured at · Africa/Harare"
+            help="Enter the actual capture timestamp, not the import time."
+          >
             <input
               type="datetime-local"
               required

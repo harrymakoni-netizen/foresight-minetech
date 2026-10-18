@@ -14,7 +14,7 @@
     "test": "node --experimental-strip-types --test tests/domain.test.ts tests/assistant.test.ts",
     "test:python": "python -m unittest services.simulator.test_engine services.simulator.test_jobs services.simulator.test_transport services.simulator.test_serverless services.vision.test_policy -v",
     "test:browser": "playwright test",
-    "test:vision-runtime": ".venv/bin/python -m unittest services.vision.test_runtime -v",
+    "test:vision-runtime": ".venv/bin/python -m unittest services.vision.test_runtime services.vision.test_transport -v",
     "evaluate:numerical": "python -m tools.evaluation.numerical",
     "contracts": "node --experimental-strip-types scripts/export-contracts.ts",
     "migrate:legacy": "node --experimental-strip-types scripts/migrate-legacy.ts",
@@ -25,6 +25,7 @@
     "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate-db.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.99",
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",

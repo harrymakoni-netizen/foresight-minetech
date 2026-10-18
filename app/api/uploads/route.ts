@@ -1,4 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { assertClipPath } from "@/lib/server/vision";
 import { context } from "@/lib/server/auth";
 import { assertAssetPath } from "@/lib/server/assets";
 import { jsonBody } from "@/lib/server/http";
@@ -12,11 +13,13 @@ export async function POST(request: Request) {
       body,
       onBeforeGenerateToken: async (pathname) => {
         const ctx = await context(request, "review");
-        assertAssetPath(ctx, pathname);
+        const clip = pathname.startsWith("clips/");
+        if (clip) assertClipPath(ctx, pathname);
+        else assertAssetPath(ctx, pathname);
         await useBudget(ctx, "asset-uploads", 10);
         return {
-          allowedContentTypes: ["model/gltf-binary"],
-          maximumSizeInBytes: 20 * 1024 * 1024,
+          allowedContentTypes: clip ? ["video/mp4"] : ["model/gltf-binary"],
+          maximumSizeInBytes: (clip ? 50 : 20) * 1024 * 1024,
           validUntil: Date.now() + 5 * 60000,
           addRandomSuffix: false,
           allowOverwrite: false,

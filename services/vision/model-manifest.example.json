@@ -9,6 +9,20 @@
   "inputSize": 640,
   "outputFormat": "yolo-v8",
   "scoreThreshold": 0.5,
-  "classMap": {"0": "person", "1": "helmet", "2": "vest", "3": "no-helmet", "4": "no-vest"},
-  "warning": "Example class numbers only. Replace with the exact model's training labels; never infer class meanings. This is not a runnable or licensed model."
+  "classMap": {
+    "0": "person",
+    "1": "helmet",
+    "2": "vest",
+    "3": "no-helmet",
+    "4": "no-vest"
+  },
+  "warning": "Example class numbers only. Replace with the exact model's training labels; never infer class meanings. This is not a runnable or licensed model.",
+  "preprocessing": {
+    "layout": "NCHW",
+    "color": "RGB",
+    "normalization": "0..1",
+    "resize": "letterbox",
+    "padding": 114,
+    "coordinates": "input-pixels"
+  }
 }

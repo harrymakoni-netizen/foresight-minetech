@@ -2,6 +2,8 @@
 
 Five-section mine safety evidence and scenario-planning application, built in the existing Next.js repository. The working local release includes reviewed reports, immutable assessments, cases/actions, human muster, a fresh Python water/route simulator, saved comparisons, sensitivity jobs and an IndexedDB submission queue. The layout is fictional. No result clears a zone, controls equipment or delivers an external notification.
 
+**Integration setup and current completion:** [docs/INTEGRATIONS_SETUP.md](docs/INTEGRATIONS_SETUP.md), [three-minute demonstration](docs/THREE_MINUTE_DEMO.md), [completion report](docs/COMPLETION_REPORT.md).
+
 **Start with [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** for requirement-by-requirement evidence and unmet acceptance criteria. Real AI quality, independently evaluated helmet/vest recognition, a captured reconstruction, private-site onboarding and field validation are not complete. Missing services are labelled unavailable; manual reporting and local numerical runs remain usable.
 
 ## Hosted PostgreSQL setup

@@ -53,3 +53,30 @@ class WaterTests(unittest.TestCase):
         s=fixture(hours=1);s['thresholds'][0]['levelM']=1;r=solve(s);self.assertEqual(r['thresholds'][0]['firstCrossingSeconds'],0)
 
 if __name__=='__main__':unittest.main()
+
+class ConnectedDemoRegression(unittest.TestCase):
+    def test_six_hour_browser_examples(self):
+        baseline=fixture(hours=6);a=solve(baseline)
+        self.assertAlmostEqual(a['summary']['finalStorageM3'],66,places=7)
+        baseline['pumps'].append({**baseline['pumps'][0],'id':'P2','available':False})
+        baseline['provenance'].append({**baseline['provenance'][0],'id':'P2'})
+        baseline['events']=[{'type':'pump_availability','atSeconds':3600,'pumpId':'P2','available':True}]
+        b=solve(baseline);self.assertAlmostEqual(b['summary']['finalStorageM3'],6,places=7)
+        for result in [a,b]:self.assertLess(abs(result['diagnostics']['conservationResidualM3']),1e-6)
+    def test_failure_backup_and_route_traversal(self):
+        s=json.loads((Path(__file__).parents[2]/'tests/fixtures/pump-failure.json').read_text())
+        late=solve(s);self.assertAlmostEqual(late['summary']['finalStorageM3'],78,places=7)
+        self.assertAlmostEqual(late['thresholds'][0]['firstCrossingSeconds'],8400,places=6)
+        direct=late['routes']['blockedIntervals']['east-direct'][0]
+        departure=s['movements'][0]['departureSeconds']
+        self.assertLess(departure,direct['fromSeconds'])
+        self.assertGreater(departure+300,direct['fromSeconds'])
+        self.assertEqual(late['routes']['movements'][0]['alternatives'][0]['edgeSequence'],['east-south','south-junction','exit'])
+        self.assertAlmostEqual(late['summary']['peakVolumeM3']['S1'],90,places=7)
+        s['events'][1]['atSeconds']=3600;early=solve(s)
+        self.assertAlmostEqual(early['summary']['finalStorageM3'],6,places=7)
+        self.assertIsNone(early['thresholds'][0]['firstCrossingSeconds'])
+        self.assertEqual(early['routes']['movements'][0]['alternatives'][0]['edgeSequence'],['east-direct','exit'])
+        for r in [late,early]:self.assertLess(abs(r['diagnostics']['conservationResidualM3']),1e-6)
+        s['events'][1]['atSeconds']=14400;s['routeGraph']['edges'][1]['availability']='blocked'
+        blocked=solve(s);self.assertFalse(blocked['routes']['movements'][0]['allStartingNodesFeasible'])

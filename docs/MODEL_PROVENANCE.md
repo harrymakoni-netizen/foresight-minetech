@@ -33,3 +33,11 @@ Policy defaults require ≥3 valid PPE samples spanning ≥1 second. Restricted 
 ## Captured geometry
 
 Three.js GLTFLoader supports imported self-contained GLB2 meshes. No reconstructed mine/corridor asset, measured transform or capture permission has been supplied. Until these exist the map remains a versioned conceptual fixture. Unverified imported areas are walkthroughs, with dimensional use disabled. A Gaussian-splat viewer, independently checked 3D evidence coordinates and collision geometry remain dependencies. Offline reconstruction instructions are unexecuted guidance and clearly labelled accordingly.
+
+## Connected integration follow-up · 18 October 2026
+
+Written extraction now uses the installed AI SDK 7 structured-output API with either Gateway or the direct `@ai-sdk/google` 4 provider; legacy Gemini environment names are supported. No live provider result was available for validation in this follow-up. The server checks exact quotation spans and conservatively rejects unsupported numbers/dates; semantic entailment still requires human acceptance.
+
+The ONNX manifest now declares RGB/NCHW/letterbox-114 preprocessing, normalization and input-pixel coordinates. Model readiness executes a real blank tensor through the supplied session before enabling controls. Invalid ranks, probabilities, nonfinite values or class indices fail closed. The new HTTP/MP4 transport test uses authored arithmetic weights, **not pretrained PPE**, and does not change the outstanding licensed-weights or independent-accuracy status above. All three equipment states have timestamped review frames; no generic detector is reclassified as a PPE model.
+
+The pump-failure exercise is an explicitly fictional scenario, distinct from the original constant-pumping example. Its scheduled one-hour primary failure, backup capacity, water threshold, crew start/departure, speeds and route lengths are assumptions. Regression calculations and route interval checks verify arithmetic, not safe operating limits. See [THREE_MINUTE_DEMO.md](THREE_MINUTE_DEMO.md).

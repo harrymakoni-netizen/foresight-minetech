@@ -9,14 +9,14 @@ from .policy import Tracker,equipment,EventMachine,point_polygon
 
 def process(detector:OnnxDetector,source,config,progress=lambda x:None,cancelled=lambda:False):
     capture=cv2.VideoCapture(str(source),cv2.CAP_FFMPEG,[cv2.CAP_PROP_OPEN_TIMEOUT_MSEC,5000,cv2.CAP_PROP_READ_TIMEOUT_MSEC,3000]) if config.get('feedAlias') else cv2.VideoCapture(str(source));fps=capture.get(cv2.CAP_PROP_FPS);count=capture.get(cv2.CAP_PROP_FRAME_COUNT)
-    if not capture.isOpened() or not 0<fps<=240:raise ValueError('Video decode unavailable or invalid FPS')
+    if not capture.isOpened() or not 0<fps<=240:capture.release();raise ValueError('Video decode unavailable or invalid FPS')
     if capture.get(cv2.CAP_PROP_FRAME_WIDTH)>3840 or capture.get(cv2.CAP_PROP_FRAME_HEIGHT)>2160:capture.release();raise ValueError('Decode resolution exceeds configured budget')
     max_seconds=min(float(config.get('maxSeconds',120)),120);target_fps=min(float(config.get('inferenceFps',5)),10)
     if count>0 and count/fps>max_seconds+1: capture.release();raise ValueError('Video exceeds 120-second processing budget')
     session=config.get('id',str(uuid.uuid4()));tracker=Tracker();machine=EventMachine(session_id=session);processed=decoded=0;durations=[];latencies=[];assessable={'helmet':0,'vest':0};total=0;last_selected=-1;started=time.monotonic();origin=datetime.fromisoformat(config['timeOrigin'].replace('Z','+00:00'))
     if origin.tzinfo is None:raise ValueError('Recording time must be timezone aware')
     evidence_dir=Path(config['evidenceDirectory'])/session;evidence_dir.mkdir(parents=True,exist_ok=True)
-    quality_counts={'cannot-assess':0,'observed':0,'potentially-missing':0};retained=set();timestamps=[]
+    findings=[];last_finding={};quality_counts={'cannot-assess':0,'observed':0,'potentially-missing':0};retained=set();timestamps=[]
     try:
         while decoded<30000:
             if cancelled():return {'status':'cancelled','sessionId':session}
@@ -39,6 +39,12 @@ def process(detector:OnnxDetector,source,config,progress=lambda x:None,cancelled
                     state=observations[item]['state'];quality_counts[state]+=1;assessable[item]+=state!='cannot-assess'
                     event=machine.ppe(person['trackId'],item,state,pts,frame_id)
                     if state=='potentially-missing':retain=True
+                    # Bounded representative source frames expose all three assessment states,
+                    # independently of temporally confirmed concern events.
+                    key=(person['trackId'],item,state)
+                    if len(findings)<120 and pts-last_finding.get(key,-100)>=10:
+                        last_finding[key]=pts;retain=True
+                        findings.append({'trackId':person['trackId'],'equipment':item,'state':state,'reason':observations[item].get('reason','Model evidence in an assessable region; supervisor review required'),'frameId':frame_id,'atSeconds':pts,'observedAt':(origin+timedelta(seconds=pts)).isoformat(),'confidence':observations[item].get('confidence')})
                     if event:event['signals']={'equipmentScore':observations[item].get('confidence'),'personScore':person['confidence'],'visibilityNote':'Head/torso quality checks passed; raw model scores are not calibrated probabilities'}
                 region=config.get('restrictedRegion');polygon=[[region['xMin']*width,region['yMin']*height],[region['xMax']*width,region['yMin']*height],[region['xMax']*width,region['yMax']*height],[region['xMin']*width,region['yMax']*height]] if region else []
                 position=point_polygon(((x1+x2)/2,y2),polygon,config.get('boundaryTolerancePixels',3))
@@ -54,13 +60,14 @@ def process(detector:OnnxDetector,source,config,progress=lambda x:None,cancelled
                 cv2.imwrite(str(evidence_dir/(frame_id+'.jpg')),blurred);retained.add(frame_id)
             latencies.append(time.monotonic()-frame_start);progress(min(0.99,pts/max_seconds))
     finally:capture.release()
+    if not config.get('feedAlias') and count>0 and decoded+1<count and timestamps and timestamps[-1]<max_seconds-1/fps:raise ValueError('Video ended before its declared frame count; recording may be truncated')
     if not processed:raise ValueError('No decoded frames were processed')
     events=[]
     for event in machine.events.values():
         ids=[fid for fid in event['frameIds'] if fid in retained]
         events.append({**event,'schemaVersion':'1.0','workspaceId':config['workspaceId'],'cameraId':config['cameraId'],'sessionId':session,'zoneId':config['zoneId'],'startsAt':(origin+timedelta(seconds=event['startSeconds'])).isoformat(),'endsAt':(origin+timedelta(seconds=event['endSeconds'])).isoformat(),'frameIds':ids,'provenance':{'modelId':detector.manifest['modelId'],'weightsSha256':detector.manifest['sha256'],'runtime':'onnxruntime-cpu','policyVersion':config.get('policyVersion','ppe-development-1')}})
-    used={fid for event in events for fid in event['frameIds']}
+    used={fid for event in events for fid in event['frameIds']} | {f['frameId'] for f in findings}
     for image in evidence_dir.glob('*.jpg'):
         if image.stem not in used:image.unlink()
     wall=time.monotonic()-started;ordered=sorted(latencies)
-    return {'status':'completed','sessionId':session,'events':events,'metrics':{'decodedFrames':decoded,'inferredFrames':processed,'sourceFps':fps,'inferenceFps':processed/sum(durations),'processingFps':processed/wall,'p95FrameProcessingSeconds':ordered[min(len(ordered)-1,int(.95*len(ordered)))],'durationSeconds':wall,'videoSeconds':timestamps[-1] if timestamps else 0,'assessableCoverage':{k:v/total if total else 0 for k,v in assessable.items()},'qualityCounts':quality_counts,'declaredHardware':os.environ.get('FORESIGHT_HARDWARE','Undeclared; benchmark not accepted')},'limitations':['Recorded clip processing; frame latency is not live capture-to-alert delay.','Potentially missing PPE requires explicit negative model evidence; absence alone is cannot assess.','No identity recognition; zone mapping only; no global metric position.'],'policy':{'minSamples':3,'minSeconds':1.0,'entryPolicy':'outside-to-inside footpoint transition; boundary tolerance; independent of PPE duration','retentionDays':7}}
+    return {'status':'completed','sessionId':session,'events':events,'findings':findings,'model':{k:detector.manifest[k] for k in ['modelId','sha256','source','weightsLicense','runtimeLicense','licenseReviewedBy','classMap','preprocessing']},'metrics':{'decodedFrames':decoded,'inferredFrames':processed,'sourceFps':fps,'inferenceFps':processed/max(sum(durations),1e-9),'processingFps':processed/wall,'p95FrameProcessingSeconds':ordered[min(len(ordered)-1,int(.95*len(ordered)))],'durationSeconds':wall,'videoSeconds':timestamps[-1] if timestamps else 0,'assessableCoverage':{k:v/total if total else 0 for k,v in assessable.items()},'qualityCounts':quality_counts,'declaredHardware':os.environ.get('FORESIGHT_HARDWARE','Undeclared; benchmark not accepted')},'limitations':['Recorded clip processing; frame latency is not live capture-to-alert delay.','Potentially missing PPE requires explicit negative model evidence; absence alone is cannot assess.','No identity recognition; zone mapping only; no global metric position.'],'policy':{'minSamples':3,'minSeconds':1.0,'entryPolicy':'outside-to-inside footpoint transition; boundary tolerance; independent of PPE duration','retentionDays':7}}

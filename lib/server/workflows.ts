@@ -1,3 +1,4 @@
+import { scenarioSchema, type SimulationResult } from "../domain/scenario.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -259,6 +260,79 @@ export async function mutate(
   if (operation === "reports" && action === "review")
     return await reviewReport(ctx, id, input);
   if (operation === "assessments" && !id) return await newAssessment(ctx);
+  if (operation === "cases" && id === "from-source") {
+    const body = z
+      .object({
+        sourceKind: z.enum(["run", "vision-event"]),
+        sourceId: z.string().uuid(),
+        title: z.string().trim().min(3).max(140),
+        owner: z.string().trim().min(2).max(100),
+        dueAt: z.string().datetime({ offset: true }),
+        reason: z.string().trim().min(3).max(1000),
+      })
+      .strict()
+      .parse(input);
+    const source = await get(ctx, body.sourceId, body.sourceKind);
+    const lab = body.sourceKind === "run";
+    const sourceResult = source.data.result as SimulationResult | undefined;
+    if (
+      lab
+        ? source.data.status !== "completed" ||
+          sourceResult?.status !== "completed"
+        : !["acknowledged", "resolved"].includes(String(source.data.state)) ||
+          !source.data.acceptedObservationId
+    )
+      throw new DomainError(
+        409,
+        "RESPONSE_SOURCE",
+        "Choose a completed run or a supervisor-confirmed event.",
+      );
+    const assumptions = lab ? scenarioSchema.parse(source.data.scenario) : null;
+    const evidenceIds = lab ? [] : [String(source.data.acceptedObservationId)];
+    return await insert(
+      ctx,
+      "case",
+      {
+        ...body,
+        status: "open",
+        actions: [],
+        mode: lab ? "laboratory-response" : "reviewed-evidence-response",
+        sourceRunId: lab ? source.id : null,
+        sourceEventId: lab ? null : source.id,
+        sourceEvidenceIds: evidenceIds,
+        assumptions,
+        sourceResult: lab
+          ? {
+              summary: sourceResult!.summary,
+              thresholds: sourceResult!.thresholds,
+              routes: sourceResult!.routes,
+              inputHash: sourceResult!.inputHash,
+            }
+          : null,
+        history: [
+          {
+            at: new Date().toISOString(),
+            actor: ctx.actor,
+            status: "open",
+            reason: body.reason,
+          },
+        ],
+      },
+      source.zoneId || assumptions?.nodes?.[0]?.zoneId || "zone-b",
+      [
+        { id: source.id, relation: lab ? "laboratory-run" : "confirmed-event" },
+        ...evidenceIds.map((id) => ({ id, relation: "evidence" })),
+        ...(lab
+          ? [
+              {
+                id: String(assumptions!.baselineSnapshotId),
+                relation: "frozen-snapshot",
+              },
+            ]
+          : []),
+      ],
+    );
+  }
   if (operation === "cases" && !id) {
     const body = caseSchema.parse(input),
       assessment = await get(ctx, body.assessmentId, "assessment");

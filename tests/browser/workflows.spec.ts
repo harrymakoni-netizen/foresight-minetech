@@ -38,13 +38,13 @@ test("report → unavailable extraction → manual review → fresh assessment �
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.locator(".fs-report-item").click();
-  await page
-    .getByRole("button", {
+  await expect(
+    page.getByRole("button", {
       name: "Extract proposed facts with configured model",
-    })
-    .click();
-  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
-    "Extraction unavailable",
+    }),
+  ).toBeDisabled();
+  await expect(page.getByRole("dialog")).toContainText(
+    "AI extraction is not set up",
   );
   await page.getByLabel("Category", { exact: true }).selectOption("drainage");
   await page

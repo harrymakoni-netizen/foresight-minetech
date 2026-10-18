@@ -50,7 +50,14 @@ export const extractionSchema = z
   .strict();
 export const reportSchema = z
   .object({
-    text: z.string().trim().min(5).max(12000),
+    text: z
+      .string()
+      .min(5)
+      .max(12000)
+      .refine(
+        (text) => text.trim().length >= 5,
+        "Enter at least five non-whitespace characters",
+      ),
     zoneId,
     observedAt: instant.nullable().default(null),
   })

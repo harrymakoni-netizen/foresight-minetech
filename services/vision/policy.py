@@ -26,7 +26,7 @@ def center_in(box,region):
 def equipment(person,detections,width,height,brightness,people):
     x1,y1,x2,y2=person['box'];w,h=x2-x1,y2-y1
     overlap=any(other is not person and other.get('trackId')!=person.get('trackId') and iou(person['box'],other['box'])>0.25 for other in people)
-    quality=brightness>=45 and h>=60 and x1>1 and x2<width-1 and not overlap
+    quality=brightness>=45 and h>=60 and x1>1 and x2<width-1 and y2<height-1 and not overlap
     regions={'helmet':[x1,y1,x2,y1+h*.3],'vest':[x1+w*.1,y1+h*.2,x2-w*.1,y1+h*.75]}
     result={}
     for item,region in regions.items():

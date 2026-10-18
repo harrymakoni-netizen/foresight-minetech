@@ -1,4 +1,6 @@
 "use client";
+import { ResponseCase } from "./response-case";
+import { upload } from "@vercel/blob/client";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -53,6 +55,8 @@ export function Evidence(props: ViewProps) {
     xMax: 0.8,
     yMax: 0.9,
   });
+  const [clipConsent, setClipConsent] = useState(false);
+  const [visionReason, setVisionReason] = useState("");
   const [recordedAt, setRecordedAt] = useState("");
   const [clipUrl, setClipUrl] = useState("");
   const [clip, setClip] = useState<File | null>(null),
@@ -405,11 +409,10 @@ export function Evidence(props: ViewProps) {
                 </p>
               </div>
               <Tag tone={data.services.vision ? "teal" : "amber"}>
-                {data.services.vision
-                  ? "Worker configured"
-                  : "Inference unavailable"}
+                {data.services.vision ? "Model ready" : "Inference unavailable"}
               </Tag>
             </div>
+            <p role="status">{data.services.visionMessage}</p>
             <p>
               Missing detections alone do not prove missing PPE. Occlusion,
               darkness and overlap must remain cannot assess. Tracks are local
@@ -420,15 +423,42 @@ export function Evidence(props: ViewProps) {
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(async () => {
-                  if (!clip) throw new Error("Choose a consented clip.");
+                  if (!clip || !clipConsent)
+                    throw new Error(
+                      "Choose a clip and confirm permission to process it.",
+                    );
+                  if (clip.type !== "video/mp4" || clip.size > 50 * 1024 * 1024)
+                    throw new Error("Choose an MP4 clip up to 50 MB.");
                   const form = new FormData();
                   form.set("file", clip);
+                  form.set("consent", "true");
                   form.set("cameraId", camera);
                   form.set("recordedAt", fromLocal(recordedAt) || "");
+                  let uploadBody: FormData | string = form;
+                  if (data.services.directUploads) {
+                    const pathname = `clips/${data.workspace.id}/${crypto.randomUUID()}.mp4`;
+                    await upload(pathname, clip, {
+                      access: "private",
+                      handleUploadUrl: "/api/uploads",
+                      contentType: "video/mp4",
+                      headers: { "X-Workspace-Id": data.workspace.id },
+                    });
+                    uploadBody = JSON.stringify({
+                      pathname,
+                      cameraId: camera,
+                      recordedAt: fromLocal(recordedAt),
+                      consent: true,
+                    });
+                  }
                   const response = await fetch("/api/vision/jobs", {
                     method: "POST",
-                    headers: { "X-Workspace-Id": data.workspace.id },
-                    body: form,
+                    headers: {
+                      "X-Workspace-Id": data.workspace.id,
+                      ...(typeof uploadBody === "string"
+                        ? { "Content-Type": "application/json" }
+                        : {}),
+                    },
+                    body: uploadBody,
                   });
                   const body = await response.json();
                   if (!response.ok) throw new Error(body.message);
@@ -467,9 +497,24 @@ export function Evidence(props: ViewProps) {
                   onChange={(e) => setRecordedAt(e.target.value)}
                 />
               </Field>
+              <label className="fs-checkbox">
+                <input
+                  type="checkbox"
+                  checked={clipConsent}
+                  onChange={(e) => setClipConsent(e.target.checked)}
+                />
+                I have permission to process this recording and retain blurred
+                review frames for seven days.
+              </label>
               <button
                 className="fs-button"
-                disabled={!data.services.vision || busy || !clip || !recordedAt}
+                disabled={
+                  !data.services.vision ||
+                  busy ||
+                  !clip ||
+                  !recordedAt ||
+                  !clipConsent
+                }
               >
                 Process actual frames
               </button>
@@ -582,6 +627,12 @@ export function Evidence(props: ViewProps) {
               />
             ))}
             <h2>Event review</h2>
+            <Field label="Supervisor review reason">
+              <textarea
+                value={visionReason}
+                onChange={(e) => setVisionReason(e.target.value)}
+              />
+            </Field>
             {rows(data, "vision-event", zone).map((r) => (
               <article className="fs-history-item" key={r.id}>
                 <Tag tone="amber">{r.data.type}</Tag>
@@ -609,17 +660,22 @@ export function Evidence(props: ViewProps) {
                   ))}
                 </div>
                 <div className="fs-button-row">
-                  {["acknowledged", "dismissed", "resolved"].map((status) => (
+                  {(r.data.state === "confirmed-for-review"
+                    ? ["acknowledged", "dismissed"]
+                    : r.data.state === "acknowledged"
+                      ? ["dismissed", "resolved"]
+                      : []
+                  ).map((status) => (
                     <button
                       key={status}
+                      disabled={busy || visionReason.trim().length < 3}
                       className="fs-button secondary"
                       onClick={() =>
                         void run(async () => {
                           await post(`vision/${r.id}/review`, {
                             expectedRevision: r.revision,
                             status,
-                            reason:
-                              "Fictional supervisor reviewed the supporting event evidence.",
+                            reason: visionReason,
                           });
                           await refresh();
                         })
@@ -629,6 +685,16 @@ export function Evidence(props: ViewProps) {
                     </button>
                   ))}
                 </div>
+                {["acknowledged", "resolved"].includes(r.data.state) && (
+                  <ResponseCase
+                    key={r.id}
+                    sourceId={r.id}
+                    sourceKind="vision-event"
+                    post={post}
+                    refresh={refresh}
+                    notify={notify}
+                  />
+                )}
               </article>
             ))}
             {!rows(data, "vision-event", zone).length && (
@@ -705,9 +771,15 @@ export function Evidence(props: ViewProps) {
           <ErrorText message={error} />
           {selected.data.reviewStatus !== "accepted" && (
             <>
+              <p role="status">
+                {data.services.aiStatus?.message ||
+                  (data.services.ai
+                    ? "Model configured; proposals require review."
+                    : "AI extraction is not set up. Save and review facts manually.")}
+              </p>
               <button
                 className="fs-button secondary"
-                disabled={busy}
+                disabled={busy || !data.services.ai}
                 onClick={() =>
                   void run(async () => {
                     try {
@@ -1048,7 +1120,7 @@ function VisionJob({
     }
   }
   useEffect(() => {
-    if (!["queued", "running"].includes(job.data.status)) return;
+    if (!["queued", "processing", "running"].includes(job.data.status)) return;
     const timer = setInterval(() => void poll(), 3000);
     return () => clearInterval(timer);
   }, [job.id, job.data.status]);
@@ -1062,6 +1134,43 @@ function VisionJob({
       <button className="fs-button secondary" onClick={() => void poll()}>
         Refresh processing status
       </button>
+      {job.data.status === "completed" &&
+        !job.data.result?.findings?.length && (
+          <p>
+            Cannot assess equipment: no reviewable person/equipment observations
+            were produced. This does not prove PPE is present or absent.
+          </p>
+        )}
+      {job.data.result?.findings?.length > 0 && (
+        <details>
+          <summary>Review equipment observations and visibility</summary>
+          {job.data.result.findings.map((f: any, i: number) => (
+            <div key={i} className="fs-history-item">
+              <strong>
+                {f.equipment}:{" "}
+                {f.state === "observed"
+                  ? "Equipment observed"
+                  : f.state === "potentially-missing"
+                    ? "Potentially missing equipment"
+                    : "Cannot assess"}
+              </strong>
+              <p>
+                Camera-local track {f.trackId} ·{" "}
+                {Number(f.atSeconds).toFixed(2)} s · {date(f.observedAt)}.{" "}
+                {f.reason}
+              </p>
+              <a
+                href={`/api/vision/frames/${job.id}/${f.frameId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open supporting frame at {Number(f.atSeconds).toFixed(2)}{" "}
+                seconds
+              </a>
+            </div>
+          ))}
+        </details>
+      )}
       {job.data.result?.metrics && (
         <details>
           <summary>Measured processing metrics and limitations</summary>

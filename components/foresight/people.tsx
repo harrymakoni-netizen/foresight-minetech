@@ -410,6 +410,34 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
             <dt>Case revision</dt>
             <dd>{current.revision}</dd>
           </dl>
+          {current.data.sourceRunId && (
+            <p>
+              Laboratory source run: <code>{current.data.sourceRunId}</code>.
+              This response records a human decision; calculated arrival is not
+              muster confirmation.
+            </p>
+          )}
+          {current.data.sourceEventId && (
+            <p>
+              Confirmed source event: <code>{current.data.sourceEventId}</code>.
+            </p>
+          )}
+          {current.data.assumptions && (
+            <details>
+              <summary>Preserved run assumptions and results</summary>
+              <pre>
+                {JSON.stringify(
+                  {
+                    runId: current.data.sourceRunId,
+                    assumptions: current.data.assumptions,
+                    result: current.data.sourceResult,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
+            </details>
+          )}
           <ErrorText message={error} />
           <h3>Actions</h3>
           {current.data.actions.map((a: any) => (

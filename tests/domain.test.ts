@@ -162,7 +162,7 @@ test("missing provider preserves report and returns unavailable state", async ()
     async () =>
       (await mutate(ctx, ["reports"], { text, zoneId: "zone-b" })) as any,
   );
-  await assert.rejects(() => extract(ctx, r.id), /Extraction unavailable/);
+  await assert.rejects(() => extract(ctx, r.id), /not set up/);
   assert.equal((await get(ctx, r.id)).data.text, text);
   assert.equal((await get(ctx, r.id)).data.extractionState, "unavailable");
 });
@@ -330,7 +330,7 @@ test("worker event credential scope, camera references and duplicate ingestion",
     eventId: "1265f185-1d7e-471a-a500-44851530b5fd",
     workspaceId: ctx.workspaceId,
     cameraId: camera.id,
-    sessionId: "session-test",
+    sessionId: job.id,
     trackId: "1",
     zoneId: "zone-b",
     type: "helmet",
@@ -494,6 +494,20 @@ test("reviewed PPE events create evidence/assessments and dismissal preserves th
   assert.equal(observation.data.category, "ppe");
   assert.equal(observation.data.quantity, null);
   assert.equal((assessment.data.concerns as unknown[]).length, 1);
+  const response = (await atomic(
+    async () =>
+      await mutate(ctx, ["cases", "from-source"], {
+        sourceKind: "vision-event",
+        sourceId: event.id,
+        title: "Fictional PPE review response",
+        owner: "Fixture supervisor",
+        dueAt: "2026-10-19T08:00:00Z",
+        reason:
+          "Inspect the supporting equipment evidence and record the human response",
+      }),
+  )) as any;
+  assert.equal(response.data.sourceEventId, event.id);
+  assert.deepEqual(response.data.sourceEvidenceIds, [observation.id]);
   await atomic(
     async () =>
       await mutate(ctx, ["vision", event.id, "review"], {
@@ -684,4 +698,289 @@ test("interrupted serverless execution becomes recoverable after its lease expir
 
 after(async () => {
   await closeDatabase();
+});
+
+test("AI readiness validates configuration without revealing secrets", async () => {
+  const { aiStatus } = await import("../lib/server/ai-config.ts");
+  const names = [
+    "FORESIGHT_AI_MODEL",
+    "FORESIGHT_AI_PROVIDER",
+    "AI_GATEWAY_API_KEY",
+    "GEMINI_MODEL",
+    "GEMINI_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+  ];
+  const prior = names.map((n) => process.env[n]);
+  try {
+    for (const n of names) delete process.env[n];
+    assert.equal(aiStatus().configured, false);
+    process.env.FORESIGHT_AI_MODEL = "invalid-model";
+    process.env.AI_GATEWAY_API_KEY = "test-private-credential-not-real";
+    assert.equal(aiStatus().configured, false);
+    process.env.FORESIGHT_AI_MODEL = "google/test-model";
+    assert.equal(aiStatus().configured, true);
+    assert.ok(!JSON.stringify(aiStatus()).includes("test-private"));
+    delete process.env.FORESIGHT_AI_MODEL;
+    process.env.GEMINI_MODEL = "test-gemini-model";
+    process.env.GEMINI_API_KEY = "test-private-credential-not-real";
+    assert.equal(aiStatus().configured, true);
+  } finally {
+    names.forEach((n, i) => {
+      if (prior[i] === undefined) delete process.env[n];
+      else process.env[n] = prior[i];
+    });
+  }
+});
+
+test("requested report retains text, cited independent proposals and unknown measurements until supervisor review", async () => {
+  const { MockLanguageModelV4 } = await import("ai/test");
+  const { extractReport } = await import("../lib/server/ai.ts");
+  const ctx = await workspaceFor("pump-report-regression");
+  const original =
+    "  At East development, pump P1 stopped and water was observed rising near the sump. No water depth or inflow was measured.\n";
+  const report = (await atomic(
+    async () =>
+      await mutate(ctx, ["reports"], { text: original, zoneId: "zone-b" }),
+  )) as any;
+  const supported = (quote: string, overrides: Partial<Fact>) =>
+    fact({
+      timeExpression: null,
+      assetId: null,
+      spans: [
+        {
+          start: original.indexOf(quote),
+          end: original.indexOf(quote) + quote.length,
+          quote,
+        },
+      ],
+      ...overrides,
+    });
+  const proposals = [
+    supported("pump P1 stopped", {
+      assetId: "P1",
+      condition: "Pump P1 stopped",
+    }),
+    supported("water was observed rising near the sump", {
+      category: "water",
+      condition: "Water rising near sump",
+    }),
+  ];
+  const response = (facts: Fact[]) => ({
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          facts,
+          unknowns: [
+            "Water depth, inflow, worker location and observation time are unknown",
+          ],
+        }),
+      },
+    ],
+    finishReason: { unified: "stop" as const, raw: undefined },
+    usage: {
+      inputTokens: {
+        total: 10,
+        noCache: 10,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: { total: 20, text: 20, reasoning: undefined },
+    },
+    warnings: [],
+  });
+  const extraction = await extractReport(ctx, original, {
+    model: new MockLanguageModelV4({
+      doGenerate: async () => response(proposals),
+    }),
+  });
+  assert.equal((await get(ctx, report.id)).data.text, original);
+  const measured = "At North working, water depth was measured at 2 m.";
+  const measuredFact = fact({
+    category: "water",
+    zoneId: "zone-a",
+    assetId: null,
+    condition: "Measured water depth",
+    quantity: 2,
+    unit: "m",
+    timeExpression: null,
+    spans: [{ start: 0, end: measured.length, quote: measured }],
+  });
+  const measuredResult = await extractReport(ctx, measured, {
+    model: new MockLanguageModelV4({
+      doGenerate: async () => response([measuredFact]),
+    }),
+  });
+  assert.equal(measuredResult.facts[0].quantity, 2);
+  assert.equal(extraction.facts.length, 2);
+  for (const f of extraction.facts) {
+    assert.equal(f.quantity, null);
+    assert.equal(f.observedAt, null);
+    validateSpans(original, [f]);
+  }
+  assert.equal((await list(ctx, "observation")).length, 0);
+  const zero = supported("No water depth or inflow was measured", {
+    quantity: 0,
+    unit: "m",
+    category: "water",
+  });
+  await assert.rejects(
+    () =>
+      extractReport(ctx, original, {
+        model: new MockLanguageModelV4({
+          doGenerate: async () => response([zero]),
+        }),
+      }),
+    /Extraction unavailable/,
+  );
+  await atomic(
+    async () =>
+      await mutate(ctx, ["reports", report.id, "review"], {
+        expectedRevision: report.revision,
+        facts: [extraction.facts[0]],
+        reason:
+          "Accept only pump condition after reviewing the original report",
+      }),
+  );
+  assert.equal((await list(ctx, "observation")).length, 1);
+  assert.equal((await get(ctx, report.id)).data.text, original);
+});
+
+test("pump-failure UI preset matches the executable regression fixture", async () => {
+  const { fictionalScenario, pumpFailureDemonstration } =
+    await import("../lib/domain/scenario.ts");
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/pump-failure.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(
+    pumpFailureDemonstration(
+      fictionalScenario(
+        fixture.workspaceId,
+        fixture.baselineSnapshotId,
+        fixture.timeOrigin,
+      ),
+      4,
+    ),
+    fixture,
+  );
+});
+
+test("human response freezes a completed run, preserves source links and leaves assessments and muster unchanged", async () => {
+  const { fictionalScenario } = await import("../lib/domain/scenario.ts");
+  const ctx = await workspaceFor("lab-response-user"),
+    other = await workspaceFor("lab-response-other");
+  const snapshot = await atomic(
+    async () => await insert(ctx, "snapshot", { fictional: true }),
+  );
+  const scenario = fictionalScenario(
+    ctx.workspaceId,
+    snapshot.id,
+    "2026-10-18T08:00:00Z",
+  );
+  const run = await atomic(
+    async () =>
+      await insert(ctx, "run", {
+        scenario,
+        status: "completed",
+        result: {
+          status: "completed",
+          summary: { finalStorageM3: 6 },
+          thresholds: [],
+          routes: {},
+          inputHash: "fixture-only",
+        },
+      }),
+  );
+  const before = (await list(ctx, "assessment")).length;
+  const input = {
+    sourceId: run.id,
+    sourceKind: "run",
+    title: "Fictional exercise response",
+    owner: "Exercise supervisor",
+    dueAt: "2026-10-19T08:00:00Z",
+    reason:
+      "Review earlier backup activation and inspect the alternative route",
+  };
+  await assert.rejects(() =>
+    atomic(async () => await mutate(other, ["cases", "from-source"], input)),
+  );
+  const response = (await atomic(
+    async () => await mutate(ctx, ["cases", "from-source"], input),
+  )) as any;
+  assert.equal(response.data.sourceRunId, run.id);
+  assert.deepEqual(response.data.assumptions, scenario);
+  assert.equal((await list(ctx, "muster")).length, 0);
+  assert.equal((await list(ctx, "assessment")).length, before);
+  const queued = await atomic(
+    async () => await insert(ctx, "run", { scenario, status: "queued" }),
+  );
+  await assert.rejects(
+    () =>
+      atomic(
+        async () =>
+          await mutate(ctx, ["cases", "from-source"], {
+            ...input,
+            sourceId: queued.id,
+          }),
+      ),
+    /completed run/,
+  );
+});
+
+test("GLB validation rejects external resources, missing positions and out-of-bounds binary views", async () => {
+  const { validateGlb } = await import("../lib/domain/glb.ts");
+  const make = (change: (d: any) => void = () => {}) => {
+    const doc = {
+      asset: { version: "2.0" },
+      buffers: [{ byteLength: 36 }],
+      bufferViews: [{ buffer: 0, byteLength: 36 }],
+      accessors: [
+        { bufferView: 0, type: "VEC3", componentType: 5126, count: 3 },
+      ],
+      meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    };
+    change(doc);
+    const json = Buffer.from(JSON.stringify(doc));
+    const size = Math.ceil(json.length / 4) * 4;
+    const b = Buffer.alloc(12 + 8 + size + 8 + 36);
+    b.write("glTF");
+    b.writeUInt32LE(2, 4);
+    b.writeUInt32LE(b.length, 8);
+    b.writeUInt32LE(size, 12);
+    b.writeUInt32LE(0x4e4f534a, 16);
+    b.fill(32, 20, 20 + size);
+    json.copy(b, 20);
+    b.writeUInt32LE(36, 20 + size);
+    b.writeUInt32LE(0x004e4942, 24 + size);
+    return b;
+  };
+  validateGlb(make());
+  assert.throws(
+    () =>
+      validateGlb(
+        make((d) => (d.buffers[0].uri = "https://example.invalid/mesh.bin")),
+      ),
+    /External/,
+  );
+  assert.throws(
+    () => validateGlb(make((d) => (d.bufferViews[0].byteLength = 40))),
+    /outside/,
+  );
+  assert.throws(
+    () =>
+      validateGlb(
+        make((d) => (d.meshes[0].primitives[0].attributes.POSITION = 8)),
+      ),
+    /position/,
+  );
+  assert.throws(
+    () => validateGlb(make((d) => (d.accessors[0].count = 1000000))),
+    /accessor/,
+  );
+  const truncated = make();
+  truncated.writeUInt32LE(999999, 12);
+  assert.throws(() => validateGlb(truncated), /chunk/);
 });

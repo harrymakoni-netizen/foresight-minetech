@@ -7,6 +7,7 @@ import { ErrorText, type Row } from "./shared";
 export default function Reconstruction({ asset }: { asset: Row }) {
   const host = useRef<HTMLDivElement>(null),
     controls = useRef<OrbitControls | null>(null),
+    [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   useEffect(() => {
     const container = host.current;
@@ -15,9 +16,11 @@ export default function Reconstruction({ asset }: { asset: Row }) {
       frame = 0,
       renderer: THREE.WebGLRenderer;
     setError("");
+    setLoading(true);
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true });
     } catch {
+      setLoading(false);
       setError(
         "3D rendering unavailable. Evidence and 2D layout remain usable.",
       );
@@ -74,14 +77,24 @@ export default function Reconstruction({ asset }: { asset: Row }) {
             camera.updateProjectionMatrix();
             orbit.target.copy(center);
             orbit.update();
+            orbit.saveState();
+            setLoading(false);
           },
           () => {
-            if (alive) setError("The imported mesh could not be decoded.");
+            if (alive) {
+              setError(
+                "The imported mesh could not be decoded. The 2D map remains available.",
+              );
+              setLoading(false);
+            }
           },
         );
       })
       .catch((e) => {
-        if (alive) setError(e.message);
+        if (alive) {
+          setError(e.message);
+          setLoading(false);
+        }
       });
     const render = () => {
       renderer.render(scene, camera);
@@ -138,22 +151,46 @@ export default function Reconstruction({ asset }: { asset: Row }) {
   return (
     <>
       <ErrorText message={error} />
-      <div ref={host} className="fs-reconstruction" />
+      {loading && <p role="status">Loading captured surface…</p>}
+      <div ref={host} className="fs-reconstruction" aria-busy={loading} />
       <div
         className="fs-button-row"
         aria-label="Keyboard alternatives to dragging"
       >
-        <button className="fs-button secondary" onClick={() => rotate(-1)}>
+        <button
+          disabled={loading || !!error}
+          className="fs-button secondary"
+          onClick={() => rotate(-1)}
+        >
           Rotate left
         </button>
-        <button className="fs-button secondary" onClick={() => rotate(1)}>
+        <button
+          disabled={loading || !!error}
+          className="fs-button secondary"
+          onClick={() => rotate(1)}
+        >
           Rotate right
         </button>
-        <button className="fs-button secondary" onClick={() => zoom(0.8)}>
+        <button
+          disabled={loading || !!error}
+          className="fs-button secondary"
+          onClick={() => zoom(0.8)}
+        >
           Zoom in
         </button>
-        <button className="fs-button secondary" onClick={() => zoom(1.25)}>
+        <button
+          disabled={loading || !!error}
+          className="fs-button secondary"
+          onClick={() => zoom(1.25)}
+        >
           Zoom out
+        </button>
+        <button
+          disabled={loading || !!error}
+          className="fs-button secondary"
+          onClick={() => controls.current?.reset()}
+        >
+          Reset view
         </button>
       </div>
     </>

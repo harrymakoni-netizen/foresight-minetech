@@ -2,6 +2,10 @@
 
 Branch: `codex/atu-foresight-upgrade`. Baseline: `5c1b21850f9c4ce405bf1bd179acebbc507641de` (clean main, checked 2026-10-17 UTC). Product direction: supplied Foresight Development Specification v1.0. The initial development upgrade did not change production or live records. Hosted work is recorded below; no paid plan upgrade or external notification was made. **This is a working development release, not the complete validated core release.**
 
+## Connected workflow follow-up (2026-10-18)
+
+See [docs/COMPLETION_REPORT.md](docs/COMPLETION_REPORT.md) for the newest verification and remaining external dependencies. Extraction now supports Gateway and existing Gemini settings, video readiness/private uploads/review evidence are connected, mesh provenance/validation/viewer controls are expanded, and a scheduled-failure/route-response exercise is implemented. These changes have not been deployed by this follow-up. Earlier counts below are historical.
+
 ## Hosted persistence follow-up (2026-10-18)
 
 Implemented a pooled PostgreSQL adapter for Supabase/Neon, private domain schema, Better Auth PostgreSQL sessions with Data API restrictions, cross-instance transaction/idempotency/budget locks, hosted readiness errors, direct private GLB uploads, and bounded Vercel Python compute with persisted leases/cancellation/retry. Configured Vercel session and worker secrets. **Supabase is connected. Hosted health/authentication, three browser workflows, fresh Python simulations and a private upload larger than 4.5 MB pass.** Full instructions and current evidence: [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md).

@@ -144,6 +144,7 @@ test("GLB format validation, private import and viewer plumbing use a labelled s
   expect(response.status()).toBe(201);
   const asset = await response.json();
   const download = await page.request.get("/api/workspace/assets/" + asset.id);
+  expect(download.status()).toBe(200);
   expect((await download.body()).subarray(0, 4).toString()).toBe("glTF");
   const invalid = await page.request.post("/api/workspace/assets", {
     headers: { Origin: new URL(page.url()).origin },
@@ -166,4 +167,20 @@ test("GLB format validation, private import and viewer plumbing use a labelled s
   await expect(page.getByLabel("Imported area")).toContainText(
     "Synthetic triangle",
   );
+  await expect(page.locator(".fs-reconstruction")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  const reset = page.getByRole("button", { name: "Reset view", exact: true });
+  if (await reset.isEnabled()) {
+    await page
+      .getByRole("button", { name: "Rotate left", exact: true })
+      .click();
+    await reset.click();
+    await expect(page.locator(".fs-reconstruction canvas")).toHaveCount(1);
+  } else {
+    await expect(page.getByRole("alert")).toContainText(
+      "3D rendering unavailable",
+    );
+  }
 });

@@ -29,6 +29,8 @@ import {
 } from "@/lib/server/simulator";
 import { fictionalScenario } from "@/lib/domain/scenario";
 import { site, visionEventSchema } from "@/lib/domain/contracts";
+import { visionStatus } from "@/lib/server/vision";
+import { aiStatus } from "@/lib/server/ai-config";
 import { aiConfigured } from "@/lib/server/ai";
 import { assetsGet, assetsPost } from "@/lib/server/assets";
 export const runtime = "nodejs";
@@ -70,7 +72,8 @@ export async function GET(request: Request, route: RouteContext) {
   try {
     const ctx = await context(request),
       { path } = await route.params;
-    if (path[0] === "state")
+    if (path[0] === "state") {
+      const vision = await visionStatus();
       return Response.json(
         {
           workspace: {
@@ -85,10 +88,12 @@ export async function GET(request: Request, route: RouteContext) {
           latestSyncedAt: new Date().toISOString(),
           services: {
             ai: aiConfigured(),
+            aiStatus: aiStatus(),
             directUploads: Boolean(
               process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN,
             ),
-            vision: !!process.env.FORESIGHT_VISION_URL,
+            vision: vision.ready,
+            visionMessage: vision.message,
           },
           legacy: {
             replayFiles: [
@@ -103,6 +108,7 @@ export async function GET(request: Request, route: RouteContext) {
         },
         { headers: { "Cache-Control": "no-store" } },
       );
+    }
     if (path[0] === "runs" && path[1])
       return Response.json(await pollRun(ctx, path[1]), {
         headers: { "Cache-Control": "no-store" },

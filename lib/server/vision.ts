@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { query } from "./db.ts";
 import { visionEventSchema } from "../domain/contracts.ts";
@@ -6,7 +6,6 @@ import {
   atomic,
   insert,
   get,
-  list,
   update,
   idempotent,
   hash,
@@ -27,6 +26,86 @@ export function visionConfig() {
       "Vision unavailable. Configure a worker, licensed helmet/vest/person weights and consented clips.",
     );
   return { url, token };
+}
+export async function visionStatus() {
+  try {
+    const { url, token } = visionConfig();
+    const response = await fetch(url + "/health", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(1500),
+    });
+    const body = response.ok ? await response.json() : null;
+    return {
+      ready: body?.status === "ready",
+      message:
+        body?.status === "ready"
+          ? "Model loaded by the worker; licence review is recorded in its manifest. Consented recordings can be processed."
+          : "Video inference is unavailable until an administrator loads compatible, licensed PPE weights.",
+    };
+  } catch {
+    return {
+      ready: false,
+      message:
+        "Video inference is unavailable. Ask an administrator to connect the PPE worker; no detections are being claimed.",
+    };
+  }
+}
+export function assertClipPath(ctx: Context, pathname: string) {
+  const prefix = `clips/${ctx.workspaceId}/`;
+  if (
+    !pathname.startsWith(prefix) ||
+    !/^[a-f0-9-]+\.mp4$/.test(pathname.slice(prefix.length))
+  )
+    throw new DomainError(
+      403,
+      "CLIP_SCOPE",
+      "The clip must belong to this workspace.",
+    );
+}
+async function saveEvent(
+  ctx: Context,
+  jobId: string,
+  job: Record<string, any>,
+  eventInput: unknown,
+) {
+  const body = visionEventSchema.parse(eventInput);
+  if (
+    body.workspaceId !== ctx.workspaceId ||
+    body.cameraId !== job.cameraId ||
+    body.sessionId !== jobId
+  )
+    throw new DomainError(
+      403,
+      "VISION_SCOPE",
+      "Camera event belongs to another workspace or job.",
+    );
+  const camera = await get(ctx, body.cameraId, "camera");
+  if (
+    camera.zoneId !== body.zoneId ||
+    Date.parse(body.endsAt) < Date.parse(body.startsAt)
+  )
+    throw new DomainError(
+      422,
+      "VISION_EVENT",
+      "Invalid camera zone or event interval.",
+    );
+  return await idempotent(
+    ctx,
+    body.eventId,
+    body,
+    async () =>
+      await insert(
+        ctx,
+        "vision-event",
+        { ...body, jobId, reviewHistory: [] },
+        body.zoneId,
+        [
+          { id: jobId, relation: "inference-job" },
+          { id: body.cameraId, relation: "camera" },
+        ],
+      ),
+  );
 }
 export async function ingest(
   jobId: string,
@@ -56,44 +135,16 @@ export async function ingest(
     role: "reporter",
     mode: "demonstration",
   };
-  const body = visionEventSchema
-    .extend({ eventId: z.string().uuid() })
-    .parse(eventInput);
-  if (body.workspaceId !== ctx.workspaceId || body.cameraId !== job.cameraId)
-    throw new DomainError(
-      403,
-      "VISION_SCOPE",
-      "Camera event belongs to another workspace or job.",
-    );
-  const camera = await get(ctx, body.cameraId, "camera");
-  if (camera.zoneId !== body.zoneId)
-    throw new DomainError(
-      422,
-      "CAMERA_ZONE",
-      "Camera mapping does not match event zone.",
-    );
-  if (Date.parse(body.endsAt) < Date.parse(body.startsAt))
-    throw new DomainError(422, "TIME_INTERVAL", "Event end precedes start.");
-  return await idempotent(
-    ctx,
-    body.eventId,
-    body,
-    async () =>
-      await insert(
-        ctx,
-        "vision-event",
-        { ...body, jobId, reviewHistory: [] },
-        body.zoneId,
-        [
-          { id: jobId, relation: "inference-job" },
-          { id: body.cameraId, relation: "camera" },
-        ],
-      ),
-  );
+  return await saveEvent(ctx, jobId, job, eventInput);
 }
+
 export async function visionJob(ctx: Context, id: string) {
-  const job = await get(ctx, id, "vision-job"),
-    { url, token } = visionConfig();
+  const job = await get(ctx, id, "vision-job");
+  if (["completed", "failed", "cancelled"].includes(String(job.data.status))) {
+    const { callbackHash, ...publicData } = job.data;
+    return { ...job, data: publicData };
+  }
+  const { url, token } = visionConfig();
   try {
     const response = await fetch(url + "/jobs/" + id, {
       headers: {
@@ -105,42 +156,26 @@ export async function visionJob(ctx: Context, id: string) {
     });
     if (!response.ok) throw new Error();
     const result = await response.json();
-    if (result.result?.events) {
-      for (const event of result.result.events) {
-        const { startSeconds, endSeconds, ...payload } = event;
-        const existing = (await list(ctx, "vision-event")).find(
-          (e) => e.data.eventId === payload.eventId,
-        );
-        if (!existing)
-          await atomic(async () => {
-            if (
-              payload.workspaceId !== ctx.workspaceId ||
-              payload.cameraId !== job.data.cameraId ||
-              payload.zoneId !==
-                (await get(ctx, String(job.data.cameraId), "camera")).zoneId
-            )
-              throw new DomainError(
-                403,
-                "VISION_SCOPE",
-                "Invalid worker event scope.",
-              );
-            const { eventId, ...rest } = payload;
-            visionEventSchema.parse(payload);
-            await insert(
-              ctx,
-              "vision-event",
-              { ...rest, eventId, jobId: id, reviewHistory: [] },
-              rest.zoneId,
-              [{ id, relation: "inference-job" }],
-            );
-          });
-      }
+    if (
+      ![
+        "queued",
+        "processing",
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+      ].includes(result.status)
+    )
+      throw new Error("Invalid worker status");
+    for (const event of result.result?.events || []) {
+      const { startSeconds, endSeconds, ...payload } = event;
+      await saveEvent(ctx, id, job.data, payload);
     }
     const updated = await atomic(async () => {
       const current = await get(ctx, id, "vision-job");
       return await update(ctx, current, current.revision, {
         ...current.data,
-        status: result.status,
+        status: result.status === "running" ? "processing" : result.status,
         progress: result.progress,
         result: result.result,
         error: result.error,
