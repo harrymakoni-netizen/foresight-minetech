@@ -26,24 +26,25 @@ export async function POST(request: Request) {
         .object({ cameraId: z.string().uuid() })
         .strict()
         .parse(await jsonBody(request, 2000)),
-      camera = get(ctx, String(body.cameraId), "camera");
-    useBudget(ctx, "vision", 12);
+      camera = await get(ctx, String(body.cameraId), "camera");
+    await useBudget(ctx, "vision", 12);
     const credential = randomBytes(32).toString("base64url"),
-      job = atomic(() =>
-        insert(
-          ctx,
-          "vision-job",
-          {
-            cameraId: camera.id,
-            callbackHash: hash(credential),
-            status: "queued",
-            progress: 0,
-            source: "configured-feed",
-            timestampBasis:
-              "Monotonic processing time; hardware capture time unverified",
-          },
-          camera.zoneId,
-        ),
+      job = await atomic(
+        async () =>
+          await insert(
+            ctx,
+            "vision-job",
+            {
+              cameraId: camera.id,
+              callbackHash: hash(credential),
+              status: "queued",
+              progress: 0,
+              source: "configured-feed",
+              timestampBasis:
+                "Monotonic processing time; hardware capture time unverified",
+            },
+            camera.zoneId,
+          ),
       );
     const config = {
       id: job.id,

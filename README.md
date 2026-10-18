@@ -4,6 +4,10 @@ Five-section mine safety evidence and scenario-planning application, built in th
 
 **Start with [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** for requirement-by-requirement evidence and unmet acceptance criteria. Real AI quality, independently evaluated helmet/vest recognition, a captured reconstruction, private-site onboarding and field validation are not complete. Missing services are labelled unavailable; manual reporting and local numerical runs remain usable.
 
+## Hosted PostgreSQL setup
+
+The hosted database adapter, migrations, sessions, private Blob uploads and Vercel Python compute are implemented. Follow [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md) to connect a free Supabase/Neon PostgreSQL resource and verify the deployment. The hosted resource still needs to be connected in Vercel; a build success does not establish a working workspace.
+
 ## Reproduce locally
 
 Requirements: Node **24** (tested 24.19.0), npm, Python **3.12** (tested 3.12.14), a persistent writable local disk. SQLite is a development adapter, not a multi-instance serverless database. No database/model purchase is required.
@@ -114,4 +118,4 @@ The tool backs up the source, hashes it, imports full original records/audit ref
 
 Mine Map uses versioned conceptual zones and checked fictional route topology. A self-contained GLB2 mesh can be imported with source/capture permission and transform metadata, initially as an unscaled walkthrough. No reconstruction is fabricated. A real captured area, independently measured registration, calibrated 3D annotation and a Gaussian-splat viewer remain outstanding. See [tools/reconstruction/README.md](tools/reconstruction/README.md).
 
-Hosted expansion requires a transactional database adapter with persistent shared storage, configured identity/membership provisioning, private binary storage and separate persistent CPU workers; it must not use ephemeral Vercel disk as durable persistence. The app refuses unconfigured hosted SQLite. TLS, worker credential rotation, scheduled retention and operational controls need a deployment review. No production deployment, paid resource or external SMS/USSD/emergency integration is part of this branch.
+Hosted workspaces use the PostgreSQL adapter and private Blob storage described in [docs/HOSTED_SETUP.md](docs/HOSTED_SETUP.md). Vercel water runs use bundled stateless Python compute with PostgreSQL job state; an external worker remains supported. Supabase resource connection, hosted verification, private staff onboarding, optional vision hosting and retention/operational review remain outstanding. No paid resource upgrade or external SMS/USSD/emergency integration was made.

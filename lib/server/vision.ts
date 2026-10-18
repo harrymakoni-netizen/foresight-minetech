@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { database } from "./db.ts";
+import { query } from "./db.ts";
 import { visionEventSchema } from "../domain/contracts.ts";
 import {
   atomic,
@@ -28,10 +28,17 @@ export function visionConfig() {
     );
   return { url, token };
 }
-export function ingest(jobId: string, eventInput: unknown, credential: string) {
-  const row = database()
-    .prepare("SELECT workspace_id,payload FROM entities WHERE id=? AND kind=?")
-    .get(jobId, "vision-job") as any;
+export async function ingest(
+  jobId: string,
+  eventInput: unknown,
+  credential: string,
+) {
+  const {
+    rows: [row],
+  } = await query(
+    "SELECT workspace_id,payload FROM foresight.entities WHERE id=$1 AND kind=$2",
+    [jobId, "vision-job"],
+  );
   if (!row) throw new DomainError(404, "JOB", "Vision job not found.");
   const job = JSON.parse(row.payload),
     expected = Buffer.from(String(job.callbackHash)),
@@ -58,7 +65,7 @@ export function ingest(jobId: string, eventInput: unknown, credential: string) {
       "VISION_SCOPE",
       "Camera event belongs to another workspace or job.",
     );
-  const camera = get(ctx, body.cameraId, "camera");
+  const camera = await get(ctx, body.cameraId, "camera");
   if (camera.zoneId !== body.zoneId)
     throw new DomainError(
       422,
@@ -67,21 +74,25 @@ export function ingest(jobId: string, eventInput: unknown, credential: string) {
     );
   if (Date.parse(body.endsAt) < Date.parse(body.startsAt))
     throw new DomainError(422, "TIME_INTERVAL", "Event end precedes start.");
-  return idempotent(ctx, body.eventId, body, () =>
-    insert(
-      ctx,
-      "vision-event",
-      { ...body, jobId, reviewHistory: [] },
-      body.zoneId,
-      [
-        { id: jobId, relation: "inference-job" },
-        { id: body.cameraId, relation: "camera" },
-      ],
-    ),
+  return await idempotent(
+    ctx,
+    body.eventId,
+    body,
+    async () =>
+      await insert(
+        ctx,
+        "vision-event",
+        { ...body, jobId, reviewHistory: [] },
+        body.zoneId,
+        [
+          { id: jobId, relation: "inference-job" },
+          { id: body.cameraId, relation: "camera" },
+        ],
+      ),
   );
 }
 export async function visionJob(ctx: Context, id: string) {
-  const job = get(ctx, id, "vision-job"),
+  const job = await get(ctx, id, "vision-job"),
     { url, token } = visionConfig();
   try {
     const response = await fetch(url + "/jobs/" + id, {
@@ -97,16 +108,16 @@ export async function visionJob(ctx: Context, id: string) {
     if (result.result?.events) {
       for (const event of result.result.events) {
         const { startSeconds, endSeconds, ...payload } = event;
-        const existing = list(ctx, "vision-event").find(
+        const existing = (await list(ctx, "vision-event")).find(
           (e) => e.data.eventId === payload.eventId,
         );
         if (!existing)
-          atomic(() => {
+          await atomic(async () => {
             if (
               payload.workspaceId !== ctx.workspaceId ||
               payload.cameraId !== job.data.cameraId ||
               payload.zoneId !==
-                get(ctx, String(job.data.cameraId), "camera").zoneId
+                (await get(ctx, String(job.data.cameraId), "camera")).zoneId
             )
               throw new DomainError(
                 403,
@@ -115,7 +126,7 @@ export async function visionJob(ctx: Context, id: string) {
               );
             const { eventId, ...rest } = payload;
             visionEventSchema.parse(payload);
-            insert(
+            await insert(
               ctx,
               "vision-event",
               { ...rest, eventId, jobId: id, reviewHistory: [] },
@@ -125,9 +136,9 @@ export async function visionJob(ctx: Context, id: string) {
           });
       }
     }
-    const updated = atomic(() => {
-      const current = get(ctx, id, "vision-job");
-      return update(ctx, current, current.revision, {
+    const updated = await atomic(async () => {
+      const current = await get(ctx, id, "vision-job");
+      return await update(ctx, current, current.revision, {
         ...current.data,
         status: result.status,
         progress: result.progress,

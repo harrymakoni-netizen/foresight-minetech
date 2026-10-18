@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
-import Database from "better-sqlite3";
-import path from "node:path";
+import { query, closeDatabase } from "../../lib/server/db.ts";
 test("actual persisted role denies closure and writes; browser role fields cannot elevate access", async ({
   page,
 }) => {
@@ -11,13 +10,9 @@ test("actual persisted role denies closure and writes; browser role fields canno
   const state = await page.evaluate(
     async () => await (await fetch("/api/workspace/state")).json(),
   );
-  const db = new Database(
-    process.env.FORESIGHT_DATABASE_PATH ||
-      path.join(process.cwd(), ".minetech-data", "foresight.sqlite"),
-  );
-  db.prepare("UPDATE memberships SET role=? WHERE workspace_id=?").run(
-    "viewer",
-    state.workspace.id,
+  await query(
+    "UPDATE foresight.memberships SET role=$1 WHERE workspace_id=$2",
+    ["viewer", state.workspace.id],
   );
   try {
     const denied = await page.evaluate(async () => {
@@ -40,11 +35,11 @@ test("actual persisted role denies closure and writes; browser role fields canno
     expect(denied.status).toBe(403);
     expect(denied.body.code).toBe("ROLE_REQUIRED");
   } finally {
-    db.prepare("UPDATE memberships SET role=? WHERE workspace_id=?").run(
-      "supervisor",
-      state.workspace.id,
+    await query(
+      "UPDATE foresight.memberships SET role=$1 WHERE workspace_id=$2",
+      ["supervisor", state.workspace.id],
     );
-    db.close();
+    await closeDatabase();
   }
   const invalid = await page.evaluate(async () => {
     const response = await fetch("/api/workspace/reports", {

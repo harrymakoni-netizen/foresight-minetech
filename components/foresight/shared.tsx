@@ -26,7 +26,7 @@ export type WorkspaceData = {
   };
   entities: Row[];
   latestSyncedAt: string;
-  services: { ai: boolean; vision: boolean };
+  services: { ai: boolean; vision: boolean; directUploads?: boolean };
 };
 export type ViewProps = {
   data: WorkspaceData;

@@ -19,6 +19,7 @@ import {
 } from "../domain/contracts.ts";
 import { assess, validTransition, can } from "../domain/assessment.ts";
 import {
+  sequential,
   atomic,
   idempotent,
   insert,
@@ -29,11 +30,15 @@ import {
   type Context,
 } from "./repository.ts";
 import { extractReport, explainAssessment } from "./ai.ts";
-export function newAssessment(ctx: Context) {
-  const prior = list(ctx, "assessment")[0];
+export async function newAssessment(ctx: Context) {
+  const prior = (await list(ctx, "assessment"))[0];
   const cutoffAt = new Date().toISOString();
-  const data = assess(list(ctx, "observation"), cutoffAt, prior?.id || null);
-  return insert(
+  const data = assess(
+    await list(ctx, "observation"),
+    cutoffAt,
+    prior?.id || null,
+  );
+  return await insert(
     ctx,
     "assessment",
     data,
@@ -41,9 +46,9 @@ export function newAssessment(ctx: Context) {
     data.observationIds.map((id) => ({ id, relation: "input" })),
   );
 }
-export function reviewReport(ctx: Context, id: string, input: unknown) {
+export async function reviewReport(ctx: Context, id: string, input: unknown) {
   const body = reviewSchema.parse(input),
-    report = get(ctx, id, "report");
+    report = await get(ctx, id, "report");
   if (report.data.reviewStatus === "accepted")
     throw new DomainError(
       409,
@@ -60,32 +65,34 @@ export function reviewReport(ctx: Context, id: string, input: unknown) {
     );
   }
   for (const observationId of body.supersedesObservationIds)
-    get(ctx, observationId, "observation");
-  const observations = body.facts.map((f) =>
-    insert(
-      ctx,
-      "observation",
-      {
-        ...f,
-        quality: "accepted",
-        reportId: id,
-        sourceType: "report",
-        correctionOfObservationIds: body.supersedesObservationIds,
-        submittedAt: report.createdAt,
-        reviewedAt: new Date().toISOString(),
-        reviewer: ctx.actor,
-      },
-      f.zoneId,
-      [
-        { id, relation: "source" },
-        ...body.supersedesObservationIds.map((id) => ({
-          id,
-          relation: "corrects",
-        })),
-      ],
-    ),
+    await get(ctx, observationId, "observation");
+  const observations = await sequential(
+    body.facts,
+    async (f) =>
+      await insert(
+        ctx,
+        "observation",
+        {
+          ...f,
+          quality: "accepted",
+          reportId: id,
+          sourceType: "report",
+          correctionOfObservationIds: body.supersedesObservationIds,
+          submittedAt: report.createdAt,
+          reviewedAt: new Date().toISOString(),
+          reviewer: ctx.actor,
+        },
+        f.zoneId,
+        [
+          { id, relation: "source" },
+          ...body.supersedesObservationIds.map((id) => ({
+            id,
+            relation: "corrects",
+          })),
+        ],
+      ),
   );
-  const reviewed = update(ctx, report, body.expectedRevision, {
+  const reviewed = await update(ctx, report, body.expectedRevision, {
     ...report.data,
     reviewStatus: "accepted",
     acceptedFacts: body.facts,
@@ -94,14 +101,18 @@ export function reviewReport(ctx: Context, id: string, input: unknown) {
     reviewer: ctx.actor,
     reviewedAt: new Date().toISOString(),
   });
-  return { report: reviewed, observations, assessment: newAssessment(ctx) };
+  return {
+    report: reviewed,
+    observations,
+    assessment: await newAssessment(ctx),
+  };
 }
-export function submit(ctx: Context, operation: string, input: unknown) {
+export async function submit(ctx: Context, operation: string, input: unknown) {
   if (!can(ctx.role, "submit"))
     throw new DomainError(403, "ROLE_REQUIRED", "A reporter role is required.");
   if (operation === "reports") {
     const body = reportSchema.parse(input);
-    return insert(
+    return await insert(
       ctx,
       "report",
       {
@@ -115,9 +126,9 @@ export function submit(ctx: Context, operation: string, input: unknown) {
   }
   if (operation === "inspections") {
     const body = inspectionSchema.parse(input),
-      record = insert(ctx, "inspection", body, body.zoneId);
+      record = await insert(ctx, "inspection", body, body.zoneId);
     if (can(ctx.role, "review")) {
-      insert(
+      await insert(
         ctx,
         "observation",
         {
@@ -145,31 +156,34 @@ export function submit(ctx: Context, operation: string, input: unknown) {
         body.zoneId,
         [{ id: record.id, relation: "source" }],
       );
-      return { inspection: record, assessment: newAssessment(ctx) };
+      return { inspection: record, assessment: await newAssessment(ctx) };
     }
     return { inspection: record, reviewRequired: true };
   }
   if (operation === "workers") {
     const body = workerSchema.parse(input);
-    return insert(ctx, "worker", body, body.zoneId);
+    return await insert(ctx, "worker", body, body.zoneId);
   }
   if (operation === "muster") {
     const body = musterSchema.parse(input);
-    if (body.caseId && get(ctx, body.caseId, "case").zoneId !== body.zoneId)
+    if (
+      body.caseId &&
+      (await get(ctx, body.caseId, "case")).zoneId !== body.zoneId
+    )
       throw new DomainError(
         422,
         "CASE_ZONE",
         "Muster and response case must refer to the same zone.",
       );
     const now = new Date().toISOString(),
-      workers = list(ctx, "worker").filter(
+      workers = (await list(ctx, "worker")).filter(
         (w) =>
           w.zoneId === body.zoneId &&
           w.data.status !== "checked-out" &&
           Date.parse(String(w.data.startsAt)) <= Date.now() &&
           Date.parse(String(w.data.endsAt)) >= Date.now(),
       );
-    return insert(
+    return await insert(
       ctx,
       "muster",
       {
@@ -192,13 +206,17 @@ export function submit(ctx: Context, operation: string, input: unknown) {
   }
   throw new DomainError(404, "OPERATION", "Unknown submission operation.");
 }
-export function mutate(ctx: Context, path: string[], input: unknown): unknown {
+export async function mutate(
+  ctx: Context,
+  path: string[],
+  input: unknown,
+): Promise<unknown> {
   const [operation, id, action] = path;
   if (
     ["reports", "inspections", "workers", "muster"].includes(operation) &&
     !id
   )
-    return submit(ctx, operation, input);
+    return await submit(ctx, operation, input);
   if (!can(ctx.role, "review"))
     throw new DomainError(
       403,
@@ -230,8 +248,8 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         "REGION",
         "Region maximum coordinates must exceed minimum coordinates.",
       );
-    const camera = get(ctx, id, "camera");
-    return update(ctx, camera, body.expectedRevision, {
+    const camera = await get(ctx, id, "camera");
+    return await update(ctx, camera, body.expectedRevision, {
       ...camera.data,
       restrictedRegion: body.restrictedRegion,
       policyVersion: "ppe-development-" + (camera.revision + 1),
@@ -239,11 +257,11 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
     });
   }
   if (operation === "reports" && action === "review")
-    return reviewReport(ctx, id, input);
-  if (operation === "assessments" && !id) return newAssessment(ctx);
+    return await reviewReport(ctx, id, input);
+  if (operation === "assessments" && !id) return await newAssessment(ctx);
   if (operation === "cases" && !id) {
     const body = caseSchema.parse(input),
-      assessment = get(ctx, body.assessmentId, "assessment");
+      assessment = await get(ctx, body.assessmentId, "assessment");
     const concern = (assessment.data as unknown as Assessment).concerns.find(
       (c) => c.id === body.concernId,
     );
@@ -253,7 +271,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         "CONCERN",
         "Choose a concern from this assessment and zone.",
       );
-    return insert(
+    return await insert(
       ctx,
       "case",
       {
@@ -278,7 +296,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
   }
   if (operation === "cases" && action === "transition") {
     const body = transitionSchema.parse(input),
-      record = get(ctx, id, "case");
+      record = await get(ctx, id, "case");
     try {
       validTransition(
         String(record.data.status),
@@ -294,7 +312,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
       );
     }
     for (const evidenceId of body.verificationIds) {
-      const evidence = get(ctx, evidenceId);
+      const evidence = await get(ctx, evidenceId);
       if (
         evidence.zoneId !== record.zoneId ||
         !["observation", "inspection", "vision-event"].includes(evidence.kind)
@@ -314,7 +332,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         "ACTION_REQUIRED",
         "Complete a corrective action before closure.",
       );
-    return update(ctx, record, body.expectedRevision, {
+    return await update(ctx, record, body.expectedRevision, {
       ...record.data,
       status: body.status,
       verificationIds: body.verificationIds,
@@ -332,15 +350,15 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
   }
   if (operation === "cases" && action === "actions") {
     const body = actionSchema.parse(input),
-      record = get(ctx, id, "case");
-    for (const evidenceId of body.evidenceIds) get(ctx, evidenceId);
+      record = await get(ctx, id, "case");
+    for (const evidenceId of body.evidenceIds) await get(ctx, evidenceId);
     if (record.data.status === "closed")
       throw new DomainError(
         409,
         "CLOSED",
         "Reopen the case before adding an action.",
       );
-    return update(ctx, record, body.expectedRevision, {
+    return await update(ctx, record, body.expectedRevision, {
       ...record.data,
       actions: [
         ...(record.data.actions as any[]),
@@ -355,7 +373,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
   }
   if (operation === "muster" && action === "confirm") {
     const body = confirmSchema.parse(input),
-      record = get(ctx, id, "muster");
+      record = await get(ctx, id, "muster");
     let found = false;
     const members = (record.data.members as any[]).map((m) => {
       if (m.workerId !== body.workerId) return m;
@@ -374,7 +392,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         "ROSTER",
         "Worker is absent from this frozen roster.",
       );
-    return update(ctx, record, body.expectedRevision, {
+    return await update(ctx, record, body.expectedRevision, {
       ...record.data,
       members,
       status: members.every((m) => m.confirmed)
@@ -391,8 +409,8 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         })
         .strict()
         .parse(input),
-      record = get(ctx, id, "worker");
-    return update(ctx, record, body.expectedRevision, {
+      record = await get(ctx, id, "worker");
+    return await update(ctx, record, body.expectedRevision, {
       ...record.data,
       status: body.status,
       statusReason: body.reason,
@@ -407,7 +425,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         })
         .strict()
         .parse(input),
-      record = get(ctx, id, "vision-event");
+      record = await get(ctx, id, "vision-event");
     const allowed: Record<string, string[]> = {
       candidate: ["dismissed"],
       "confirmed-for-review": ["acknowledged", "dismissed"],
@@ -425,7 +443,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         record.data.type === "restricted-entry"
           ? "Reported restricted entry from reviewed camera evidence"
           : `Potentially missing ${record.data.type}; visible equipment observation reviewed`;
-      const observation = insert(
+      const observation = await insert(
         ctx,
         "observation",
         {
@@ -459,11 +477,11 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
       observationId = observation.id;
     }
     if (body.status === "dismissed" && observationId) {
-      insert(
+      await insert(
         ctx,
         "observation",
         {
-          ...get(ctx, String(observationId), "observation").data,
+          ...(await get(ctx, String(observationId), "observation")).data,
           polarity: "negated",
           condition:
             "Human reviewer dismissed the earlier camera interpretation: " +
@@ -480,7 +498,7 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
         ],
       );
     }
-    const reviewed = update(ctx, record, body.expectedRevision, {
+    const reviewed = await update(ctx, record, body.expectedRevision, {
       ...record.data,
       state: body.status,
       acceptedObservationId: observationId || null,
@@ -493,13 +511,13 @@ export function mutate(ctx: Context, path: string[], input: unknown): unknown {
       body.status === "acknowledged" ||
       (body.status === "dismissed" && observationId)
     )
-      newAssessment(ctx);
+      await newAssessment(ctx);
     return reviewed;
   }
   throw new DomainError(404, "OPERATION", "Unknown workflow operation.");
 }
 export async function extract(ctx: Context, id: string) {
-  const report = get(ctx, id, "report");
+  const report = await get(ctx, id, "report");
   if (report.data.reviewStatus === "accepted")
     throw new DomainError(
       409,
@@ -508,39 +526,46 @@ export async function extract(ctx: Context, id: string) {
     );
   try {
     const extraction = await extractReport(ctx, String(report.data.text));
-    return atomic(() =>
-      update(ctx, report, report.revision, {
-        ...report.data,
-        extractionState: "succeeded",
-        extraction,
-      }),
+    return await atomic(
+      async () =>
+        await update(ctx, report, report.revision, {
+          ...report.data,
+          extractionState: "succeeded",
+          extraction,
+        }),
     );
   } catch (error) {
     if (error instanceof DomainError && error.status === 503)
-      atomic(() =>
-        update(ctx, report, report.revision, {
-          ...report.data,
-          extractionState: "unavailable",
-          extractionFailure: { at: new Date().toISOString(), code: error.code },
-        }),
+      await atomic(
+        async () =>
+          await update(ctx, report, report.revision, {
+            ...report.data,
+            extractionState: "unavailable",
+            extractionFailure: {
+              at: new Date().toISOString(),
+              code: error.code,
+            },
+          }),
       );
     throw error;
   }
 }
 export async function explain(ctx: Context, id: string) {
-  const assessment = get(ctx, id, "assessment"),
+  const assessment = await get(ctx, id, "assessment"),
     data = assessment.data as unknown as Assessment;
-  const sources = data.observationIds.map((id) => {
-    const o = get(ctx, id, "observation");
-    return {
-      id,
-      text: JSON.stringify({
-        condition: o.data.condition,
-        observedAt: o.data.observedAt,
-        spans: o.data.spans,
-        quality: o.data.quality,
-      }),
-    };
-  });
+  const sources = await Promise.all(
+    data.observationIds.map(async (id) => {
+      const o = await get(ctx, id, "observation");
+      return {
+        id,
+        text: JSON.stringify({
+          condition: o.data.condition,
+          observedAt: o.data.observedAt,
+          spans: o.data.spans,
+          quality: o.data.quality,
+        }),
+      };
+    }),
+  );
   return explainAssessment(ctx, data, sources);
 }

@@ -1,4 +1,5 @@
-import test from "node:test";
+import { randomUUID } from "node:crypto";
+import test, { after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,17 +8,20 @@ import { assess, can, validTransition } from "../lib/domain/assessment.ts";
 import { validateSpans, type Fact } from "../lib/domain/contracts.ts";
 const directory = mkdtempSync(path.join(tmpdir(), "foresight-test-"));
 process.env.FORESIGHT_DATABASE_PATH = path.join(directory, "test.sqlite");
-const { database } = await import("../lib/server/db.ts");
+const { query, closeDatabase } = await import("../lib/server/db.ts");
 const {
   atomic,
-  workspaceFor,
+  workspaceFor: findWorkspace,
   insert,
   list,
   get,
   idempotent,
   update,
   auditLog,
+  useBudget,
 } = await import("../lib/server/repository.ts");
+const testRunId = randomUUID();
+const workspaceFor = (id: string) => findWorkspace(`test-${testRunId}-${id}`);
 const { mutate, extract } = await import("../lib/server/workflows.ts");
 const { migrateLegacy } = await import("../lib/server/migrate.ts");
 const text =
@@ -50,10 +54,16 @@ test("source offsets, quantities and missing observation date are validated", ()
   assert.throws(() => validateSpans(text, [fact({ quantity: 12 })]));
   assert.equal(fact().observedAt, null);
 });
-test("serious individual observation reaches review; negation and proposed actions do not", () => {
-  const ctx = workspaceFor("assessment-user");
-  const one = atomic(() =>
-    insert(ctx, "observation", { ...fact(), quality: "accepted" }, "zone-b"),
+test("serious individual observation reaches review; negation and proposed actions do not", async () => {
+  const ctx = await workspaceFor("assessment-user");
+  const one = await atomic(
+    async () =>
+      await insert(
+        ctx,
+        "observation",
+        { ...fact(), quality: "accepted" },
+        "zone-b",
+      ),
   );
   const result = assess([one], new Date().toISOString(), null);
   assert.equal(result.concerns.length, 1);
@@ -72,83 +82,91 @@ test("serious individual observation reaches review; negation and proposed actio
       0,
     );
 });
-test("workspace scope, idempotency and atomic audit rollback", () => {
-  const a = workspaceFor("alice"),
-    b = workspaceFor("bob");
-  const create = () => insert(a, "report", { text }, "zone-b");
-  const first = idempotent(a, "test-key-000001", { text }, create),
-    again = idempotent(a, "test-key-000001", { text }, create);
+test("workspace scope, idempotency and atomic audit rollback", async () => {
+  const a = await workspaceFor("alice"),
+    b = await workspaceFor("bob");
+  const create = async () => await insert(a, "report", { text }, "zone-b");
+  const first = await idempotent(a, "test-key-000001", { text }, create),
+    again = await idempotent(a, "test-key-000001", { text }, create);
   assert.equal(first.id, again.id);
-  assert.throws(() =>
-    idempotent(a, "test-key-000001", { text: "different" }, create),
+  await assert.rejects(
+    async () =>
+      await idempotent(a, "test-key-000001", { text: "different" }, create),
   );
-  assert.throws(() => get(b, first.id));
-  const before = list(a).length,
-    auditBefore = auditLog(a).length;
-  assert.throws(() =>
-    atomic(() => {
-      insert(a, "report", { text: "rolled back" });
-      throw new Error("abort");
-    }),
+  await assert.rejects(async () => await get(b, first.id));
+  const before = (await list(a)).length,
+    auditBefore = (await auditLog(a)).length;
+  await assert.rejects(
+    async () =>
+      await atomic(async () => {
+        await insert(a, "report", { text: "rolled back" });
+        throw new Error("abort");
+      }),
   );
-  assert.equal(list(a).length, before);
-  assert.equal(auditLog(a).length, auditBefore);
+  assert.equal((await list(a)).length, before);
+  assert.equal((await auditLog(a)).length, auditBefore);
 });
-test("accepting new report creates immutable assessment versions", () => {
-  const ctx = workspaceFor("review-user");
-  const r = atomic(
-    () => mutate(ctx, ["reports"], { text, zoneId: "zone-b" }) as any,
+test("accepting new report creates immutable assessment versions", async () => {
+  const ctx = await workspaceFor("review-user");
+  const r = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports"], { text, zoneId: "zone-b" })) as any,
   );
-  atomic(() =>
-    mutate(ctx, ["reports", r.id, "review"], {
-      expectedRevision: r.revision,
-      facts: [fact()],
-      reason: "Reviewed source.",
-    }),
+  await atomic(
+    async () =>
+      await mutate(ctx, ["reports", r.id, "review"], {
+        expectedRevision: r.revision,
+        facts: [fact()],
+        reason: "Reviewed source.",
+      }),
   );
-  const first = list(ctx, "assessment")[0],
+  const first = (await list(ctx, "assessment"))[0],
     prior = JSON.stringify(first);
-  const report2 = atomic(
-    () =>
-      mutate(ctx, ["reports"], {
+  const report2 = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports"], {
         text: "No water rising reported.",
         zoneId: "zone-b",
-      }) as any,
+      })) as any,
   );
-  atomic(() =>
-    mutate(ctx, ["reports", report2.id, "review"], {
-      expectedRevision: report2.revision,
-      facts: [
-        fact({
-          category: "water",
-          condition: "No water rising reported.",
-          polarity: "negated",
-          spans: [
-            {
-              start: 0,
-              end: "No water rising reported.".length,
-              quote: "No water rising reported.",
-            },
-          ],
-        }),
-      ],
-      reason: "Negation retained.",
-    }),
+  await atomic(
+    async () =>
+      await mutate(ctx, ["reports", report2.id, "review"], {
+        expectedRevision: report2.revision,
+        facts: [
+          fact({
+            category: "water",
+            condition: "No water rising reported.",
+            polarity: "negated",
+            spans: [
+              {
+                start: 0,
+                end: "No water rising reported.".length,
+                quote: "No water rising reported.",
+              },
+            ],
+          }),
+        ],
+        reason: "Negation retained.",
+      }),
   );
-  assert.equal(list(ctx, "assessment").length, 2);
-  assert.equal(JSON.stringify(get(ctx, first.id)), prior);
-  assert.throws(() => atomic(() => update(ctx, first, 1, {})));
+  assert.equal((await list(ctx, "assessment")).length, 2);
+  assert.equal(JSON.stringify(await get(ctx, first.id)), prior);
+  await assert.rejects(
+    async () => await atomic(async () => await update(ctx, first, 1, {})),
+  );
 });
 test("missing provider preserves report and returns unavailable state", async () => {
-  const ctx = workspaceFor("provider-user");
-  const r = atomic(
-    () => mutate(ctx, ["reports"], { text, zoneId: "zone-b" }) as any,
+  const ctx = await workspaceFor("provider-user");
+  const r = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports"], { text, zoneId: "zone-b" })) as any,
   );
   await assert.rejects(() => extract(ctx, r.id), /Extraction unavailable/);
-  assert.equal(get(ctx, r.id).data.text, text);
-  assert.equal(get(ctx, r.id).data.extractionState, "unavailable");
+  assert.equal((await get(ctx, r.id)).data.text, text);
+  assert.equal((await get(ctx, r.id)).data.extractionState, "unavailable");
 });
-test("roles and verification gates", () => {
+test("roles and verification gates", async () => {
   assert.equal(can("viewer", "submit"), false);
   assert.equal(can("reporter", "review"), false);
   assert.equal(can("supervisor", "close"), true);
@@ -157,44 +175,53 @@ test("roles and verification gates", () => {
     validTransition("awaiting-verification", "closed", "checked", []),
   );
   validTransition("closed", "open", "New evidence requires review", []);
-  const ctx = workspaceFor("role-user");
-  assert.throws(() =>
-    atomic(() =>
-      mutate({ ...ctx, role: "viewer" }, ["reports"], {
-        text,
-        zoneId: "zone-b",
-      }),
-    ),
+  const ctx = await workspaceFor("role-user");
+  await assert.rejects(
+    async () =>
+      await atomic(
+        async () =>
+          await mutate({ ...ctx, role: "viewer" }, ["reports"], {
+            text,
+            zoneId: "zone-b",
+          }),
+      ),
   );
 });
-test("concurrency rejects stale revisions and preserves frozen roster", () => {
-  const ctx = workspaceFor("muster-user");
-  const muster = atomic(
-    () => mutate(ctx, ["muster"], { zoneId: "zone-b", caseId: null }) as any,
+test("concurrency rejects stale revisions and preserves frozen roster", async () => {
+  const ctx = await workspaceFor("muster-user");
+  const muster = await atomic(
+    async () =>
+      (await mutate(ctx, ["muster"], {
+        zoneId: "zone-b",
+        caseId: null,
+      })) as any,
   );
   assert.equal(muster.data.members.length, 1);
   const member = muster.data.members[0];
-  atomic(() =>
-    mutate(ctx, ["muster", muster.id, "confirm"], {
-      expectedRevision: 1,
-      workerId: member.workerId,
-      confirmed: true,
-      reason: "Human drill confirmation",
-    }),
-  );
-  assert.throws(() =>
-    atomic(() =>
-      mutate(ctx, ["muster", muster.id, "confirm"], {
+  await atomic(
+    async () =>
+      await mutate(ctx, ["muster", muster.id, "confirm"], {
         expectedRevision: 1,
         workerId: member.workerId,
-        confirmed: false,
-        reason: "Stale revision",
+        confirmed: true,
+        reason: "Human drill confirmation",
       }),
-    ),
   );
-  assert.equal(get(ctx, muster.id).data.status, "accounted-for");
+  await assert.rejects(
+    async () =>
+      await atomic(
+        async () =>
+          await mutate(ctx, ["muster", muster.id, "confirm"], {
+            expectedRevision: 1,
+            workerId: member.workerId,
+            confirmed: false,
+            reason: "Stale revision",
+          }),
+      ),
+  );
+  assert.equal((await get(ctx, muster.id)).data.status, "accounted-for");
 });
-test("legacy migration backs up and preserves payloads and references on copies", () => {
+test("legacy migration backs up and preserves payloads and references on copies", async () => {
   const filename = path.join(directory, "legacy.json"),
     source = {
       records: [
@@ -215,45 +242,51 @@ test("legacy migration backs up and preserves payloads and references on copies"
       ],
     };
   writeFileSync(filename, JSON.stringify(source));
-  const result = migrateLegacy(filename),
-    again = migrateLegacy(filename);
+  const result = await migrateLegacy(filename),
+    again = await migrateLegacy(filename);
   assert.equal(result.workspaceId, again.workspaceId);
   assert.deepEqual(JSON.parse(readFileSync(result.backup, "utf8")), source);
-  const entities = database()
-    .prepare("SELECT payload FROM entities WHERE workspace_id=?")
-    .all(result.workspaceId) as any[];
+  const { rows: entities } = await query(
+    "SELECT payload FROM foresight.entities WHERE workspace_id=$1",
+    [result.workspaceId],
+  );
   assert.equal(entities.length, 2);
   assert.ok(
     entities.some(
       (e) => JSON.parse(e.payload).original.record_id === "worker-001",
     ),
   );
-  const other = workspaceFor("isolated-user");
-  assert.equal(list(other, "legacy-record").length, 0);
+  const other = await workspaceFor("isolated-user");
+  assert.equal((await list(other, "legacy-record")).length, 0);
   assert.deepEqual(JSON.parse(readFileSync(filename, "utf8")), source);
 });
-test("reviewed corrections supersede only future assessments while preserving originals", () => {
-  const ctx = workspaceFor("correction-user");
-  const first = atomic(
-    () => mutate(ctx, ["reports"], { text, zoneId: "zone-b" }) as any,
+test("reviewed corrections supersede only future assessments while preserving originals", async () => {
+  const ctx = await workspaceFor("correction-user");
+  const first = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports"], { text, zoneId: "zone-b" })) as any,
   );
-  const accepted = atomic(
-    () =>
-      mutate(ctx, ["reports", first.id, "review"], {
+  const accepted = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports", first.id, "review"], {
         expectedRevision: 1,
         facts: [fact()],
         reason: "Original evidence reviewed.",
-      }) as any,
+      })) as any,
   );
   const original = accepted.observations[0];
   const historical = accepted.assessment;
   const text2 = "Pump P2 did not stop; the earlier account was incorrect.";
-  const correction = atomic(
-    () => mutate(ctx, ["reports"], { text: text2, zoneId: "zone-b" }) as any,
+  const correction = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports"], {
+        text: text2,
+        zoneId: "zone-b",
+      })) as any,
   );
-  const result = atomic(
-    () =>
-      mutate(ctx, ["reports", correction.id, "review"], {
+  const result = await atomic(
+    async () =>
+      (await mutate(ctx, ["reports", correction.id, "review"], {
         expectedRevision: 1,
         facts: [
           fact({
@@ -264,25 +297,33 @@ test("reviewed corrections supersede only future assessments while preserving or
         ],
         supersedesObservationIds: [original.id],
         reason: "Corrected the earlier mistaken account.",
-      }) as any,
+      })) as any,
   );
   assert.equal(result.assessment.data.concerns.length, 0);
-  assert.equal((get(ctx, historical.id).data.concerns as unknown[]).length, 1);
-  assert.equal(get(ctx, original.id).data.condition, "Pump P2 stopped");
+  assert.equal(
+    ((await get(ctx, historical.id)).data.concerns as unknown[]).length,
+    1,
+  );
+  assert.equal((await get(ctx, original.id)).data.condition, "Pump P2 stopped");
 });
 test("worker event credential scope, camera references and duplicate ingestion", async () => {
   const { ingest } = await import("../lib/server/vision.ts");
   const { hash } = await import("../lib/server/repository.ts");
-  const ctx = workspaceFor("vision-user"),
-    camera = list(ctx, "camera")[0],
+  const ctx = await workspaceFor("vision-user"),
+    camera = (await list(ctx, "camera"))[0],
     credential = "job-specific-test-credential";
-  const job = atomic(() =>
-    insert(
-      ctx,
-      "vision-job",
-      { cameraId: camera.id, callbackHash: hash(credential), status: "queued" },
-      camera.zoneId,
-    ),
+  const job = await atomic(
+    async () =>
+      await insert(
+        ctx,
+        "vision-job",
+        {
+          cameraId: camera.id,
+          callbackHash: hash(credential),
+          status: "queued",
+        },
+        camera.zoneId,
+      ),
   );
   const event = {
     schemaVersion: "1.0",
@@ -305,21 +346,28 @@ test("worker event credential scope, camera references and duplicate ingestion",
       policyVersion: "test-policy",
     },
   };
-  assert.throws(() => ingest(job.id, event, "wrong-credential"));
-  assert.throws(() =>
-    ingest(job.id, { ...event, workspaceId: "another-workspace" }, credential),
+  await assert.rejects(
+    async () => await ingest(job.id, event, "wrong-credential"),
   );
-  const a = ingest(job.id, event, credential),
-    b = ingest(job.id, event, credential);
+  await assert.rejects(
+    async () =>
+      await ingest(
+        job.id,
+        { ...event, workspaceId: "another-workspace" },
+        credential,
+      ),
+  );
+  const a = await ingest(job.id, event, credential),
+    b = await ingest(job.id, event, credential);
   assert.equal(a.id, b.id);
-  assert.equal(list(ctx, "vision-event").length, 1);
+  assert.equal((await list(ctx, "vision-event")).length, 1);
 });
 test("configured adapter executes SDK structured extraction and rejects malformed output, rate limits and timeout", async () => {
   const { MockLanguageModelV4 } = await import("ai/test");
   const { APICallError } = await import("ai");
   const { extractReport, explainAssessment } =
     await import("../lib/server/ai.ts");
-  const ctx = workspaceFor("mock-sdk-user");
+  const ctx = await workspaceFor("mock-sdk-user");
   const response = (value: unknown) => ({
     content: [{ type: "text" as const, text: JSON.stringify(value) }],
     finishReason: { unified: "stop" as const, raw: undefined },
@@ -415,67 +463,225 @@ test("configured adapter executes SDK structured extraction and rejects malforme
     /Explanation unavailable/,
   );
 });
-test("reviewed PPE events create evidence/assessments and dismissal preserves the original", () => {
-  const ctx = workspaceFor("vision-review-user");
-  const event = atomic(() =>
-    insert(
-      ctx,
-      "vision-event",
-      {
-        type: "helmet",
-        state: "confirmed-for-review",
-        visibility: "assessable",
-        startsAt: new Date().toISOString(),
-        frameIds: ["fixture-frame"],
-        reviewHistory: [],
-      },
-      "zone-b",
-    ),
+test("reviewed PPE events create evidence/assessments and dismissal preserves the original", async () => {
+  const ctx = await workspaceFor("vision-review-user");
+  const event = await atomic(
+    async () =>
+      await insert(
+        ctx,
+        "vision-event",
+        {
+          type: "helmet",
+          state: "confirmed-for-review",
+          visibility: "assessable",
+          startsAt: new Date().toISOString(),
+          frameIds: ["fixture-frame"],
+          reviewHistory: [],
+        },
+        "zone-b",
+      ),
   );
-  atomic(() =>
-    mutate(ctx, ["vision", event.id, "review"], {
-      expectedRevision: 1,
-      status: "acknowledged",
-      reason: "Fictional fixture review only; not real PPE inference.",
-    }),
+  await atomic(
+    async () =>
+      await mutate(ctx, ["vision", event.id, "review"], {
+        expectedRevision: 1,
+        status: "acknowledged",
+        reason: "Fictional fixture review only; not real PPE inference.",
+      }),
   );
-  const observation = list(ctx, "observation")[0],
-    assessment = list(ctx, "assessment")[0];
+  const observation = (await list(ctx, "observation"))[0],
+    assessment = (await list(ctx, "assessment"))[0];
   assert.equal(observation.data.category, "ppe");
   assert.equal(observation.data.quantity, null);
   assert.equal((assessment.data.concerns as unknown[]).length, 1);
-  atomic(() =>
-    mutate(ctx, ["vision", event.id, "review"], {
-      expectedRevision: 2,
-      status: "dismissed",
-      reason: "The original visual interpretation was incorrect.",
-    }),
+  await atomic(
+    async () =>
+      await mutate(ctx, ["vision", event.id, "review"], {
+        expectedRevision: 2,
+        status: "dismissed",
+        reason: "The original visual interpretation was incorrect.",
+      }),
   );
   assert.equal(
-    (list(ctx, "assessment")[0].data.concerns as unknown[]).length,
+    ((await list(ctx, "assessment"))[0].data.concerns as unknown[]).length,
     0,
   );
-  assert.equal(get(ctx, observation.id).data.polarity, "affirmed");
-  assert.throws(() =>
-    atomic(() =>
-      mutate(ctx, ["vision", event.id, "review"], {
-        expectedRevision: 3,
-        status: "acknowledged",
-        reason: "Cannot reopen a final event without a new review contract.",
-      }),
-    ),
+  assert.equal((await get(ctx, observation.id)).data.polarity, "affirmed");
+  await assert.rejects(
+    async () =>
+      await atomic(
+        async () =>
+          await mutate(ctx, ["vision", event.id, "review"], {
+            expectedRevision: 3,
+            status: "acknowledged",
+            reason:
+              "Cannot reopen a final event without a new review contract.",
+          }),
+      ),
   );
 });
 test("model input masks registered names, contacts and emails without moving source offsets", async () => {
   const { permittedModelText } = await import("../lib/server/privacy.ts");
-  const ctx = workspaceFor("privacy-user"),
+  const ctx = await workspaceFor("privacy-user"),
     original =
       "Training worker A reported Pump P2 stopped. Contact: +263 771 123 456. Email test@example.invalid.";
-  const permitted = permittedModelText(ctx, original);
+  const permitted = await permittedModelText(ctx, original);
   assert.equal(permitted.text.length, original.length);
   assert.ok(!permitted.text.includes("Training worker A"));
   assert.ok(!permitted.text.includes("771"));
   assert.ok(!permitted.text.includes("test@example"));
   assert.equal(permitted.text.indexOf("Pump P2"), original.indexOf("Pump P2"));
   assert.ok(permitted.redactions >= 3);
+});
+
+test("concurrent session startup creates one workspace and one training roster", async () => {
+  const workspaces = await Promise.all(
+    Array.from({ length: 8 }, () => workspaceFor("concurrent-start")),
+  );
+  assert.equal(new Set(workspaces.map((w) => w.workspaceId)).size, 1);
+  assert.equal((await list(workspaces[0], "worker")).length, 3);
+});
+test("concurrent duplicate submissions commit once and stale revisions lose", async () => {
+  const ctx = await workspaceFor("concurrent-submission");
+  const submit = () =>
+    idempotent(ctx, "concurrent-key-000001", { text }, () =>
+      insert(ctx, "report", { text }, "zone-b"),
+    );
+  const records = await Promise.all(Array.from({ length: 8 }, submit));
+  assert.equal(new Set(records.map((r) => r.id)).size, 1);
+  assert.equal((await list(ctx, "report")).length, 1);
+  const original = records[0];
+  const outcomes = await Promise.allSettled([
+    update(ctx, original, 1, { text: "revision A" }),
+    update(ctx, original, 1, { text: "revision B" }),
+  ]);
+  assert.equal(outcomes.filter((o) => o.status === "fulfilled").length, 1);
+  assert.equal((await get(ctx, original.id)).revision, 2);
+});
+test("concurrent budget checks cannot exceed the limit", async () => {
+  const ctx = await workspaceFor("concurrent-budget");
+  const outcomes = await Promise.allSettled(
+    Array.from({ length: 8 }, () => useBudget(ctx, "limited", 3)),
+  );
+  assert.equal(outcomes.filter((o) => o.status === "fulfilled").length, 3);
+});
+test("failed cross-workspace links roll back the record and audit together", async () => {
+  const a = await workspaceFor("foreign-link-a"),
+    b = await workspaceFor("foreign-link-b");
+  const foreign = (await list(b, "worker"))[0];
+  const before = (await list(a)).length,
+    audits = (await auditLog(a)).length;
+  await assert.rejects(() =>
+    insert(a, "report", { text }, "zone-b", [
+      { id: foreign.id, relation: "invalid-scope" },
+    ]),
+  );
+  assert.equal((await list(a)).length, before);
+  assert.equal((await auditLog(a)).length, audits);
+});
+
+test("serverless dispatch leases prevent duplicate execution and save the result", async () => {
+  const { dispatchRun } = await import("../lib/server/simulator.ts");
+  const ctx = await workspaceFor("serverless-lease"),
+    run = await insert(ctx, "run", {
+      status: "queued",
+      scenario: { workspaceId: ctx.workspaceId },
+    });
+  const previous = process.env.FORESIGHT_SIMULATOR_MODE,
+    token = process.env.FORESIGHT_WORKER_TOKEN;
+  process.env.FORESIGHT_SIMULATOR_MODE = "serverless";
+  process.env.FORESIGHT_WORKER_TOKEN =
+    "serverless-test-only-credential-at-least32";
+  let release!: () => void;
+  const waiting = new Promise<void>((r) => (release = r));
+  let started!: () => void;
+  const starting = new Promise<void>((r) => (started = r));
+  const fetcher = mock.method(globalThis, "fetch", async () => {
+    started();
+    await waiting;
+    return Response.json({ status: "completed", orchestrationFixture: true });
+  });
+  try {
+    const first = dispatchRun(ctx, run.id);
+    await starting;
+    const duplicate = await dispatchRun(ctx, run.id);
+    assert.equal(duplicate.data.status, "running");
+    release();
+    const completed = await first;
+    assert.equal(completed.data.status, "completed");
+    assert.equal(fetcher.mock.callCount(), 1);
+    assert.equal(
+      (await get(ctx, run.id)).data.result &&
+        (await get(ctx, run.id)).data.status,
+      "completed",
+    );
+  } finally {
+    release();
+    fetcher.mock.restore();
+    if (previous === undefined) delete process.env.FORESIGHT_SIMULATOR_MODE;
+    else process.env.FORESIGHT_SIMULATOR_MODE = previous;
+    if (token === undefined) delete process.env.FORESIGHT_WORKER_TOKEN;
+    else process.env.FORESIGHT_WORKER_TOKEN = token;
+  }
+});
+test("serverless cancellation cannot be overwritten by a late compute result", async () => {
+  const { dispatchRun, cancelRun } = await import("../lib/server/simulator.ts");
+  const ctx = await workspaceFor("serverless-cancel"),
+    run = await insert(ctx, "run", {
+      status: "queued",
+      scenario: { workspaceId: ctx.workspaceId },
+    });
+  const previous = process.env.FORESIGHT_SIMULATOR_MODE,
+    token = process.env.FORESIGHT_WORKER_TOKEN;
+  process.env.FORESIGHT_SIMULATOR_MODE = "serverless";
+  process.env.FORESIGHT_WORKER_TOKEN =
+    "serverless-test-only-credential-at-least32";
+  let release!: () => void;
+  const waiting = new Promise<void>((r) => (release = r));
+  let started!: () => void;
+  const starting = new Promise<void>((r) => (started = r));
+  const fetcher = mock.method(globalThis, "fetch", async () => {
+    started();
+    await waiting;
+    return Response.json({ status: "completed", orchestrationFixture: true });
+  });
+  try {
+    const pending = dispatchRun(ctx, run.id);
+    await starting;
+    await cancelRun(ctx, run.id);
+    release();
+    await pending;
+    const cancelled = await get(ctx, run.id);
+    assert.equal(cancelled.data.status, "cancelled");
+    assert.equal(cancelled.data.result, undefined);
+  } finally {
+    release();
+    fetcher.mock.restore();
+    if (previous === undefined) delete process.env.FORESIGHT_SIMULATOR_MODE;
+    else process.env.FORESIGHT_SIMULATOR_MODE = previous;
+    if (token === undefined) delete process.env.FORESIGHT_WORKER_TOKEN;
+    else process.env.FORESIGHT_WORKER_TOKEN = token;
+  }
+});
+test("interrupted serverless execution becomes recoverable after its lease expires", async () => {
+  const { pollRun } = await import("../lib/server/simulator.ts");
+  const ctx = await workspaceFor("serverless-expired");
+  const run = await insert(ctx, "run", {
+    status: "running",
+    leaseUntil: "2000-01-01T00:00:00Z",
+  });
+  const previous = process.env.FORESIGHT_SIMULATOR_MODE;
+  process.env.FORESIGHT_SIMULATOR_MODE = "serverless";
+  try {
+    const recovered = await pollRun(ctx, run.id);
+    assert.equal(recovered.data.status, "dispatch-pending");
+    assert.match(String(recovered.data.error), /interrupted/);
+  } finally {
+    if (previous === undefined) delete process.env.FORESIGHT_SIMULATOR_MODE;
+    else process.env.FORESIGHT_SIMULATOR_MODE = previous;
+  }
+});
+
+after(async () => {
+  await closeDatabase();
 });

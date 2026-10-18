@@ -54,31 +54,50 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
     try {
       if (!file)
         throw new Error("Choose a self-contained reconstructed GLB mesh.");
-      const form = new FormData();
-      form.set("file", file);
-      form.set(
-        "metadata",
-        JSON.stringify({
-          zoneId: selected,
-          title,
-          source,
-          captureAt: fromLocal(capture),
-          consent,
-          scaleStatus: "unverified",
-          metresPerUnit: 1,
-          translation: [0, 0, 0],
-          rotationRadians: [0, 0, 0],
-          registrationResidualM: null,
-          referenceNotes:
-            "Unregistered walkthrough. Supply checked measured references before dimensional use.",
-        }),
-      );
-      const response = await fetch("/api/workspace/assets", {
+      if (file.size > 20 * 1024 * 1024) throw new Error("GLB limit is 20 MB.");
+      const metadata = {
+        zoneId: selected,
+        title,
+        source,
+        captureAt: fromLocal(capture),
+        consent,
+        scaleStatus: "unverified",
+        metresPerUnit: 1,
+        translation: [0, 0, 0],
+        rotationRadians: [0, 0, 0],
+        registrationResidualM: null,
+        referenceNotes:
+          "Unregistered walkthrough. Supply checked measured references before dimensional use.",
+      };
+      let response: Response;
+      if (data.services.directUploads) {
+        const { upload: uploadBlob } = await import("@vercel/blob/client");
+        const pathname = `evidence/${data.workspace.id}/${crypto.randomUUID()}.glb`;
+        await uploadBlob(pathname, file, {
+          access: "private",
+          handleUploadUrl: "/api/uploads",
+          contentType: "model/gltf-binary",
+          headers: { "X-Workspace-Id": data.workspace.id },
+        });
+        response = await fetch("/api/workspace/assets", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Workspace-Id": data.workspace.id,
+          },
+          body: JSON.stringify({ pathname, metadata }),
+        });
+      } else {
+        const form = new FormData();
+        form.set("file", file);
+        form.set("metadata", JSON.stringify(metadata));
+        response = await fetch("/api/workspace/assets", {
           method: "POST",
           headers: { "X-Workspace-Id": data.workspace.id },
           body: form,
-        }),
-        result = await response.json();
+        });
+      }
+      const result = await response.json();
       if (!response.ok) throw new Error(result.message);
       notify("Reconstructed mesh imported as an unscaled walkthrough.");
       setAssetId(result.id);

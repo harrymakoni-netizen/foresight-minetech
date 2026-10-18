@@ -1,14 +1,15 @@
 import { readFileSync, mkdirSync, copyFileSync } from "node:fs";
 import path from "node:path";
-import { database } from "./db.ts";
+import { query } from "./db.ts";
 import {
+  sequential,
   atomic,
   insert,
   idempotent,
   hash,
   type Context,
 } from "./repository.ts";
-export function migrateLegacy(filename: string) {
+export async function migrateLegacy(filename: string) {
   const raw = readFileSync(filename, "utf8"),
     source = JSON.parse(raw);
   if (!Array.isArray(source.records) || !Array.isArray(source.audit))
@@ -19,17 +20,18 @@ export function migrateLegacy(filename: string) {
   mkdirSync(backupDirectory, { recursive: true });
   const backup = path.join(backupDirectory, `legacy-${digest}.json`);
   copyFileSync(filename, backup);
-  return atomic(() => {
-    database()
-      .prepare("INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?,?,?)")
-      .run(
+  return await atomic(async () => {
+    await query(
+      "INSERT INTO foresight.workspaces VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING",
+      [
         workspaceId,
         "fictional-mine-001",
         "Preserved legacy fictional records",
         "legacy",
         new Date().toISOString(),
         null,
-      );
+      ],
+    );
     const ctx: Context = {
       workspaceId,
       userId: "migration-operator",
@@ -37,27 +39,35 @@ export function migrateLegacy(filename: string) {
       role: "administrator",
       mode: "legacy",
     };
-    return idempotent(ctx, "migration-" + digest, source, () => {
-      const records = source.records.map((record: any) =>
-        insert(
-          ctx,
-          "legacy-record",
-          {
-            legacyId: record.id,
-            original: record,
-            sourceDocumentHash: digest,
-            importedFrom: path.basename(filename),
-          },
-          record.zone || null,
-        ),
+    return await idempotent(ctx, "migration-" + digest, source, async () => {
+      const records = await sequential(
+        source.records,
+        async (record: any) =>
+          await insert(
+            ctx,
+            "legacy-record",
+            {
+              legacyId: record.id,
+              original: record,
+              sourceDocumentHash: digest,
+              importedFrom: path.basename(filename),
+            },
+            record.zone || null,
+          ),
       );
-      const audit = source.audit.map((entry: any) =>
-        insert(
-          ctx,
-          "legacy-audit",
-          { legacyId: entry.id, original: entry, sourceDocumentHash: digest },
-          null,
-        ),
+      const audit = await sequential(
+        source.audit,
+        async (entry: any) =>
+          await insert(
+            ctx,
+            "legacy-audit",
+            {
+              legacyId: entry.id,
+              original: entry,
+              sourceDocumentHash: digest,
+            },
+            null,
+          ),
       );
       return {
         workspaceId,

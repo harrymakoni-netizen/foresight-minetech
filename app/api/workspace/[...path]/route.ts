@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { ConfigurationError } from "@/lib/server/configuration";
 import { jsonBody } from "@/lib/server/http";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
@@ -15,6 +17,8 @@ import {
 } from "@/lib/server/repository";
 import { mutate, extract, explain } from "@/lib/server/workflows";
 import {
+  cancelRun,
+  serverlessSimulator,
   createSnapshot,
   createScenario,
   startRun,
@@ -29,9 +33,14 @@ import { aiConfigured } from "@/lib/server/ai";
 import { assetsGet, assetsPost } from "@/lib/server/assets";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-type RouteContext = { params: Promise<{ path: string[] }> };
+export const maxDuration = 180;
+type RouteContext = {
+  params: Promise<{
+    path: string[];
+  }>;
+};
 function failure(error: unknown, requestId: string) {
-  if (error instanceof DomainError)
+  if (error instanceof DomainError || error instanceof ConfigurationError)
     return Response.json(
       { code: error.code, message: error.message, requestId },
       { status: error.status },
@@ -72,10 +81,13 @@ export async function GET(request: Request, route: RouteContext) {
             role: ctx.role,
           },
           site,
-          entities: list(ctx),
+          entities: await list(ctx),
           latestSyncedAt: new Date().toISOString(),
           services: {
             ai: aiConfigured(),
+            directUploads: Boolean(
+              process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN,
+            ),
             vision: !!process.env.FORESIGHT_VISION_URL,
           },
           legacy: {
@@ -95,7 +107,7 @@ export async function GET(request: Request, route: RouteContext) {
       return Response.json(await pollRun(ctx, path[1]), {
         headers: { "Cache-Control": "no-store" },
       });
-    if (path[0] === "assets" && path[1]) return assetsGet(ctx, path[1]);
+    if (path[0] === "assets" && path[1]) return await assetsGet(ctx, path[1]);
     if (path[0] === "export") {
       const format = new URL(request.url).searchParams.get("format"),
         bundle = {
@@ -104,8 +116,8 @@ export async function GET(request: Request, route: RouteContext) {
           site,
           mode: ctx.mode,
           exportedAt: new Date().toISOString(),
-          entities: list(ctx),
-          audit: auditLog(ctx),
+          entities: await list(ctx),
+          audit: await auditLog(ctx),
           limitations: [
             "Fictional software development records. No operational clearance or external notification.",
           ],
@@ -178,7 +190,7 @@ export async function GET(request: Request, route: RouteContext) {
         ],
       });
     }
-    if (path[0] === "audit") return Response.json(auditLog(ctx));
+    if (path[0] === "audit") return Response.json(await auditLog(ctx));
     throw new DomainError(404, "NOT_FOUND", "Endpoint not found.");
   } catch (error) {
     return failure(error, requestId);
@@ -205,33 +217,30 @@ export async function POST(request: Request, route: RouteContext) {
       return Response.json(await extract(ctx, path[1]));
     if (path[0] === "assessments" && path[2] === "explain")
       return Response.json(await explain(ctx, path[1]));
-    if (path[0] === "runs" && path[2] === "retry")
-      return Response.json(await dispatchRun(ctx, path[1]));
-    if (path[0] === "runs" && path[2] === "cancel") {
-      get(ctx, path[1], "run");
-      return Response.json(
-        await worker(ctx, "/jobs/" + path[1] + "/cancel", {}),
-      );
+    if (path[0] === "runs" && path[2] === "retry") {
+      const saved = await get(ctx, path[1], "run");
+      if (serverlessSimulator()) {
+        after(async () => {
+          await dispatchRun(ctx, saved.id);
+        });
+        return Response.json(saved, { status: 202 });
+      }
+      return Response.json(await dispatchRun(ctx, saved.id));
     }
-    if (path[0] === "scenarios" && path[2] === "sensitivity")
-      return Response.json(
-        await startSensitivity(
-          ctx,
-          path[1],
-          body,
-          request.headers.get("Idempotency-Key") || "",
-        ),
-        { status: 202 },
-      );
-    if (path[0] === "scenarios" && path[2] === "runs")
-      return Response.json(
-        await startRun(
-          ctx,
-          path[1],
-          request.headers.get("Idempotency-Key") || "",
-        ),
-        { status: 202 },
-      );
+    if (path[0] === "runs" && path[2] === "cancel")
+      return Response.json(await cancelRun(ctx, path[1]));
+    if (path[0] === "scenarios" && ["sensitivity", "runs"].includes(path[2])) {
+      const key = request.headers.get("Idempotency-Key") || "";
+      const run =
+        path[2] === "sensitivity"
+          ? await startSensitivity(ctx, path[1], body, key)
+          : await startRun(ctx, path[1], key);
+      if (serverlessSimulator())
+        after(async () => {
+          await dispatchRun(ctx, run.id);
+        });
+      return Response.json(run, { status: 202 });
+    }
     const key = request.headers.get("Idempotency-Key") || "";
     if (path[0] === "sync") {
       const batch = z
@@ -253,48 +262,50 @@ export async function POST(request: Request, route: RouteContext) {
         })
         .strict()
         .parse(body);
-      const outcomes = batch.items.map((item) => {
-        try {
-          return {
-            key: item.key,
-            state: "synced",
-            result: idempotent(
-              ctx,
-              item.key,
-              { operation: item.operation, body: item.body },
-              () => {
-                if (item.operation === "worker-status") {
-                  const { id, ...body } = z
-                    .object({
-                      id: z.string().uuid(),
-                      expectedRevision: z.number().int().positive(),
-                      status: z.enum(["checked-in", "checked-out"]),
-                      reason: z.string().min(3).max(500),
-                    })
-                    .strict()
-                    .parse(item.body);
-                  return mutate(ctx, ["workers", id, "status"], body);
-                }
-                return mutate(ctx, [item.operation], item.body);
-              },
-            ),
-          };
-        } catch (e) {
-          return {
-            key: item.key,
-            state:
-              e instanceof DomainError && e.status === 409
-                ? "conflict"
-                : "rejected",
-            message: e instanceof Error ? e.message : "Submission failed",
-          };
-        }
-      });
+      const outcomes = await Promise.all(
+        batch.items.map(async (item) => {
+          try {
+            return {
+              key: item.key,
+              state: "synced",
+              result: await idempotent(
+                ctx,
+                item.key,
+                { operation: item.operation, body: item.body },
+                async () => {
+                  if (item.operation === "worker-status") {
+                    const { id, ...body } = z
+                      .object({
+                        id: z.string().uuid(),
+                        expectedRevision: z.number().int().positive(),
+                        status: z.enum(["checked-in", "checked-out"]),
+                        reason: z.string().min(3).max(500),
+                      })
+                      .strict()
+                      .parse(item.body);
+                    return await mutate(ctx, ["workers", id, "status"], body);
+                  }
+                  return await mutate(ctx, [item.operation], item.body);
+                },
+              ),
+            };
+          } catch (e) {
+            return {
+              key: item.key,
+              state:
+                e instanceof DomainError && e.status === 409
+                  ? "conflict"
+                  : "rejected",
+              message: e instanceof Error ? e.message : "Submission failed",
+            };
+          }
+        }),
+      );
       return Response.json({ outcomes });
     }
-    const result = idempotent(ctx, key, { path, body }, () => {
+    const result = await idempotent(ctx, key, { path, body }, async () => {
       if (path[0] === "snapshots") {
-        const snapshot = createSnapshot(ctx);
+        const snapshot = await createSnapshot(ctx);
         return {
           snapshot,
           scenarioTemplate: fictionalScenario(
@@ -304,8 +315,9 @@ export async function POST(request: Request, route: RouteContext) {
           ),
         };
       }
-      if (path[0] === "scenarios" && !path[1]) return createScenario(ctx, body);
-      return mutate(ctx, path, body);
+      if (path[0] === "scenarios" && !path[1])
+        return await createScenario(ctx, body);
+      return await mutate(ctx, path, body);
     });
     return Response.json(result, { status: 201 });
   } catch (error) {

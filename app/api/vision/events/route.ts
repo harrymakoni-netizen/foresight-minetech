@@ -9,7 +9,11 @@ export async function POST(request: Request) {
       .strict()
       .parse(await jsonBody(request, 30000));
     return Response.json(
-      ingest(body.jobId, body.event, request.headers.get("x-job-token") || ""),
+      await ingest(
+        body.jobId,
+        body.event,
+        request.headers.get("x-job-token") || "",
+      ),
       { status: 201 },
     );
   } catch (e) {

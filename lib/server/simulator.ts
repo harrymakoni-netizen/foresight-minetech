@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { lock } from "./db.ts";
 import { z } from "zod";
 import { scenarioSchema, fictionalScenario } from "../domain/scenario.ts";
 import {
@@ -10,6 +12,11 @@ import {
   DomainError,
   type Context,
 } from "./repository.ts";
+export const serverlessSimulator = () =>
+  Boolean(
+    process.env.FORESIGHT_SIMULATOR_MODE === "serverless" ||
+    (process.env.VERCEL && !process.env.FORESIGHT_SIMULATOR_URL),
+  );
 export async function worker(ctx: Context, path: string, body?: unknown) {
   const url =
     process.env.FORESIGHT_SIMULATOR_URL ||
@@ -53,19 +60,19 @@ export async function worker(ctx: Context, path: string, body?: unknown) {
     );
   }
 }
-export function createSnapshot(ctx: Context) {
-  return insert(ctx, "snapshot", {
+export async function createSnapshot(ctx: Context) {
+  return await insert(ctx, "snapshot", {
     mode: "laboratory-baseline",
     frozenAt: new Date().toISOString(),
     siteId: "fictional-mine-001",
-    sourceEntities: list(ctx).filter((e) =>
+    sourceEntities: (await list(ctx)).filter((e) =>
       ["observation", "assessment", "worker", "inspection"].includes(e.kind),
     ),
     physicalInputsStatus:
       "No measured storage geometry or flow is configured. Lab parameters require explicit assumptions.",
   });
 }
-export function createScenario(ctx: Context, input: unknown) {
+export async function createScenario(ctx: Context, input: unknown) {
   const body = z
     .object({
       name: z.string().trim().min(3).max(120),
@@ -75,7 +82,7 @@ export function createScenario(ctx: Context, input: unknown) {
     })
     .strict()
     .parse(input);
-  get(ctx, body.baselineSnapshotId, "snapshot");
+  await get(ctx, body.baselineSnapshotId, "snapshot");
   if (
     body.scenario.workspaceId !== ctx.workspaceId ||
     body.scenario.baselineSnapshotId !== body.baselineSnapshotId
@@ -85,56 +92,81 @@ export function createScenario(ctx: Context, input: unknown) {
       "SCENARIO_SCOPE",
       "Scenario must use this workspace and frozen baseline.",
     );
-  return insert(ctx, "scenario", { ...body, mode: "laboratory" }, null, [
+  return await insert(ctx, "scenario", { ...body, mode: "laboratory" }, null, [
     { id: body.baselineSnapshotId, relation: "baseline" },
   ]);
 }
 export async function startRun(ctx: Context, id: string, key: string) {
-  const scenario = get(ctx, id, "scenario");
-  useBudget(ctx, "simulation", 100);
+  const scenario = await get(ctx, id, "scenario");
   // Job creation is persisted before remote submission; the same ID can safely be resubmitted after transport failure.
   const { idempotent } = await import("./repository.ts");
-  const run = idempotent(ctx, key, { operation: "run", scenarioId: id }, () =>
-    insert(
-      ctx,
-      "run",
-      {
-        scenarioId: id,
-        status: "queued",
-        progress: 0,
-        scenario: scenario.data.scenario,
-      },
-      null,
-      [{ id, relation: "scenario" }],
-    ),
+  const run = await idempotent(
+    ctx,
+    key,
+    { operation: "run", scenarioId: id },
+    async () => {
+      await useBudget(ctx, "simulation", 100);
+      return await insert(
+        ctx,
+        "run",
+        {
+          scenarioId: id,
+          status: "queued",
+          progress: 0,
+          scenario: scenario.data.scenario,
+        },
+        null,
+        [{ id, relation: "scenario" }],
+      );
+    },
   );
   if (["completed", "cancelled", "failed"].includes(String(run.data.status)))
     return run;
-  return dispatchRun(ctx, run.id);
+  return serverlessSimulator() ? run : dispatchRun(ctx, run.id);
 }
 export async function pollRun(ctx: Context, id: string) {
-  const run = get(ctx, id, "run");
+  const run = await get(ctx, id, "run");
   if (
     ["completed", "cancelled", "failed", "dispatch-pending"].includes(
       String(run.data.status),
     )
   )
     return run;
+  if (serverlessSimulator()) {
+    const expires =
+      run.data.leaseUntil ||
+      new Date(Date.parse(run.createdAt) + 180000).toISOString();
+    if (Date.parse(String(expires)) < Date.now())
+      return atomic(async () => {
+        const current = await get(ctx, id, "run");
+        if (
+          ["completed", "failed", "cancelled"].includes(
+            String(current.data.status),
+          )
+        )
+          return current;
+        return update(ctx, current, current.revision, {
+          ...current.data,
+          status: "dispatch-pending",
+          error: "Execution was interrupted. Retry this saved run.",
+        });
+      });
+    return run;
+  }
   const job = await worker(ctx, "/jobs/" + id);
-  return atomic(() => {
-    const current = get(ctx, id, "run");
+  return await atomic(async () => {
+    const current = await get(ctx, id, "run");
     if (
       ["completed", "cancelled", "failed"].includes(String(current.data.status))
     )
       return current;
-    return update(ctx, current, current.revision, {
+    return await update(ctx, current, current.revision, {
       ...current.data,
       ...job,
       workerId: job.id,
     });
   });
 }
-
 export const sensitivitySchema = z
   .object({
     samples: z.number().int().min(1).max(100),
@@ -160,15 +192,15 @@ export async function startSensitivity(
   key: string,
 ) {
   const sensitivity = sensitivitySchema.parse(input),
-    scenario = get(ctx, id, "scenario");
-  useBudget(ctx, "ensemble", 5);
+    scenario = await get(ctx, id, "scenario");
   const { idempotent } = await import("./repository.ts");
-  const run = idempotent(
+  const run = await idempotent(
     ctx,
     key,
     { operation: "sensitivity", scenarioId: id, sensitivity },
-    () =>
-      insert(
+    async () => {
+      await useBudget(ctx, "ensemble", 5);
+      return await insert(
         ctx,
         "run",
         {
@@ -180,13 +212,14 @@ export async function startSensitivity(
         },
         null,
         [{ id, relation: "scenario" }],
-      ),
+      );
+    },
   );
-  return dispatchRun(ctx, run.id);
+  return serverlessSimulator() ? run : dispatchRun(ctx, run.id);
 }
-
 export async function dispatchRun(ctx: Context, id: string) {
-  const run = get(ctx, id, "run");
+  if (serverlessSimulator()) return dispatchServerless(ctx, id);
+  const run = await get(ctx, id, "run");
   try {
     await worker(ctx, "/jobs", {
       id: run.id,
@@ -194,9 +227,9 @@ export async function dispatchRun(ctx: Context, id: string) {
       ...(run.data.sensitivity ? { sensitivity: run.data.sensitivity } : {}),
     });
     if (run.data.status === "dispatch-pending")
-      return atomic(() => {
-        const current = get(ctx, id, "run");
-        return update(ctx, current, current.revision, {
+      return await atomic(async () => {
+        const current = await get(ctx, id, "run");
+        return await update(ctx, current, current.revision, {
           ...current.data,
           status: "queued",
           error: null,
@@ -205,9 +238,9 @@ export async function dispatchRun(ctx: Context, id: string) {
     return run;
   } catch (error) {
     if (!(error instanceof DomainError)) throw error;
-    return atomic(() => {
-      const current = get(ctx, id, "run");
-      return update(ctx, current, current.revision, {
+    return await atomic(async () => {
+      const current = await get(ctx, id, "run");
+      return await update(ctx, current, current.revision, {
         ...current.data,
         status: [400, 409, 422].includes(error.status)
           ? "failed"
@@ -216,4 +249,103 @@ export async function dispatchRun(ctx: Context, id: string) {
       });
     });
   }
+}
+
+export async function cancelRun(ctx: Context, id: string) {
+  await get(ctx, id, "run");
+  if (!serverlessSimulator()) return worker(ctx, "/jobs/" + id + "/cancel", {});
+  return atomic(async () => {
+    await lock(`simulation:${ctx.workspaceId}:${id}`);
+    const current = await get(ctx, id, "run");
+    if (
+      ["completed", "cancelled", "failed"].includes(String(current.data.status))
+    )
+      return current;
+    return update(ctx, current, current.revision, {
+      ...current.data,
+      status: "cancelled",
+      cancelRequestedAt: new Date().toISOString(),
+    });
+  });
+}
+async function dispatchServerless(ctx: Context, id: string) {
+  const executionId = randomUUID();
+  const run = await atomic(async () => {
+    await lock(`simulation:${ctx.workspaceId}:${id}`);
+    const current = await get(ctx, id, "run");
+    if (
+      ["completed", "cancelled", "failed"].includes(String(current.data.status))
+    )
+      return current;
+    if (
+      current.data.status === "running" &&
+      Date.parse(String(current.data.leaseUntil)) > Date.now()
+    )
+      return current;
+    return update(ctx, current, current.revision, {
+      ...current.data,
+      status: "running",
+      executionId,
+      leaseUntil: new Date(Date.now() + 180000).toISOString(),
+      startedAt: new Date().toISOString(),
+      error: null,
+    });
+  });
+  if (run.data.executionId !== executionId) return run;
+  let outcome: Record<string, unknown>;
+  try {
+    const token = process.env.FORESIGHT_WORKER_TOKEN;
+    if (!token) throw new Error("Simulation authentication is not configured.");
+    const response = await fetch(
+      `https://${process.env.VERCEL_URL}/api/simulation`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "X-Workspace-Id": ctx.workspaceId,
+        },
+        body: JSON.stringify({
+          scenario: run.data.scenario,
+          ...(run.data.sensitivity
+            ? { sensitivity: run.data.sensitivity }
+            : {}),
+        }),
+        signal: AbortSignal.timeout(150000),
+        cache: "no-store",
+      },
+    );
+    const result = await response.json();
+    if (!response.ok)
+      throw new Error(result.error || "Simulation request failed.");
+    outcome = {
+      status: result.status,
+      progress: result.status === "completed" ? 1 : 0,
+      result,
+      finishedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    outcome = {
+      status: "dispatch-pending",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Simulation unavailable. Retry the saved run.",
+    };
+  }
+  return atomic(async () => {
+    await lock(`simulation:${ctx.workspaceId}:${id}`);
+    const current = await get(ctx, id, "run");
+    // Cancellation or a newer retry wins over a late result from this attempt.
+    if (
+      current.data.status === "cancelled" ||
+      current.data.executionId !== executionId
+    )
+      return current;
+    return update(ctx, current, current.revision, {
+      ...current.data,
+      ...outcome,
+      leaseUntil: null,
+    });
+  });
 }

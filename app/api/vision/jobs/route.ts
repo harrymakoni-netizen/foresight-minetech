@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     )
       throw new DomainError(422, "CLIP", "Choose an MP4 clip up to 50 MB.");
     const recordedAt = instant.parse(form.get("recordedAt"));
-    const camera = get(ctx, String(form.get("cameraId")), "camera"),
+    const camera = await get(ctx, String(form.get("cameraId")), "camera"),
       bytes = Buffer.from(await file.arrayBuffer());
     if (bytes.toString("ascii", 4, 8) !== "ftyp")
       throw new DomainError(
@@ -35,20 +35,21 @@ export async function POST(request: Request) {
         "FORMAT",
         "A valid MP4 container is required.",
       );
-    useBudget(ctx, "vision", 12);
+    await useBudget(ctx, "vision", 12);
     const credential = randomBytes(32).toString("base64url"),
-      job = atomic(() =>
-        insert(
-          ctx,
-          "vision-job",
-          {
-            cameraId: camera.id,
-            callbackHash: hash(credential),
-            status: "queued",
-            progress: 0,
-          },
-          camera.zoneId,
-        ),
+      job = await atomic(
+        async () =>
+          await insert(
+            ctx,
+            "vision-job",
+            {
+              cameraId: camera.id,
+              callbackHash: hash(credential),
+              status: "queued",
+              progress: 0,
+            },
+            camera.zoneId,
+          ),
       );
     const config = {
       id: job.id,

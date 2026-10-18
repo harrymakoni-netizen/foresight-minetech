@@ -1,7 +1,7 @@
 import { list, type Context } from "./repository.ts";
 // Length-preserving masks keep source UTF-16 offsets stable. This is deliberately
 // conservative filtering, not a claim of comprehensive named-entity detection.
-export function permittedModelText(ctx: Context, text: string) {
+export async function permittedModelText(ctx: Context, text: string) {
   let redactions = 0;
   const mask = (value: string) => {
     redactions++;
@@ -13,7 +13,7 @@ export function permittedModelText(ctx: Context, text: string) {
     /((?:phone|contact|mobile|tel)\s*[:=]?\s*)(\d[\d ().-]{6,}\d)/gi,
     (_, label: string, phone: string) => label + mask(phone),
   );
-  for (const worker of list(ctx, "worker")) {
+  for (const worker of await list(ctx, "worker")) {
     const identifiers = [String(worker.data.name || ""), worker.id].filter(
       (x) => x.length >= 3,
     );

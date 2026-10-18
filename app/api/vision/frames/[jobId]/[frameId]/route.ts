@@ -3,12 +3,19 @@ import { get, DomainError } from "@/lib/server/repository";
 import { visionConfig } from "@/lib/server/vision";
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ jobId: string; frameId: string }> },
+  {
+    params,
+  }: {
+    params: Promise<{
+      jobId: string;
+      frameId: string;
+    }>;
+  },
 ) {
   try {
     const ctx = await context(request),
       { jobId, frameId } = await params;
-    get(ctx, jobId, "vision-job");
+    await get(ctx, jobId, "vision-job");
     if (!/^[a-zA-Z0-9-]{1,100}$/.test(frameId))
       throw new DomainError(422, "FRAME", "Invalid frame reference.");
     const { url, token } = visionConfig();

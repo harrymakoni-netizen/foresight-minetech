@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.ts",
     "test": "node --experimental-strip-types --test tests/domain.test.ts tests/assistant.test.ts",
-    "test:python": "python -m unittest services.simulator.test_engine services.simulator.test_jobs services.simulator.test_transport services.vision.test_policy -v",
+    "test:python": "python -m unittest services.simulator.test_engine services.simulator.test_jobs services.simulator.test_transport services.simulator.test_serverless services.vision.test_policy -v",
     "test:browser": "playwright test",
     "test:vision-runtime": ".venv/bin/python -m unittest services.vision.test_runtime -v",
     "evaluate:numerical": "python -m tools.evaluation.numerical",
@@ -20,7 +20,9 @@
     "migrate:legacy": "node --experimental-strip-types scripts/migrate-legacy.ts",
     "worker:simulator": "python -m services.simulator.server",
     "worker:vision": ".venv/bin/python -m services.vision.server",
-    "preview": "node scripts/start-local.mjs"
+    "preview": "node scripts/start-local.mjs",
+    "test:postgres": "node --experimental-strip-types --test tests/postgres-auth.test.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate-db.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -39,6 +41,7 @@
     "lucide-react": "^1.31.0",
     "next": "16.3.4",
     "next-themes": "^0.4.6",
+    "pg": "^8.23.1",
     "radix-ui": "^1.6.7",
     "react": "19.2.6",
     "react-day-picker": "^10.0.1",
@@ -58,6 +61,7 @@
     "@tailwindcss/postcss": "4.2.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "22.19.19",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@types/three": "^0.186.0",
