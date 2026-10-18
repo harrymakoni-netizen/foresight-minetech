@@ -18,9 +18,25 @@ export async function GET() {
       },
       { headers: { "Cache-Control": "no-store" } },
     );
-  } catch {
+  } catch (error) {
+    const candidate = (error as { code?: unknown })?.code;
+    const errorCode =
+      typeof candidate === "string" &&
+      (/^[0-9A-Z]{5}$/.test(candidate) ||
+        [
+          "ECONNREFUSED",
+          "ECONNRESET",
+          "ETIMEDOUT",
+          "ENOTFOUND",
+          "SELF_SIGNED_CERT_IN_CHAIN",
+          "DEPTH_ZERO_SELF_SIGNED_CERT",
+          "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+          "CERT_HAS_EXPIRED",
+        ].includes(candidate))
+        ? candidate
+        : "CONNECTION_FAILED";
     return Response.json(
-      { status: "database-unavailable" },
+      { status: "database-unavailable", errorCode },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
