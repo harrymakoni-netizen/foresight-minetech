@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { assertWorkspaceConfigured } from "./configuration.ts";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { rootCertificates } from "node:tls";
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -16,8 +17,28 @@ export const hostedDatabase = () => Boolean(connectionString());
 export function postgresPool() {
   if (!connectionString())
     throw new Error("Connect a PostgreSQL database using DATABASE_URL.");
+  const uri = new URL(connectionString()!);
+  const supabase = /(^|\.)(supabase\.co|supabase\.com)$/.test(uri.hostname);
+  // Supabase's database certificate chain uses its published private CA.
+  // Removing sslmode prevents pg's URI parser from overriding the explicit,
+  // verified TLS configuration below. Hostname verification remains enabled.
+  if (supabase) uri.searchParams.delete("sslmode");
   pool ||= new Pool({
-    connectionString: connectionString(),
+    connectionString: uri.toString(),
+    ...(supabase
+      ? {
+          ssl: {
+            ca: [
+              ...rootCertificates,
+              readFileSync(
+                path.join(process.cwd(), "certificates/supabase-root-2021.crt"),
+                "utf8",
+              ),
+            ],
+            rejectUnauthorized: true,
+          },
+        }
+      : {}),
     max: 3,
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
