@@ -1,61 +1,447 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { Activity, ArrowDownToLine, ArrowRight, Bell, Check, ChevronRight, ClipboardCheck, FlaskConical, LayoutDashboard, Map, Plus, Radio, Shield, Users, Wifi, RefreshCw, Clock, Search, FileText, Fingerprint, CircleHelp } from 'lucide-react';
-import { useSidebar, SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import initial from '@/lib/initial.json';
-import EvidenceAssistant from '@/components/evidence-assistant';
-import register from '@/lib/register.json';
-import { zones, zoneName, titles, scenarioNames, type RecordItem } from '@/lib/model';
-
-const nav=[['overview','Command Centre',LayoutDashboard],['assistant','Evidence assistant',CircleHelp],['zones','Zones & evidence',Map],['workers','WorkerSafe',Users],['inspections','Inspections',ClipboardCheck],['incidents','MineShield',Shield],['lite','Foresight Lite',Radio],['simulator','Simulator lab',FlaskConical],['audit','Records & audit',FileText]] as const;
-const date=(s:string)=>new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';
-function download(name:string,data:unknown){const u=URL.createObjectURL(new Blob([JSON.stringify({label:'SIMULATOR RESULTS — PROVISIONAL AND UNVALIDATED',...data as object},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
-function Badge({children,tone='neutral'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
-function Empty({text}:{text:string}){return <div className="empty"><ClipboardCheck size={28}/><p>{text}</p><small>New entries are saved to the shared public demo workspace.</small></div>}
-
-export default function Home(){return <SidebarProvider><WorkspaceContent/></SidebarProvider>}
-
-function WorkspaceContent(){
- const {setOpenMobile}=useSidebar();
- const [page,setPage]=useState('overview'),[scenario,setScenario]=useState('wet'),[replay,setReplay]=useState<any>(null),[index,setIndex]=useState(0),[snapshot,setSnapshot]=useState<any>(initial),[zone,setZone]=useState('zone-b');
- const [records,setRecords]=useState<RecordItem[]>([]),[audit,setAudit]=useState<any[]>([]),[actor,setActor]=useState('Preview user'),[connected,setConnected]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[seeding,setSeeding]=useState(false),[search,setSearch]=useState(''),[modal,setModal]=useState<any>(null),[form,setForm]=useState<Record<string,string>>({}),[detail,setDetail]=useState(false),[playing,setPlaying]=useState(false),[single,setSingle]=useState(0);
- const selected=snapshot.zones.find((z:any)=>z.zone_id===zone)||snapshot.zones[0];
- const active=records.filter(r=>r.kind==='worker'&&r.data.status!=='checked-out');
- const alertZones=snapshot.zones.filter((z:any)=>z.open_alert||z.compound_detected);
- const filtered=(kind:string)=>records.filter(r=>r.kind===kind&&(!search||JSON.stringify(r).toLowerCase().includes(search.toLowerCase())));
- async function refresh(){try{const r=await fetch('/api/records');const d:any=await r.json();if(!r.ok)throw new Error(d.error);setRecords(d.records);setAudit(d.audit);setActor(d.actor);setConnected(true);setError('');}catch(e){setConnected(false);setError((e as Error).message);}}
- useEffect(()=>{refresh();const hash=location.hash.slice(1);if(nav.some(n=>n[0]===hash))setPage(hash);const f=()=>{const h=location.hash.slice(1);if(!h)setPage('overview');else if(nav.some(n=>n[0]===h))setPage(h)};window.addEventListener('hashchange',f);return()=>window.removeEventListener('hashchange',f)},[]);
- useEffect(()=>{let cancelled=false;setPlaying(false);fetch('/replay/'+scenario+'.json').then(r=>{if(!r.ok)throw new Error('Replay could not load');return r.json()}).then((d:any)=>{if(!cancelled){setReplay(d);setIndex(d.defaultIndex);setSnapshot(d.snapshots[d.defaultIndex]);}}).catch(e=>setError(e.message));return()=>{cancelled=true}},[scenario]);
- useEffect(()=>{if(!playing||!replay)return;const t=setInterval(()=>setIndex(i=>{if(i>=replay.snapshots.length-1){setPlaying(false);return i;}setSnapshot(replay.snapshots[i+1]);return i+1}),1300);return()=>clearInterval(t)},[playing,replay]);
- useEffect(()=>{if(notice){const t=setTimeout(()=>setNotice(''),5000);return()=>clearTimeout(t)}},[notice]);
- function navigate(p:string){setPage(p);location.hash=p;setSearch('');setOpenMobile(false);window.scrollTo({top:0,behavior:'instant'});}
- function open(kind:string,record?:RecordItem){setModal({kind,record});setForm({name:'',notes:'',status:kind==='worker'?'registered':kind==='incident'?'open':'completed',...record?.data,zone:record?.zone||zone});setError('');}
- async function save(kind:string,data:Record<string,any>,record?:RecordItem,targetZone=zone){setBusy(true);try{const r=await fetch('/api/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,zone:targetZone,id:record?.id,expectedVersion:record?.data.version,data})});const d:any=await r.json();if(!r.ok)throw new Error(d.error);await refresh();setNotice('Preview record saved. Audit trail updated.');return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false)}}
- async function submit(e:React.FormEvent){e.preventDefault();const kind=modal.kind;let data:any={...form};for(const key of ['dueAt','expectedReturn']){if(data[key])data[key]=new Date(data[key]).toISOString();}if(kind==='decision')data={...data,scenario,assessmentAt:snapshot.time,registerVersion:selected.register_version,evidence:selected};if(kind==='muster')data={...data,members:active.filter(r=>r.zone===form.zone).map(r=>({id:r.id,name:r.data.name,confirmed:false})),status:'in-progress'};if(await save(kind,data,modal.record,form.zone))setModal(null);}
- async function seedWorkers(){setSeeding(true);try{for(const [i,name] of ['T. Moyo','R. Ncube','S. Dube','P. Chirwa','J. Banda','N. Sibanda'].entries()){if(!records.some(r=>r.kind==='worker'&&r.data.name===name)){if(!await save('worker',{name,role:i%2?'Crew member':'Shift lead',status:'registered',shift:'Demo day shift'},undefined,zones[Math.floor(i/2)].id))return;}}setNotice('Six synthetic crew records added.');}finally{setSeeding(false)}}
- const heading=nav.find(n=>n[0]===page)?.[1]||'Command Centre';
- const field=(key:string,label:string,type='text',required=true)=><label className="field">{label}<input required={required} type={type} maxLength={140} value={form[key]||''} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>;
- function factorRows(evidence:any){return <div className="factor-list">{evidence.factors.map((f:any)=><details key={f.id}><summary><span className={'factor-dot '+(f.raw.status==='valid'?'known':'unknown')}/><span>{titles[f.id]||f.id}<small>{f.group} · {f.raw.status}{f.correlated_with?' · grouped with '+titles[f.correlated_with]:''}</small></span><span className="factor-value">{f.contribution===null?'Unknown': '+'+f.contribution.toFixed(1)}<ChevronRight size={14}/></span></summary><div className="factor-expanded"><p>{f.raw.reason}</p><p><b>Raw input:</b> {f.raw.value===null?'Unknown':Number(f.raw.value).toFixed(3)} {f.unit}</p><p><b>Normalized:</b> {f.normalized===null?'Unknown':f.normalized.toFixed(3)} · Weight {f.weight}</p><p>{f.action}</p><small>Evidence: {f.raw.evidence?.join(', ')||'No source available'}</small></div></details>)}</div>}
- function zoneMap(){return <div className="mine-plan"><div className="map-grid"/><div className="map-caption"><span className="tiny-label">SIMULATED MINE PLAN</span><small>Conceptual topology · not a survey</small></div><svg viewBox="0 0 640 285" role="img" aria-label="Synthetic connection diagram: main shaft connects north and east workings; decline connects south working"><path d="M64 138H178L245 80H360 M178 138H275L371 185H548 M275 138V238H440" fill="none" stroke="#bccdcb" strokeWidth="18" strokeLinejoin="round"/><path d="M64 138H178L245 80H360 M178 138H275L371 185H548 M275 138V238H440" fill="none" stroke="#eaf0ed" strokeWidth="11" strokeDasharray="6 4"/><text x="49" y="114" fill="#6b7d7b" fontSize="12">MAIN SHAFT</text><text x="291" y="265" fill="#6b7d7b" fontSize="12">DECLINE</text></svg>{snapshot.zones.map((z:any,i:number)=><button key={z.zone_id} className={'map-zone mz-'+i+(zone===z.zone_id?' selected':'')+(z.open_alert?' elevated':'')} onClick={()=>{setZone(z.zone_id);setDetail(true)}}><span className="map-node">{String.fromCharCode(65+i)}</span><span><strong>{zoneName(z.zone_id)}</strong><small>{z.open_alert?'Compound alert open':'No compound risk detected'}</small></span><b>{Math.round(z.displayed_score)}</b></button>)}<span className="map-legend"><i/> Known evidence <i className="amber-dot"/> Open compound alert</span></div>}
- return <><a className="skip-link" href="#main-content">Skip to content</a><Sidebar className="foresight-sidebar"><SidebarHeader><a href="#overview" className="brand" onClick={()=>navigate('overview')}><span className="brand-icon"><Shield size={25}/><span/></span><span>FORESIGHT<small>MINE INTELLIGENCE</small></span></a><div className="site-select"><span className="site-avatar">K</span><div>Kadoma demo mine<small>Zimbabwe · synthetic site</small></div><ChevronRight size={15}/></div></SidebarHeader><SidebarContent><div className="nav-label">WORKSPACE</div><SidebarMenu>{nav.map(([id,label,Icon])=><SidebarMenuItem key={id}><SidebarMenuButton isActive={page===id} onClick={()=>navigate(id)} className="nav-button"><Icon size={19}/><span>{label}</span>{id==='overview'&&alertZones.length>0&&<b className="nav-count">{alertZones.length}</b>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu><div className="rail-note"><FlaskConical size={20}/><strong>Software preview</strong><p>A simulated mine.<br/>Real, inspectable reasoning.</p><Badge tone="gold">Provisional · unvalidated</Badge></div></SidebarContent><SidebarFooter><div className="profile"><span className="avatar">{actor.slice(0,1).toUpperCase()}</span><div>{actor.includes('@')?actor.split('@')[0]:actor}<small>Public demo workspace</small></div></div></SidebarFooter></Sidebar><SidebarInset className="workspace"><header className="topbar"><div className="crumb"><SidebarTrigger/><span>Workspace</span><ChevronRight size={14}/><b>{heading}</b></div><div className="top-actions"><span className="connection"><i className={connected?'online':''}/>{connected?'Records connected':error?'Records unavailable':'Connecting records'}</span><button aria-label="Refresh records" onClick={refresh}><RefreshCw size={17}/></button><button aria-label="View alerts" onClick={()=>{setZone(alertZones[0]?.zone_id||'zone-b');setDetail(true)}}><Bell size={18}/>{alertZones.length>0&&<i/>}</button></div></header>
- <div className="simulation-strip"><FlaskConical size={15}/><b>FORESIGHT · SIMULATOR DEMO</b><span>Shared demo: anyone can view and edit. Use fictional data only. Risk register is unvalidated.</span><span className="strip-right">No hardware connected</span></div>
- <main className="main-content" id="main-content" tabIndex={-1}><div className="page-heading"><div><div className="eyebrow">KADOMA DEMO MINE <span>/</span> SOFTWARE PREVIEW</div><h1>{heading}</h1><p>{page==='overview'?'Understand what is changing. See the evidence. Record the response.':page==='workers'?'Know who is registered, where they are assigned and who is accounted for.':page==='incidents'?'A clear record of what happened and how people responded.':page==='simulator'?'Explore reproducible scenarios and the restraint principle.':'Zone-linked information, with a traceable record behind every decision.'}</p></div><Button className="secondary" onClick={()=>download('foresight-preview-export.json',{scenario,snapshot,records,audit})}><ArrowDownToLine size={16}/>Export records</Button></div>
- {error&&<div role="alert" className="error-box">{error}<button onClick={refresh}>Retry connection</button></div>}{notice&&<div role="status" className="toast"><Check size={17}/>{notice}</div>}
- {(page==='overview'||page==='zones'||page==='simulator'||page==='assistant')&&<div className="replay-toolbar"><span><Clock size={16}/><b>{date(snapshot.time)}</b><small>Replay time</small></span><select aria-label="Replay scenario" value={scenario} onChange={e=>setScenario(e.target.value)}>{Object.entries(scenarioNames).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><Badge tone="teal">Register 0.3.0</Badge></div>}
- {page==='assistant'&&replay&&<><label className="field">Evidence zone<select value={zone} onChange={e=>setZone(e.target.value)}>{zones.map(z=><option key={z.id} value={z.id}>{zoneName(z.id)}</option>)}</select></label><EvidenceAssistant key={scenario+':'+index+':'+zone} snapshot={snapshot} zone={zone}/></>}{page==='overview'&&<><section className="expo-welcome" aria-label="Explore Foresight"><div><span className="tiny-label">EXPLORE FORESIGHT</span><h2>From evidence to a human decision.</h2><p>Explore a simulated mine, inspect the reasoning, and try the accountability tools.</p></div><div className="expo-actions"><button onClick={()=>navigate('assistant')}><CircleHelp size={19}/><span>Ask the evidence assistant<small>Understand factors and unknowns</small></span><ArrowRight size={17}/></button><button onClick={()=>navigate('workers')}><Users size={19}/><span>Explore WorkerSafe<small>Try crew registration and muster</small></span><ArrowRight size={17}/></button></div></section><div className="stats-grid"><button className="stat-card" onClick={()=>{setZone(alertZones[0]?.zone_id||'zone-b');setDetail(true)}}><span>Open compound alerts<Shield size={18}/></span><strong className="amber-text">{alertZones.length.toString().padStart(2,'0')}</strong><small><i className="amber-dot"/> {alertZones.length?'Human review required':'No compound risk detected'}</small></button><button className="stat-card" onClick={()=>navigate('zones')}><span>Zones in replay<Map size={18}/></span><strong>03<em>/ 03</em></strong><small>All linked to the mine hierarchy</small></button><button className="stat-card" onClick={()=>navigate('workers')}><span>Registered in preview<Users size={18}/></span><strong>{String(active.length).padStart(2,'0')}</strong><small>Registration ≠ physical presence</small></button><button className="stat-card" onClick={()=>{setZone('zone-b');setDetail(true)}}><span>Risk input coverage<Activity size={18}/></span><strong>{selected.confidence.evaluated_risk_factors}<em>/ 8</em></strong><small>Zone {zone.slice(-1).toUpperCase()} · limited coverage</small></button></div>
- <div className="overview-grid"><section className="panel map-panel"><div className="panel-head"><div><h2>Mine overview</h2><p>Select a zone to inspect its evidence</p></div><button className="text-button" onClick={()=>navigate('zones')}>All zones <ArrowRight size={15}/></button></div>{zoneMap()}<div className="zone-footnote"><Fingerprint size={15}/>Every record resolves to a mine, area and zone.</div></section><section className="panel attention-panel"><div className="panel-head"><h2>Needs attention</h2><Badge tone="gold">{alertZones.length} open</Badge></div>{alertZones.length?alertZones.map((z:any)=><div className="attention" key={z.zone_id}><div className="attention-title"><span className="alert-icon"><Shield size={20}/></span><div><small>ZONE {z.zone_id.slice(-1).toUpperCase()} · COMPOUND ALERT</small><h3>{zoneName(z.zone_id)}</h3></div></div><p>{z.compound_detected?'Multiple evidence groups contribute to this assessment.':'Previous alert remains open despite changes in current inputs.'}</p><div className="score-line"><b>{z.displayed_score.toFixed(1)}<small>/100</small></b><Badge tone="gold">Retained evidence score</Badge></div><div className="contributing">{z.peak_evidence.factors.filter((f:any)=>f.contribution>0).slice(0,3).map((f:any)=><span key={f.id}>{titles[f.id]}<b>+{f.contribution.toFixed(1)}</b></span>)}</div><Button className="primary full" onClick={()=>{setZone(z.zone_id);setDetail(true)}}>Review factors & response <ArrowRight size={16}/></Button></div>):<Empty text="No compound risk detected in this replay. Input limitations still apply."/>}</section></div>
- <div className="bottom-grid"><section className="panel"><div className="panel-head"><div><h2>Evidence over time</h2><p>Zone B · current known-evidence subtotal</p></div><Badge tone="teal">Simulator result</Badge></div><div className="chart"><div className="chart-labels"><span>100</span><span>50</span><span>0</span></div><svg viewBox="0 0 800 135" preserveAspectRatio="none" role="img" aria-label="Zone B current score timeline, simulator output"><path d="M0 20H800 M0 70H800 M0 120H800" stroke="#e5ecea" strokeDasharray="4 4" fill="none"/>{replay&&<><polyline points={replay.snapshots.map((s:any,i:number)=>`${i/(replay.snapshots.length-1)*800},${120-(s.zones.find((z:any)=>z.zone_id==='zone-b')?.score||0)}`).join(' ')} stroke="#237e7a" strokeWidth="3" fill="none"/><line x1={index/(replay.snapshots.length-1)*800} x2={index/(replay.snapshots.length-1)*800} y1="5" y2="130" stroke="#c29146" strokeWidth="2" strokeDasharray="4 3"/></>}</svg></div><div className="chart-footer"><span>{replay&&date(replay.snapshots[0].time)}</span><button className="text-button" onClick={()=>navigate('simulator')}>Explore replay <ArrowRight size={14}/></button></div></section><section className="panel"><div className="panel-head"><h2>Workspace activity</h2><button className="text-button" onClick={()=>navigate('audit')}>View all <ArrowRight size={14}/></button></div><div className="activity-list">{audit.slice(0,3).map(a=><div key={a.id}><span className="activity-dot"/><div><b>{a.action}</b><small>{a.actor} · {date(a.created_at)}</small></div></div>)}{!audit.length&&<div><span className="activity-dot"/><div><b>Your preview workspace is ready</b><small>Add a crew, log an inspection or record an incident.</small></div></div>}<button className="quick-action" onClick={()=>open('inspection')}><Plus size={16}/>Log an inspection<ChevronRight size={16}/></button></div></section></div></>}
- {page==='zones'&&<><div className="panel">{zoneMap()}</div><div className="zone-cards">{snapshot.zones.map((z:any)=><section className="panel zone-card" key={z.zone_id}><div className="panel-head"><span className="zone-letter">{z.zone_id.slice(-1).toUpperCase()}</span><Badge tone={z.open_alert?'gold':'teal'}>{z.open_alert?'Alert open':'No compound risk detected'}</Badge></div><h2>{zoneName(z.zone_id)}</h2><p>{z.zone_reference.mine_id} → {z.zone_reference.area_id} → {z.zone_id} · v{z.zone_reference.version}</p><div className="zone-score">{z.displayed_score.toFixed(1)}<small>Retained / current evidence score</small></div><p>{z.confidence.evaluated_risk_factors}/8 risk factors evaluated · {z.registered_workers} registered in historical replay</p><Button className="secondary full" onClick={()=>{setZone(z.zone_id);setDetail(true)}}>Inspect evidence <ArrowRight size={16}/></Button></section>)}</div></>}
- {page==='workers'&&<><div className="section-toolbar"><div><h2>Shift register</h2><p>{active.length} registered · {records.filter(r=>r.kind==='worker'&&r.data.status==='checked-out').length} checked out</p></div><div><Button className="secondary" disabled={seeding||busy||!connected} onClick={seedWorkers}>Load synthetic crew</Button><Button className="primary" onClick={()=>open('worker')}><Plus size={16}/>Register worker</Button><Button className="secondary" onClick={()=>open('muster')}>Start muster</Button></div></div><div className="info-note"><CircleHelp size={17}/>Zone assignment is a registration, not a tracked location. Muster confirmations are recorded by a person.</div><div className="panel"><div className="table-search"><Search size={16}/><input aria-label="Search workers" placeholder="Search name, role or zone…" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="table-wrap"><table><thead><tr><th>Worker</th><th>Assigned zone</th><th>Shift / role</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered('worker').map(r=><tr key={r.id}><td><div className="person"><span className="avatar">{r.data.name[0]}</span><b>{r.data.name}</b></div></td><td>{zoneName(r.zone)}</td><td>{r.data.role||'Crew member'}<small>{r.data.shift||'Demo shift'}</small></td><td><Badge tone={r.data.status==='checked-out'?'neutral':'teal'}>{r.data.status}</Badge></td><td><button className="text-button" onClick={()=>open('worker',r)}>Edit / move</button>{r.data.status!=='checked-out'&&<button className="text-button" disabled={seeding||busy} onClick={()=>save('worker',{...r.data,status:'checked-out'},r,r.zone)}>Check out</button>}</td></tr>)}</tbody></table>{!filtered('worker').length&&<Empty text="No workers in this register. Load the synthetic crew or register a demo worker."/>}</div></div><h2 className="section-title">Muster records</h2>{filtered('muster').map(r=><section className="panel muster" key={r.id}><div className="panel-head"><div><h2>{r.data.name}</h2><p>{zoneName(r.zone)} · {date(r.createdAt)}</p></div><Badge tone="gold">{r.data.members.filter((m:any)=>!m.confirmed).length} awaiting confirmation</Badge></div>{r.data.members.length===0?<p>No registered workers were assigned to this zone when muster started.</p>:r.data.members.map((m:any)=><div className="muster-person" key={m.id}><span>{m.name}</span><span>{m.confirmed?'Confirmed by '+m.actor:'Awaiting confirmation'}</span><Button disabled={seeding||busy||m.confirmed} className="secondary" onClick={()=>save('muster',{...r.data,members:r.data.members.map((x:any)=>x.id===m.id?{...x,confirmed:true,actor,at:new Date().toISOString()}:x)},r,r.zone)}><Check size={14}/>Confirm accounted for</Button></div>)}</section>)}</>}
- {(page==='inspections'||page==='incidents')&&<><div className="section-toolbar"><div><h2>{page==='inspections'?'Inspection log':'Incident register'}</h2><p>{page==='inspections'?'Completions and deferrals retain their original due dates.':'Human responses and chronological evidence, linked to a zone.'}</p></div><Button className="primary" onClick={()=>open(page==='inspections'?'inspection':'incident')}><Plus size={16}/>{page==='inspections'?'Log inspection':'Open incident'}</Button></div><div className="info-note"><Fingerprint size={17}/>These are new preview workflow records. Historical risk replay remains immutable and is not rescored by these entries.</div><div className="panel"><div className="table-wrap"><table><thead><tr><th>{page==='inspections'?'Inspection':'Incident'}</th><th>Zone</th><th>Status</th><th>Recorded by</th><th>Record</th></tr></thead><tbody>{filtered(page==='inspections'?'inspection':'incident').map(r=><tr key={r.id}><td><b>{r.data.name}</b><small>{date(r.createdAt)}</small></td><td>{zoneName(r.zone)}</td><td><Badge tone={r.data.status==='deferred'||r.data.status==='open'?'gold':'teal'}>{r.data.status}</Badge>{r.data.dueAt&&<small>Original due: {date(r.data.dueAt)}</small>}</td><td>{r.data.actor}</td><td><button className="text-button" onClick={()=>open(page==='inspections'?'view':'incident',r)}>{page==='inspections'?'View record':'Update response'}<ArrowRight size={14}/></button></td></tr>)}</tbody></table>{!filtered(page==='inspections'?'inspection':'incident').length&&<Empty text={page==='inspections'?'No inspections recorded in your preview yet.':'No incidents recorded in your preview yet.'}/>}</div></div>{page==='incidents'&&<section className="panel report-note"><FileText size={26}/><div><h3>Prepare a reviewable incident report</h3><p>Export includes zone, timestamps, recorded responses and audit history. A named person reviews and submits any external notification.</p><button className="text-button" onClick={()=>download('foresight-incident-report.json',{records:records.filter(r=>r.kind==='incident'||r.kind==='muster'),audit})}>Download incident report <ArrowDownToLine size={15}/></button></div></section>}</>}
- {page==='lite'&&<><div className="lite-grid"><section className="panel lite-phone"><div className="phone"><span className="phone-ear"/><div className="phone-screen"><div className="phone-status">FORESIGHT LITE <Radio size={15}/></div><h2>Someone knows<br/>you’re there.</h2><p>Software menu preview</p><button onClick={()=>open('lite')}>1. Shaft & buddy check-in <ChevronRight size={16}/></button><button onClick={()=>document.getElementById('lite-register')?.scrollIntoView({behavior:'smooth'})}>2. Check out <ChevronRight size={16}/></button><button onClick={()=>{open('incident');setForm({name:'Lite escalation drill',zone:'zone-b',notes:'Software escalation drill. No emergency service contacted.',status:'open'})}}>3. Emergency escalation drill <ChevronRight size={16}/></button><div className="phone-info">This browser preview sends no SMS, makes no call and has no USSD connection.</div></div></div></section><section><div className="section-toolbar"><div><h2>Buddy accountability</h2><p>Minimal registration. Expected return. A contact to follow up.</p></div></div><div className="panel lite-explain"><Radio size={30}/><h3>Try the complete check-in workflow</h3><p>Register a demo shaft, choose an expected return and nominate a fictional buddy. Overdue status uses the current clock with a 30-minute demo grace period.</p><p>Overdue contact notifications are recorded in the software outbox for inspection. No external message is delivered.</p><Button className="primary" onClick={()=>open('lite')}><Plus size={16}/>New buddy check-in</Button></div></section></div><h2 className="section-title" id="lite-register">Check-ins</h2>{filtered('lite').map(r=>{const overdue=r.data.status!=='checked-out'&&Date.now()>Date.parse(r.data.expectedReturn)+30*60000;return <section className="panel lite-entry" key={r.id}><div><h3>{r.data.name}</h3><p>{zoneName(r.zone)} · Buddy: {r.data.contact}</p><small>Expected return: {date(r.data.expectedReturn)} · {r.data.headcount||1} registered</small></div><Badge tone={overdue?'gold':'teal'}>{r.data.status==='checked-out'?'Checked out':overdue?'Overdue · follow-up needed':'Awaiting return'}</Badge>{r.data.status!=='checked-out'&&<Button className="secondary" disabled={seeding||busy} onClick={()=>save('lite',{...r.data,status:'checked-out'},r,r.zone)}>Check out</Button>}{overdue&&<Button className="primary" disabled={seeding||busy} onClick={()=>save('notification',{name:'Buddy follow-up: '+r.data.name,notes:'Demo notification only; not sent.',contact:r.data.contact,liteId:r.id,status:'simulated-outbox'},undefined,r.zone)}>Record demo notification</Button>}</section>})}{!filtered('lite').length&&<div className="panel"><Empty text="No buddy check-ins yet. Use the software menu to create one."/></div>}<h2 className="section-title">Simulated outbox</h2>{filtered('notification').map(r=><div className="panel outbox" key={r.id}><Radio size={18}/><div><b>{r.data.name}</b><p>{r.data.notes} Contact: {r.data.contact}</p></div><Badge>Not sent</Badge></div>)}</>}
- {page==='simulator'&&<><section className="panel replay-panel"><div className="panel-head"><div><h2>Replay a development experiment</h2><p>Precomputed output from the Python engine · no private ground truth enters scoring</p></div><Button className="primary" disabled={!replay} onClick={()=>setPlaying(!playing)}>{playing?'Pause replay':'Play replay'}<Activity size={16}/></Button></div><input className="timeline-range" aria-label="Simulation replay time" type="range" min="0" max={(replay?.snapshots.length||1)-1} value={index} onChange={e=>{const i=Number(e.target.value);setIndex(i);setSnapshot(replay.snapshots[i]);setPlaying(false)}}/><div className="chart-footer"><span>{replay&&date(replay.snapshots[0].time)}</span><b>{date(snapshot.time)}</b><span>{replay&&date(replay.snapshots.at(-1).time)}</span></div><div className="zone-cards">{snapshot.zones.map((z:any)=><button className="sim-zone" key={z.zone_id} onClick={()=>{setZone(z.zone_id);setDetail(true)}}><strong>{zoneName(z.zone_id)}</strong><b>{z.displayed_score.toFixed(1)}</b><Badge tone={z.open_alert?'gold':'teal'}>{z.open_alert?'Alert remains open':'No compound risk detected'}</Badge><small>Current subtotal {z.score.toFixed(1)} · {z.confidence.evaluated_risk_factors}/8 inputs</small></button>)}</div></section><div className="bottom-grid"><section className="panel restraint"><div className="panel-head"><h2>Single-variable restraint</h2><Badge tone="teal">Interactive property demo</Badge></div><p>Move water accumulation across its full normalized range. All other factors stay nominal. One evidence group cannot unlock a compound alert.</p><label>Water accumulation <strong>{single}% normalized</strong><input id="single-water-factor" aria-label="Single water factor" aria-describedby="water-demo-help" type="range" min="0" max="100" value={single} onChange={e=>setSingle(Number(e.target.value))}/></label><div className="water-presets" aria-label="Water accumulation presets">{[0,25,50,75,100].map(value=><button key={value} type="button" aria-pressed={single===value} onClick={()=>setSingle(value)}>{value}%</button>)}</div><p id="water-demo-help">This independent demo changes the water contribution below, not the historical replay or zone scores above. No compound alert is expected from water alone.</p><div className="restraint-result" aria-live="polite"><Activity size={28}/><div><h3>No compound risk detected</h3><p>Water trend contribution: {(single*(register.factors.find(f=>f.id==='water_rate')!.weight/100)).toFixed(1)} · 1 group · 0 qualifying interactions</p></div></div><small>Illustrates register 0.3.0. Python suite covers 3,030 single-factor cases across three versions.</small></section><section className="panel metrics-panel"><div className="panel-head"><h2>Development evidence</h2><FlaskConical size={18}/></div><div className="metric-line"><span>Wet / dry target lead time</span><b>23h / 29h</b></div><div className="metric-line"><span>Matched-control alerts</span><b>0 / 0</b></div><div className="metric-line"><span>Retrospective rainfall unmatched alerts</span><b className="amber-text">2</b></div><p>Simulator results from scenarios used during tuning. Not holdout testing, not field validation. Target is a synthetic sustained sump level, not ground failure.</p><button className="text-button" onClick={()=>download('foresight-simulator-metrics.json',{scenario,metrics:replay?.metrics})}>Download scenario evidence <ArrowDownToLine size={15}/></button></section></div></>}
- {page==='audit'&&<Tabs defaultValue="activity"><TabsList><TabsTrigger value="activity">Audit trail</TabsTrigger><TabsTrigger value="register">Factor register</TabsTrigger><TabsTrigger value="about">About this preview</TabsTrigger></TabsList><TabsContent value="activity"><section className="panel"><div className="panel-head"><div><h2>Append-only activity history</h2><p>Server-recorded identity and timestamps · simulator preview records</p></div><Button className="secondary" onClick={refresh}><RefreshCw size={15}/>Refresh</Button></div>{audit.map(a=><details className="audit-row" key={a.id}><summary><span className="activity-dot"/><b>{a.action}</b><span>{a.actor}</span><small>{date(a.created_at)}</small><ChevronRight size={14}/></summary><pre>{JSON.stringify(JSON.parse(a.detail),null,2)}</pre></details>)}{!audit.length&&<Empty text="The audit trail will appear as you save workflow records."/>}</section></TabsContent><TabsContent value="register"><section className="panel register-panel"><div className="panel-head"><div><h2>Provisional factor register 0.3.0</h2><p>Immutable version · professional review outstanding</p></div><Button className="secondary" onClick={()=>download('foresight-register.json',{register})}>Download register</Button></div><p>Independent evidence groups and explicit interactions are required. Water and pump duty are grouped; a single changing factor never creates an alert.</p><pre>{JSON.stringify(register,null,2)}</pre></section></TabsContent><TabsContent value="about"><section className="panel about-panel"><img src="/foresight-logo.jpeg" alt="Foresight — safer mines, smarter decisions, brighter tomorrows"/><div><h2>Built to make the evidence visible.</h2><p>The Command Centre replays real outputs from the existing simulator and provisional Mine Brain. WorkerSafe, inspections, MineShield and Lite store separate demo workflow records in the shared public demo workspace.</p><p>The hosted preview needs a network connection to save. It does not claim offline synchronization. The Python foundation remains available for local offline simulation.</p><p>No hardware, equipment controls, gas detection or ground movement measurement. Risk inference is unvalidated and is not a zone clearance. Lite messages and escalation are software demonstrations only.</p><Badge tone="gold">Professional review outstanding</Badge></div></section></TabsContent></Tabs>}
- <footer className="page-footer"><span>FORESIGHT <i/> Safer mines. Smarter decisions.</span><span>Simulator results · Provisional register 0.3.0 · No automatic actions</span></footer></main></SidebarInset>
- <Dialog open={detail} onOpenChange={setDetail}><DialogContent className="evidence-dialog"><DialogHeader><div className="eyebrow">ZONE {zone.slice(-1).toUpperCase()} · SIMULATOR EVIDENCE</div><DialogTitle>{zoneName(zone)}</DialogTitle><DialogDescription>{selected.zone_reference.mine_id} → {selected.zone_reference.area_id} → {zone} · {date(snapshot.time)}</DialogDescription></DialogHeader><div className="evidence-score"><div><small>Retained evidence score</small><strong>{selected.displayed_score.toFixed(1)}<em>/100</em></strong></div><div><Badge tone={selected.open_alert?'gold':'teal'}>{selected.open_alert?'Compound alert open':'No compound risk detected'}</Badge><p>Current subtotal: {selected.score.toFixed(1)} · {selected.confidence.evaluated_risk_factors}/8 evaluated</p></div></div><p className="info-note">{selected.displayed_score_basis}. Scores are not probabilities. Unknown inputs are not estimated.</p><Tabs defaultValue="current"><TabsList><TabsTrigger value="current">Current factors</TabsTrigger><TabsTrigger value="peak">Retained peak</TabsTrigger><TabsTrigger value="response">Human response</TabsTrigger></TabsList><TabsContent value="current">{factorRows(selected)}<div className="factor-expanded"><b>Qualifying interactions</b><pre>{JSON.stringify(selected.interactions,null,2)}</pre>{selected.explanation.limitations.map((x:string)=><p key={x}>{x}</p>)}</div></TabsContent><TabsContent value="peak"><p>Peak evidence at {date(selected.peak_evidence.evaluated_at)} · score {selected.peak_evidence.score.toFixed(1)}</p>{factorRows(selected.peak_evidence)}</TabsContent><TabsContent value="response"><p>Record acknowledgement and a named person’s decision. This does not change the historical replay or clear a zone.</p><Button className="primary" onClick={()=>{setDetail(false);open('decision');setForm({name:'Review of '+zoneName(zone),zone,notes:'',status:'acknowledged'})}}>Record human response</Button>{records.filter(r=>r.kind==='decision'&&r.zone===zone).map(r=><div className="response-record" key={r.id}><b>{r.data.name}</b><p>{r.data.notes}</p><small>{r.data.actor} · {date(r.createdAt)} · {r.data.status}</small></div>)}</TabsContent></Tabs><div className="evidence-meta"><small>Provisional and unvalidated · {selected.register_version}<br/>SHA-256: {selected.register_sha256}</small><button className="text-button" onClick={()=>download('foresight-zone-evidence.json',{scenario,evidence:selected})}>Export full evidence <ArrowDownToLine size={14}/></button></div></DialogContent></Dialog>
- <Dialog open={!!modal} onOpenChange={v=>!v&&setModal(null)}><DialogContent className="record-dialog"><DialogHeader><DialogTitle>{modal?.kind==='view'?'Inspection record':modal?.record?'Update '+modal.kind:'New '+(modal?.kind==='lite'?'buddy check-in':modal?.kind==='decision'?'human response':modal?.kind||'record')}</DialogTitle><DialogDescription>Simulator workflow · saved with your identity and timestamp</DialogDescription></DialogHeader>{modal?.kind==='view'?<pre>{JSON.stringify(modal.record,null,2)}</pre>:<form onSubmit={submit} className="record-form">{field('name',modal?.kind==='worker'?'Worker name (synthetic)':'Title / name')}<label className="field">Zone<select value={form.zone} onChange={e=>setForm({...form,zone:e.target.value})}>{zones.map(z=><option key={z.id} value={z.id}>{z.name} · {z.area}</option>)}</select></label>{modal?.kind==='worker'&&<>{field('role','Role','text',false)}{field('shift','Shift','text',false)}<label className="field">Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="registered">Registered</option><option value="checked-out">Checked out</option></select></label></>}{modal?.kind==='inspection'&&<>{field('dueAt','Original due date / time','datetime-local')}<label className="field">Outcome<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="completed">Completed</option><option value="deferred">Deferred — original due date retained</option><option value="finding-recorded">Finding recorded</option></select></label></>}{modal?.kind==='incident'&&<>{field('category','Category (e.g. near miss)','text',false)}{field('affected','People potentially affected','number',false)}</>}{modal?.kind==='incident'&&<label className="field">Response status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="closed-record">Closed record — not a zone clearance</option></select></label>}{modal?.kind==='decision'&&<label className="field">Record type<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="acknowledged">Acknowledgement</option><option value="review-recorded">Review decision recorded</option></select></label>}{modal?.kind==='lite'&&<>{field('contact','Fictional buddy contact')}{field('expectedReturn','Expected return','datetime-local')}{field('headcount','Registered headcount','number')}<small>Use fictional contact details. No messages will be sent.</small></>}{modal?.kind==='muster'&&<p>{active.filter(r=>r.zone===form.zone).length} currently registered workers will be included in this muster snapshot.</p>}{['inspection','incident','decision'].includes(modal?.kind)&&<label className="field">{modal?.kind==='incident'?'Response notes':'Findings / rationale'}<textarea required maxLength={4000} rows={4} value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})}/></label>}{error&&<p role="alert" className="form-error">{error}</p>}<div className="form-footer"><Button type="button" className="secondary" onClick={()=>setModal(null)}>Cancel</Button><Button type="submit" className="primary" disabled={seeding||busy||!connected}>{busy?'Saving…':'Save preview record'}</Button></div></form>}</DialogContent></Dialog>
- </>;
+"use client";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Activity,
+  Map,
+  FileText,
+  Users,
+  FlaskConical,
+  Menu,
+  Settings,
+  RefreshCw,
+  Download,
+  LogOut,
+  ArrowUpRight,
+} from "lucide-react";
+import { authClient } from "@/lib/client/auth";
+import { cache, cached, clearCache, queued, sync } from "@/lib/client/queue";
+import { CommandCentre } from "@/components/foresight/command";
+const Evidence = dynamic(
+  () => import("@/components/foresight/evidence").then((m) => m.Evidence),
+  { loading: () => <p role="status">Loading workspace view…</p> },
+);
+const People = dynamic(
+  () => import("@/components/foresight/people").then((m) => m.People),
+  { loading: () => <p role="status">Loading workspace view…</p> },
+);
+const MineMap = dynamic(
+  () => import("@/components/foresight/mine-map").then((m) => m.MineMap),
+  { loading: () => <p role="status">Loading workspace view…</p> },
+);
+const Simulator = dynamic(
+  () => import("@/components/foresight/simulator").then((m) => m.Simulator),
+  { loading: () => <p role="status">Loading workspace view…</p> },
+);
+import {
+  date,
+  Dialog,
+  ErrorText,
+  Tag,
+  type WorkspaceData,
+} from "@/components/foresight/shared";
+import "./upgrade.css";
+const nav = [
+  ["overview", "Command Centre", Activity],
+  ["map", "Mine Map", Map],
+  ["evidence", "Evidence", FileText],
+  ["people", "People and Response", Users],
+  ["simulator", "Simulator Lab", FlaskConical],
+] as const;
+const aliases: Record<string, string> = {
+  zones: "map",
+  workers: "people",
+  incidents: "people",
+  inspections: "evidence",
+  assistant: "evidence",
+  lite: "evidence",
+  audit: "overview",
+};
+let sessionStarting: Promise<void> | undefined;
+async function ensureSession() {
+  sessionStarting ||= (async () => {
+    const session = await authClient.getSession();
+    if (!session.data) {
+      const result = await authClient.signIn.anonymous();
+      if (result.error)
+        throw new Error(result.error.message || "Session unavailable.");
+    }
+  })();
+  try {
+    await sessionStarting;
+  } catch (error) {
+    sessionStarting = undefined;
+    throw error;
+  }
+}
+export default function Workspace() {
+  const [data, setData] = useState<WorkspaceData | null>(null),
+    [page, setPage] = useState("overview"),
+    [zone, setZone] = useState("all"),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [offline, setOffline] = useState(false),
+    [settings, setSettings] = useState(false),
+    [menu, setMenu] = useState(false),
+    [pending, setPending] = useState(0),
+    [starting, setStarting] = useState(true);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then((registration) => {
+        const urls = performance
+          .getEntriesByType("resource")
+          .map((e) => e.name);
+        registration.active?.postMessage({ type: "CACHE_SHELL", urls });
+      })
+      .catch(() => {});
+  }, []);
+  const refresh = useCallback(async () => {
+    try {
+      if (!navigator.onLine)
+        throw new Error("Offline: showing the last synced workspace.");
+      await ensureSession();
+      const response = await fetch("/api/workspace/state", {
+          cache: "no-store",
+        }),
+        next = await response.json();
+      if (!response.ok)
+        throw new Error(next.message || "Workspace unavailable.");
+      setData(next);
+      setOffline(false);
+      setError("");
+      await cache(next.workspace.id, next);
+      setPending(
+        (await queued(next.workspace.id)).filter((q) => q.state !== "synced")
+          .length,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+      const id = localStorage.getItem("foresight-last-workspace");
+      if (id) {
+        const previous = await cached(id);
+        if (previous) {
+          setData(previous);
+          setOffline(true);
+          setPending(
+            (await queued(id)).filter((q) => q.state !== "synced").length,
+          );
+        }
+      }
+    } finally {
+      setStarting(false);
+    }
+  }, []);
+  useEffect(() => {
+    void refresh();
+    const navigate = () => {
+      const hash = location.hash.slice(1);
+      setPage(
+        aliases[hash] || (nav.some((n) => n[0] === hash) ? hash : "overview"),
+      );
+    };
+    navigate();
+    window.addEventListener("hashchange", navigate);
+    const online = () => void refresh();
+    window.addEventListener("online", online);
+    return () => {
+      window.removeEventListener("hashchange", navigate);
+      window.removeEventListener("online", online);
+    };
+  }, [refresh]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 7000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const post = useCallback(
+    async (path: string, body: unknown = {}, key = crypto.randomUUID()) => {
+      if (!data) throw new Error("Workspace has not loaded.");
+      const response = await fetch("/api/workspace/" + path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": key,
+          "X-Workspace-Id": data.workspace.id,
+        },
+        body: JSON.stringify(body),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Request failed.");
+      return result;
+    },
+    [data],
+  );
+  async function syncNow() {
+    if (!data) return;
+    try {
+      const outcomes = await sync(data.workspace.id);
+      setNotice(
+        outcomes.length
+          ? `Sync reviewed ${outcomes.length} submission(s). Conflicts retain your content.`
+          : "No pending submissions.",
+      );
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function signOut() {
+    if (!data) return;
+    const unsynced = (await queued(data.workspace.id)).some(
+      (q) => q.state !== "synced",
+    );
+    if (unsynced) {
+      setError(
+        "Sync or resolve your queued content before leaving this session. Drafts stay scoped to this workspace.",
+      );
+      return;
+    }
+    await authClient.signOut();
+    await clearCache();
+    sessionStarting = undefined;
+    setData(null);
+    setSettings(false);
+    await refresh();
+  }
+  const props = data ? { data, zone, refresh, post, notify: setNotice } : null;
+  return (
+    <div className="fs-app">
+      <a href="#main-content" className="fs-skip">
+        Skip to content
+      </a>
+      <aside className={"fs-sidebar " + (menu ? "open" : "")}>
+        <a className="fs-brand" href="#overview">
+          <span className="fs-brand-mark">
+            F<span>°</span>
+          </span>
+          <span>
+            foresight<small>MINE INTELLIGENCE</small>
+          </span>
+        </a>
+        <div className="fs-site-label">YOUR WORKSPACE</div>
+        <nav aria-label="Primary navigation">
+          {nav.map(([id, label, Icon], i) => (
+            <a
+              key={id}
+              href={"#" + id}
+              aria-label={label}
+              aria-current={page === id ? "page" : undefined}
+              className={page === id ? "active" : ""}
+              onClick={() => setMenu(false)}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+              <small>0{i + 1}</small>
+            </a>
+          ))}
+        </nav>
+        <div className="fs-sidebar-bottom">
+          <div className="fs-mode">
+            <span className="fs-status-dot" />
+            <div>
+              <strong>Isolated demonstration</strong>
+              <small>Fictional site · human review</small>
+            </div>
+          </div>
+          <button onClick={() => setSettings(true)}>
+            <Settings size={17} /> Workspace and records
+          </button>
+          <small className="fs-version">DEVELOPMENT RELEASE · 1.0</small>
+        </div>
+      </aside>
+      <div className="fs-content">
+        <header className="fs-topbar">
+          <button
+            className="fs-mobile-toggle"
+            aria-label="Toggle navigation"
+            onClick={() => setMenu(!menu)}
+          >
+            <Menu />
+          </button>
+          <span className="fs-breadcrumb">
+            Workspace <span>/</span> {nav.find((n) => n[0] === page)?.[1]}
+          </span>
+          <div className="fs-top-actions">
+            <Tag tone={offline ? "amber" : "teal"}>
+              {offline ? "Offline · cached" : "Development"}
+            </Tag>
+            <button
+              onClick={() => void refresh()}
+              aria-label="Refresh workspace"
+            >
+              <RefreshCw size={17} />
+            </button>
+            <span className="fs-avatar" title="Fictional demo supervisor">
+              DS
+            </span>
+          </div>
+        </header>
+        <main id="main-content" tabIndex={-1}>
+          <div className="fs-context">
+            <span>
+              {data?.site.name || "Mavambo training mine"}{" "}
+              <ArrowUpRight size={13} />
+            </span>
+            <label>
+              Zone{" "}
+              <select
+                aria-label="Selected zone"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+              >
+                <option value="all">All zones</option>
+                {data?.site.zones.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="fs-time">
+              {data
+                ? `Snapshot synced ${date(data.latestSyncedAt)}`
+                : "Connecting to local records…"}
+            </span>
+          </div>
+          {error && (
+            <div className="fs-alert">
+              <ErrorText message={error} />
+              <button onClick={() => void refresh()}>Retry</button>
+            </div>
+          )}
+          {notice && (
+            <div role="status" className="fs-notice">
+              {notice}
+            </div>
+          )}
+          {pending > 0 && (
+            <div className="fs-queue-banner">
+              {pending} local submission(s) awaiting sync or review.
+              <button onClick={() => void syncNow()}>Sync queue</button>
+            </div>
+          )}
+          {starting && !data ? (
+            <div className="fs-loading" role="status">
+              Opening your isolated workspace…
+            </div>
+          ) : !props ? (
+            <div className="fs-empty">
+              <h1>Workspace unavailable</h1>
+              <p>
+                Check the local database and authentication configuration, then
+                retry.
+              </p>
+              <button onClick={() => void refresh()}>Try again</button>
+            </div>
+          ) : (
+            <>
+              {page === "overview" && <CommandCentre {...props} />}{" "}
+              {page === "evidence" && <Evidence {...props} />}{" "}
+              {page === "people" && <People {...props} />}{" "}
+              {page === "map" && <MineMap {...props} />}{" "}
+              {page === "simulator" && <Simulator {...props} />}
+            </>
+          )}
+          <footer className="fs-footer">
+            <span>
+              FORESIGHT <span> / </span> Evidence before decisions.
+            </span>
+            <span>
+              Fictional inputs · planning approximation · no automatic actions
+            </span>
+          </footer>
+        </main>
+      </div>
+      {settings && (
+        <Dialog
+          title="Workspace and records"
+          onClose={() => setSettings(false)}
+        >
+          <Tag tone="teal">{data?.workspace.mode || "Development"}</Tag>
+          <p>
+            This visitor has a separate fictional workspace. Demonstration
+            actors are unverified; no real mine records belong here.
+          </p>
+          <dl className="fs-meta">
+            <dt>Role</dt>
+            <dd>{data?.workspace.role}</dd>
+            <dt>Workspace</dt>
+            <dd>{data?.workspace.id}</dd>
+            <dt>Timezone</dt>
+            <dd>Africa/Harare · CAT · UTC+02</dd>
+            <dt>Latest synced</dt>
+            <dd>{date(data?.latestSyncedAt)}</dd>
+          </dl>
+          <h3>Records and technical details</h3>
+          <div className="fs-button-row">
+            <a className="fs-button" href="/api/workspace/export">
+              <Download size={16} /> Evidence bundle
+            </a>
+            <a
+              className="fs-button secondary"
+              href="/api/workspace/export?format=text"
+            >
+              Readable timeline
+            </a>
+            <a
+              className="fs-button secondary"
+              href="/api/workspace/legacy-register"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Legacy model details
+            </a>
+          </div>
+          <details>
+            <summary>Historical development experiments</summary>
+            <p>
+              Read-only precomputed artifacts. Their scores are unvalidated
+              development values.
+            </p>
+            {[
+              "wet",
+              "dry",
+              "wet-control",
+              "dry-control",
+              "wet-retrospective",
+            ].map((s) => (
+              <a
+                className="fs-inline-link"
+                key={s}
+                href={"/replay/" + s + ".json"}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {s}
+              </a>
+            ))}
+          </details>
+          <h3>Services</h3>
+          <p>
+            AI:{" "}
+            {data?.services.ai
+              ? "configured; requests still require verification"
+              : "unavailable; manual facts supported"}
+            . Vision:{" "}
+            {data?.services.vision ? "worker configured" : "not configured"}.
+            Simulation uses a separate local Python worker. Reconstructed
+            geometry needs a supplied asset.
+          </p>
+          <button
+            className="fs-button secondary"
+            onClick={() => void signOut()}
+          >
+            <LogOut size={16} /> Leave session and start a fresh demo
+          </button>
+          <small>
+            Pending drafts must be synced or resolved first. This does not
+            delete historical records.
+          </small>
+        </Dialog>
+      )}
+    </div>
+  );
 }

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./foresight.css";
 
 export const metadata: Metadata = {
   title: "Foresight",
-  description: "Foresight software preview — explainable simulator results, workforce accountability and incident management.",
+  description:
+    "Foresight development workspace — reviewed mine evidence, water scenario planning and human response records.",
   other: {
     "codex-preview": "development",
   },

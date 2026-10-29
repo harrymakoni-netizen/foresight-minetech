@@ -1,2 +1,3 @@
-// Public, shared simulator workspace. This is not an authenticated identity.
-export async function identity(){return {owner:'public-demo',actor:'Public demo visitor (unverified)'};}
+// The legacy shared preview no longer provides an authentication bypass.
+// Its original implementation remains in Git history; new sessions use Better Auth.
+export async function identity():Promise<{owner:string;actor:string}|null>{return null;}

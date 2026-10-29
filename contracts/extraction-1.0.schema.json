@@ -1,0 +1,197 @@
+{
+  "$ref": "#/definitions/extraction-1.0",
+  "definitions": {
+    "extraction-1.0": {
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": [
+                  "water",
+                  "drainage",
+                  "inspection",
+                  "ppe",
+                  "restricted-entry",
+                  "injury",
+                  "other"
+                ]
+              },
+              "zoneId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "zone-a",
+                      "zone-b",
+                      "zone-c"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "assetId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "condition": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "polarity": {
+                "type": "string",
+                "enum": [
+                  "affirmed",
+                  "negated",
+                  "uncertain"
+                ]
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "observed",
+                  "proposed",
+                  "completed"
+                ]
+              },
+              "quantity": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "m",
+                      "m3",
+                      "m3/h",
+                      "m3/s"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timeExpression": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "spans": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end",
+                    "quote"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 20
+              },
+              "interpretation": {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "inferred"
+                ]
+              },
+              "serious": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "category",
+              "zoneId",
+              "assetId",
+              "condition",
+              "polarity",
+              "action",
+              "quantity",
+              "unit",
+              "observedAt",
+              "timeExpression",
+              "spans",
+              "interpretation",
+              "serious"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 30
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "facts",
+        "unknowns"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

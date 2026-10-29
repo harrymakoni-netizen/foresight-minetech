@@ -1,0 +1,164 @@
+{
+  "$ref": "#/definitions/vision-event-1.0",
+  "definitions": {
+    "vision-event-1.0": {
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "cameraId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "trackId": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "zoneId": {
+          "type": "string",
+          "enum": [
+            "zone-a",
+            "zone-b",
+            "zone-c"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "helmet",
+            "vest",
+            "restricted-entry",
+            "feed-loss"
+          ]
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endsAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "assessable",
+            "cannot-assess"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "confirmed-for-review"
+          ]
+        },
+        "frameIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "maxItems": 30
+        },
+        "signals": {
+          "type": "object",
+          "properties": {
+            "equipmentScore": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "personScore": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "visibilityNote": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "equipmentScore",
+            "personScore",
+            "visibilityNote"
+          ],
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "modelId": {
+              "type": "string"
+            },
+            "weightsSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "runtime": {
+              "type": "string"
+            },
+            "policyVersion": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "modelId",
+            "weightsSha256",
+            "runtime",
+            "policyVersion"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "schemaVersion",
+        "workspaceId",
+        "cameraId",
+        "sessionId",
+        "trackId",
+        "zoneId",
+        "type",
+        "startsAt",
+        "endsAt",
+        "visibility",
+        "state",
+        "frameIds",
+        "provenance"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

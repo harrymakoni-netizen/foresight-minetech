@@ -1,0 +1,11 @@
+{
+  "schemaVersion":"1.0",
+  "independentReviewComplete":false,
+  "releaseThresholds":null,
+  "requiredSourceClips":12,
+  "suppliedSourceClips":0,
+  "splitUnit":"source clip and capture conditions; never neighbouring random frames",
+  "requiredConditions":["normal helmet and vest","potentially missing helmet","potentially missing vest","head occlusion","torso occlusion","overlap and ID changes","darkness","boundary jitter","restricted entry and reentry","feed loss"],
+  "clips":[],
+  "status":"Awaiting consented or appropriately licensed clips, independently reviewed event labels and owner-approved thresholds. No precision, recall, false-alert rate or live alert-latency claims are available."
+}

@@ -49,3 +49,12 @@ next-env.d.ts
 ACCESS.txt
 
 /.minetech-data/
+
+# Local Python environments, workers and QA artifacts
+/.venv/
+__pycache__/
+*.pyc
+/test-results/
+/playwright-report/
+
+!.env.example

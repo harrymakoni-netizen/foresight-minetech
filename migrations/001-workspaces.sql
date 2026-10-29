@@ -1,0 +1,13 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, site_id TEXT NOT NULL, name TEXT NOT NULL, mode TEXT NOT NULL CHECK(mode IN ('demonstration','development','private','legacy')), created_at TEXT NOT NULL, expires_at TEXT);
+CREATE TABLE IF NOT EXISTS memberships (workspace_id TEXT NOT NULL REFERENCES workspaces(id), user_id TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('viewer','reporter','supervisor','administrator')), PRIMARY KEY(workspace_id,user_id));
+CREATE TABLE IF NOT EXISTS entities (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), kind TEXT NOT NULL, zone_id TEXT, revision INTEGER NOT NULL CHECK(revision>0), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)), UNIQUE(workspace_id,id));
+CREATE INDEX IF NOT EXISTS entity_scope ON entities(workspace_id,kind,created_at);
+CREATE TABLE IF NOT EXISTS entity_links (workspace_id TEXT NOT NULL, source_id TEXT NOT NULL, target_id TEXT NOT NULL, relation TEXT NOT NULL, PRIMARY KEY(workspace_id,source_id,target_id,relation), FOREIGN KEY(workspace_id,source_id) REFERENCES entities(workspace_id,id), FOREIGN KEY(workspace_id,target_id) REFERENCES entities(workspace_id,id));
+CREATE TABLE IF NOT EXISTS audit_events (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), entity_id TEXT REFERENCES entities(id), actor TEXT NOT NULL, operation TEXT NOT NULL, server_at TEXT NOT NULL, before_json TEXT, after_json TEXT);
+CREATE TABLE IF NOT EXISTS idempotency (workspace_id TEXT NOT NULL REFERENCES workspaces(id), key TEXT NOT NULL, input_hash TEXT NOT NULL, result_json TEXT NOT NULL, PRIMARY KEY(workspace_id,key));
+CREATE TABLE IF NOT EXISTS usage (workspace_id TEXT NOT NULL REFERENCES workspaces(id), day TEXT NOT NULL, category TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(workspace_id,day,category));
+CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT,'Audit events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit_events BEGIN SELECT RAISE(ABORT,'Audit events are append-only'); END;
+INSERT OR IGNORE INTO schema_migrations VALUES(1,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
