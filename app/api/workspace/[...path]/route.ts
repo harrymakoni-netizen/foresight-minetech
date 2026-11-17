@@ -45,6 +45,14 @@ import {
 } from "@/lib/server/checkins";
 import { bindChannel, messagingConfig, messagingMode } from "@/lib/server/messaging";
 import { messagingHealth } from "@/lib/server/gateway";
+import {
+  alertAndMuster,
+  closeEmergency,
+  declareEmergency,
+  incidentReport,
+  rescueRoll,
+  updateRollEntry,
+} from "@/lib/server/emergency";
 import { canSeePersonal, personalKeySource } from "@/lib/server/personal";
 import { manualCheckInSchema, checkInStatusSchema } from "@/lib/domain/checkin";
 import type { Entity } from "@/lib/domain/contracts";
@@ -172,6 +180,42 @@ export async function GET(request: Request, route: RouteContext) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
+    if (path[0] === "emergencies" && path[1] && path[2] === "roll")
+      return Response.json(await rescueRoll(ctx, path[1]), {
+        headers: { "Cache-Control": "no-store" },
+      });
+    if (path[0] === "incidents" && path[1] && path[2] === "pdf") {
+      const report = await incidentReport(ctx, path[1]);
+      return new Response(new Uint8Array(report.pdf), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="foresight-incident-${path[1].slice(0, 8)}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    if (path[0] === "export" && new URL(request.url).searchParams.get("format") === "csv") {
+      const kind = new URL(request.url).searchParams.get("kind") || "check-in";
+      if (!["check-in", "case", "message", "person", "muster"].includes(kind))
+        throw new DomainError(422, "KIND", "Unsupported CSV record kind.");
+      const records = protect(await list(ctx, kind), ctx.role);
+      const keys = [...new Set(records.flatMap((r) => Object.keys(r.data)))].filter(
+        (k) => !["statusHistory", "history", "members", "actions", "timeline", "vars", "nextOfKin"].includes(k),
+      );
+      const cell = (v: unknown) => {
+        const text = v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+        // Neutralise spreadsheet formulas and quote every cell.
+        return '"' + (/^[=+\-@]/.test(text) ? "'" + text : text).replace(/"/g, '""') + '"';
+      };
+      const csv = [["id", "createdAt", "updatedAt", "zoneId", ...keys].map(cell).join(","), ...records.map((r) => [r.id, r.createdAt, r.updatedAt, r.zoneId, ...keys.map((k) => r.data[k])].map(cell).join(","))].join("\r\n");
+      return new Response(csv, {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="foresight-${kind}.csv"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
     if (path[0] === "checkins") {
       const all = await list(ctx, "check-in");
       return Response.json(
@@ -286,6 +330,8 @@ export async function POST(request: Request, route: RouteContext) {
         "people",
         "checkins",
         "messaging",
+        "emergencies",
+        "roll",
         "assessments",
         "scenarios",
         "snapshots",
@@ -404,6 +450,16 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
       if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "emergencies" && !path[1]) return await declareEmergency(ctx, body);
+      if (path[0] === "emergencies" && path[2] === "alert")
+        return await alertAndMuster(ctx, path[1]);
+      if (path[0] === "emergencies" && path[2] === "close")
+        return await closeEmergency(
+          ctx,
+          path[1],
+          z.object({ reason: z.string().min(3).max(500) }).strict().parse(body).reason,
+        );
+      if (path[0] === "roll" && path[1]) return await updateRollEntry(ctx, path[1], body);
       if (path[0] === "people" && path[2] === "consent") {
         const b = z
           .object({ given: z.boolean(), note: z.string().trim().min(3).max(500) })

@@ -3,7 +3,7 @@
 // alerts with per-message delivery status, gateway and scheduler health.
 // Wording rule: "declared underground", never "is underground".
 import { useEffect, useState } from "react";
-import { AlertTriangle, MessageSquare, Radio, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, MessageSquare, Radio, Siren, UserPlus, Users } from "lucide-react";
 import { queue, queued, sync, type Queued } from "@/lib/client/queue";
 import {
   date,
@@ -72,7 +72,8 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
   const people = rows(data, "person");
   const messages = rows(data, "message");
   const supervisor = ["supervisor", "administrator"].includes(data.workspace.role);
-  const [dialog, setDialog] = useState<null | "checkin" | "muster" | { row: Row; to: string }>(null);
+  const [dialog, setDialog] = useState<null | "checkin" | "muster" | "emergency" | { row: Row; to: string }>(null);
+  const emergencies = rows(data, "emergency").filter((e) => e.data.status === "active");
   const [pending, setPending] = useState<Queued[]>([]);
   useEffect(() => {
     void queued(data.workspace.id)
@@ -134,8 +135,14 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
         </Tag>
         <Tag tone={m?.scheduler.running ? "teal" : "red"}>{m?.scheduler.message || "Scheduler status unknown"}</Tag>
       </div>
+      {emergencies.map((e) => (
+        <EmergencyPanel key={e.id} emergency={e} data={data} post={post} refresh={refresh} notify={notify} supervisor={supervisor} />
+      ))}
       {supervisor && (
         <div className="fs-button-row fs-actions">
+          <button className="fs-button danger" onClick={() => setDialog("emergency")}>
+            <Siren size={16} /> Declare emergency
+          </button>
           <button className="fs-button" onClick={() => setDialog("checkin")}>
             <UserPlus size={16} /> Manual check-in
           </button>
@@ -222,6 +229,20 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
           consent={async (personId, note) => {
             await post(`people/${personId}/consent`, { given: true, note });
             await refresh();
+          }}
+        />
+      )}
+      {dialog === "emergency" && (
+        <DeclareEmergency
+          shafts={shafts}
+          counts={Object.fromEntries(shafts.map((s) => [s.id, current.filter((c) => c.data.shaftId === s.id).length]))}
+          onClose={() => setDialog(null)}
+          submit={async (body) => {
+            await post("emergencies", body);
+            notify("Emergency declared. The rescue roll is shown above.");
+            setDialog(null);
+            await refresh();
+            window.scrollTo({ top: 0 });
           }}
         />
       )}
@@ -455,6 +476,212 @@ function StatusDialog({ row, to, onClose, submit }: { row: Row; to: string; onCl
         {statusText[to]}
       </button>
       <p className="fs-help">Last change {date(String(row.updatedAt))}</p>
+    </Dialog>
+  );
+}
+
+const rollText: Record<string, string> = {
+  unconfirmed: "Not yet confirmed",
+  "accounted-for": "Accounted for",
+  injured: "Found injured",
+  "confirmed-missing": "Confirmed missing",
+};
+const rollTone: Record<string, string> = { unconfirmed: "amber", "accounted-for": "teal", injured: "amber", "confirmed-missing": "red" };
+type RollRow = { checkInId: string; personId: string; name: string; shaftName: string; declaredZoneId: string | null; timeIn: string; expectedReturn: string; buddyName: string | null; phoneMasked: string | null; reference: string; phone?: string | null };
+function EmergencyPanel({ emergency, data, post, refresh, notify, supervisor }: { emergency: Row; data: ViewProps["data"]; post: ViewProps["post"]; refresh: ViewProps["refresh"]; notify: ViewProps["notify"]; supervisor: boolean }) {
+  const [phones, setPhones] = useState<Record<string, string | null>>({});
+  const [marking, setMarking] = useState<null | { entry: Row; status: string }>(null);
+  const [closing, setClosing] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!supervisor) return;
+    void fetch(`/api/workspace/emergencies/${emergency.id}/roll`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j) return;
+        const map: Record<string, string | null> = {};
+        for (const r of [...j.snapshot, ...j.others] as RollRow[]) map[r.checkInId] = r.phone || null;
+        setPhones(map);
+      })
+      .catch(() => {});
+  }, [emergency.id, supervisor]);
+  const entries = rows(data, "roll-entry").filter((r) => r.data.emergencyId === emergency.id);
+  const entryFor = (checkInId: string) => entries.find((x) => x.data.checkInId === checkInId);
+  const snapshot = emergency.data.rollSnapshot as RollRow[];
+  const others = emergency.data.otherShaftsSnapshot as RollRow[];
+  const zoneName = (id: string | null) => data.site.zones.find((z) => z.id === id)?.name || "not stated";
+  const unresolved = entries.filter((e) => e.data.atAffectedShaft && e.data.status === "unconfirmed").length;
+  const table = (list: RollRow[], caption: string) => (
+    <div className="fs-table-wrap">
+      <table className="fs-register">
+        <caption className="fs-sr-only">{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name · Ref</th>
+            <th scope="col">Checked in · expected back</th>
+            <th scope="col">Declared zone</th>
+            <th scope="col">Buddy</th>
+            <th scope="col">Phone</th>
+            <th scope="col">Status now</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((r) => {
+            const entry = entryFor(r.checkInId);
+            const status = String(entry?.data.status || "unconfirmed");
+            const phone = phones[r.checkInId];
+            return (
+              <tr key={r.checkInId} className={status === "confirmed-missing" ? "overdue" : ""}>
+                <td>
+                  <strong>{r.name}</strong>
+                  <small className="fs-block">Ref {r.reference} · {r.shaftName}</small>
+                </td>
+                <td>
+                  {time(r.timeIn)}
+                  <small className="fs-block">back by {time(r.expectedReturn)}</small>
+                </td>
+                <td>{zoneName(r.declaredZoneId)}</td>
+                <td>{r.buddyName || "None"}</td>
+                <td>{phone ? <a href={"tel:" + phone}>{phone}</a> : r.phoneMasked || "No phone"}</td>
+                <td>
+                  <Tag tone={rollTone[status]}>{rollText[status]}</Tag>
+                  {supervisor && entry && (
+                    <div className="fs-roll-actions">
+                      {["accounted-for", "injured", "confirmed-missing"]
+                        .filter((x) => x !== status)
+                        .map((x) => (
+                          <button key={x} className={"fs-button " + (x === "confirmed-missing" ? "danger" : "secondary")} onClick={() => setMarking({ entry, status: x })}>
+                            {rollText[x]}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+  return (
+    <section className="fs-panel fs-emergency" aria-labelledby={"emergency-" + emergency.id}>
+      <div className="fs-section-heading">
+        <div>
+          <h3 id={"emergency-" + emergency.id}>
+            <Siren size={18} /> Emergency: {String(emergency.data.type)} at {String(emergency.data.shaftName)}
+          </h3>
+          <p>
+            Declared {date(String(emergency.data.declaredAt))} by {String(emergency.data.declaredBy)}. Rescue roll: {snapshot.length} declared underground at the shaft at declaration; {unresolved} not yet confirmed. Check-ins are declarations, not confirmed locations.
+          </p>
+        </div>
+      </div>
+      <h4>Rescue roll · {String(emergency.data.shaftName)}</h4>
+      {snapshot.length ? table(snapshot, "Rescue roll at the affected shaft") : <p>Nobody was declared underground at this shaft at declaration.</p>}
+      {others.length > 0 && (
+        <>
+          <h4>Declared at other shafts (confirm separately)</h4>
+          {table(others, "People declared at other shafts")}
+        </>
+      )}
+      <ErrorText message={error} />
+      {supervisor && (
+        <div className="fs-button-row">
+          <button
+            className="fs-button danger"
+            onClick={() =>
+              void post(`emergencies/${emergency.id}/alert`, {})
+                .then(async (r) => {
+                  notify(`${r.mode === "dry-run" ? "Dry run: written to the outbox, not sent." : "Alerts queued."} ${r.queued.length} recipient(s); ${r.skipped.length} without a phone. Mine-wide muster open.`);
+                  await refresh();
+                })
+                .catch((e) => setError(e.message))
+            }
+          >
+            {emergency.data.alertsSentAt ? "Alerts requested · open muster again" : "Alert buddies and next of kin · open mine-wide muster"}
+          </button>
+          <a className="fs-button secondary" href={`/api/workspace/incidents/${String(emergency.data.incidentId)}/pdf`}>
+            Export incident PDF
+          </a>
+          <button className="fs-button secondary" onClick={() => setClosing(true)}>
+            Close emergency
+          </button>
+        </div>
+      )}
+      {marking && (
+        <StatusNote
+          title={`${rollText[marking.status]}: ${String(marking.entry.data.name)}`}
+          danger={marking.status === "confirmed-missing"}
+          onClose={() => setMarking(null)}
+          submit={async (note) => {
+            await post(`roll/${marking.entry.id}`, { expectedRevision: marking.entry.revision, status: marking.status, note });
+            setMarking(null);
+            await refresh();
+          }}
+        />
+      )}
+      {closing && (
+        <StatusNote
+          title="Close emergency"
+          onClose={() => setClosing(false)}
+          submit={async (reason) => {
+            await post(`emergencies/${emergency.id}/close`, { reason });
+            setClosing(false);
+            notify("Emergency closed. The incident stays open in Records until it is verified and closed.");
+            await refresh();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+function StatusNote({ title, danger, onClose, submit }: { title: string; danger?: boolean; onClose: () => void; submit: (note: string) => Promise<void> }) {
+  const [note, setNote] = useState(""), [error, setError] = useState("");
+  return (
+    <Dialog title={title} onClose={onClose}>
+      <Field label="Note (who, where, when)">
+        <input value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      <ErrorText message={error} />
+      <button className={"fs-button " + (danger ? "danger" : "")} disabled={note.trim().length < 3} onClick={() => void submit(note).catch((e) => setError(e.message))}>
+        Save
+      </button>
+    </Dialog>
+  );
+}
+function DeclareEmergency({ shafts, counts, onClose, submit }: { shafts: { id: string; name: string }[]; counts: Record<string, number>; onClose: () => void; submit: (body: unknown) => Promise<void> }) {
+  const [f, setF] = useState({ shaftId: shafts[0]?.id || "", type: "collapse", note: "", confirmReal: false });
+  const [error, setError] = useState("");
+  return (
+    <Dialog title="Declare emergency" onClose={onClose}>
+      <p className="fs-help">This records a <strong>real incident</strong>. Use Scenarios for drills and planning. Messages follow the current messaging mode.</p>
+      <Field label="Shaft">
+        <select value={f.shaftId} onChange={(e) => setF({ ...f, shaftId: e.target.value })}>
+          {shafts.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({counts[s.id] || 0} declared underground)
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Type">
+        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
+          <option value="collapse">Collapse / fall of ground</option>
+          <option value="flooding">Flooding</option>
+          <option value="fire">Fire</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </Field>
+      <Field label="What is known (optional)">
+        <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
+      </Field>
+      <label className="fs-confirm">
+        <input type="checkbox" checked={f.confirmReal} onChange={(e) => setF({ ...f, confirmReal: e.target.checked })} /> This is a real emergency, not a drill or scenario.
+      </label>
+      <ErrorText message={error} />
+      <button className="fs-button danger" disabled={!f.confirmReal} onClick={() => void submit(f).catch((e) => setError(e.message))}>
+        Declare emergency and show rescue roll
+      </button>
     </Dialog>
   );
 }

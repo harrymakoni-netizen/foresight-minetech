@@ -81,3 +81,10 @@ Same session, role, same-origin and `Idempotency-Key` rules as above. Supervisor
 | POST `/api/messaging/sms?token=` and `/api/messaging/status?token=` | SMSGate webhooks (`sms:received`, `sms:delivered`, `sms:failed`, `system:ping`) |
 
 `GET /api/workspace/state` now includes `messaging` (mode, allow-list count, live enablement, config, scheduler/gateway health, escalation steps) and `features.vision`. Sealed phone values never leave the server; viewers and reporters lose masked numbers and inbound text. `/api/workspace/sync` accepts `checkins` operations; queued check-ins are shown as "not yet registered" until stored.
+| POST `/api/emergencies` | `{shaftId,type:"collapse"\|"flooding"\|"fire"\|"unknown",confirmReal:true,note}` → emergency with roll snapshot and linked incident |
+| GET `/api/emergencies/:id/roll` | Snapshot, other shafts and live entries; full phone numbers for supervisors/administrators |
+| POST `/api/emergencies/:id/alert` | Messages to buddies and next of kin (current messaging mode) + mine-wide muster; idempotent |
+| POST `/api/emergencies/roll/:entryId` | `{expectedRevision,status:"accounted-for"\|"injured"\|"confirmed-missing",note}` |
+| POST `/api/emergencies/:id/close` | `{reason}` |
+| GET `/api/workspace/incidents/:id/pdf` | Incident report PDF (supervisor/administrator) |
+| GET `/api/workspace/export?format=csv&kind=check-in\|case\|message\|muster\|person` | CSV records |

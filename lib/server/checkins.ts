@@ -219,6 +219,7 @@ export async function setCheckInStatus(
   reason: string,
   expectedRevision = checkIn.revision,
   now = new Date(),
+  options: { incidentId?: string } = {},
 ) {
   try {
     assertTransition(String(checkIn.data.status), to, by, reason);
@@ -239,7 +240,9 @@ export async function setCheckInStatus(
       stepsRun,
       statusHistory: [...(checkIn.data.statusHistory as unknown[]), { status: to, at, by, actor: ctx.actor, reason }],
     });
-    if (to === "confirmed-missing") {
+    if (to === "confirmed-missing" && options.incidentId) {
+      await query("INSERT INTO foresight.entity_links VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", [ctx.workspaceId, options.incidentId, checkIn.id, "confirmed-missing"]);
+    } else if (to === "confirmed-missing") {
       const messages = (await list(ctx, "message")).filter((m) => m.data.checkInId === checkIn.id);
       await insert(
         ctx,

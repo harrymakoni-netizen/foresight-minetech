@@ -94,6 +94,22 @@ No SMS or WhatsApp message was sent to any phone. All sending tests used the loc
 
 Checks after Phase 2: typecheck, build, `npm test` **50/50 on SQLite and 50/50 on PostgreSQL 16**, `npm run test:python` 36/36, `npm run test:sim` 12/12, browser **8/8**.
 
+## Phase 3 — collapse response mode (2026-11-17)
+
+| Item | Status | Where / evidence |
+| --- | --- | --- |
+| Declare emergency (collapse, flooding, fire, unknown) — supervisor/administrator only, explicit "real emergency" confirmation, one active per shaft | **Implemented and verified** | `lib/server/emergency.ts`, `POST /api/emergencies`; `tests/emergency.test.ts` |
+| Rescue roll at declaration: everyone declared underground at the shaft and not checked out, with check-in time, declared zone, expected return, buddy, phone (masked in records; full number with `tel:` link for supervisors); people at other shafts listed separately | **Implemented and verified** | roll produced in the same request (test asserts < 2 s; measured well under that locally) |
+| Snapshot kept unchanged plus live roll entries; rescuers mark accounted for / injured / confirmed missing with timestamp, actor and note; each change audited and reflected on the check-in; missing people link to the emergency incident (no duplicate incident) | **Implemented and verified** | tests |
+| One action: messages to all buddies and next of kin in the current messaging mode (dry-run here: outbox only) and a mine-wide muster; repeat does not duplicate | **Implemented and verified** (dry-run) | tests + browser |
+| Incident linked as category collapse/flooding, source declared emergency | **Implemented and verified** | |
+| Incident PDF (zone, timestamps, roll snapshot and changes, messages with delivery history, linked runs and assumptions, responses, audit) | **Implemented and verified** | dependency-free writer `lib/server/pdf.ts`; parsed with poppler `pdftotext` (multi-page, escaping); `GET /api/workspace/incidents/:id/pdf` |
+| CSV exports (check-ins, incidents, messages, musters, people), formula-safe, phone masked/hidden by role | **Implemented** | `GET /api/workspace/export?format=csv&kind=` |
+| Scenario cannot trigger an emergency | **Implemented and verified** | no simulator/scenario code references the emergency API (test) |
+| Emergency, roll and muster usable at 390 px | **Implemented and verified** | `tests/browser/emergency.spec.ts` |
+
+Checks after Phase 3: typecheck, build, `npm test` **54/54 on SQLite and 54/54 on PostgreSQL 16**, browser **9/9**.
+
 ---
 
 # Historical status (codex/atu-foresight-upgrade, October 2026)

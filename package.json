@@ -11,7 +11,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.ts",
-    "test": "node --experimental-strip-types --test tests/domain.test.ts tests/assistant.test.ts tests/v2.test.ts tests/messaging.test.ts",
+    "test": "node --experimental-strip-types --test tests/domain.test.ts tests/assistant.test.ts tests/v2.test.ts tests/messaging.test.ts tests/emergency.test.ts",
     "test:python": "python -m unittest services.simulator.test_engine services.simulator.test_jobs services.simulator.test_transport services.simulator.test_serverless services.vision.test_policy -v",
     "test:browser": "playwright test",
     "test:vision-runtime": ".venv/bin/python -m unittest services.vision.test_runtime services.vision.test_transport -v",

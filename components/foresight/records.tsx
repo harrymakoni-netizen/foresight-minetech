@@ -250,6 +250,11 @@ function IncidentRegister({ data, zone, post, refresh, notify }: ViewProps) {
                     <Tag tone={c.data.status === "closed" ? "teal" : "amber"}>
                       {statusLabel[String(c.data.status)] || String(c.data.status)}
                     </Tag>
+                    {supervisor && (
+                      <a className="fs-inline-link fs-block" href={`/api/workspace/incidents/${c.id}/pdf`}>
+                        Incident PDF
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -360,9 +365,24 @@ function Exports({ data }: ViewProps) {
           Readable timeline
         </a>
       </div>
+      <h3 className="fs-subhead">CSV records</h3>
+      <div className="fs-button-row">
+        {[
+          ["check-in", "Check-ins"],
+          ["case", "Incidents and responses"],
+          ["message", "Messages"],
+          ["muster", "Musters"],
+          ["person", "People"],
+        ].map(([kind, label]) => (
+          <a key={kind} className="fs-button secondary" href={`/api/workspace/export?format=csv&kind=${kind}`}>
+            {label} (CSV)
+          </a>
+        ))}
+      </div>
       <p className="fs-help">
-        {data.entities.length} records in this workspace. Incident PDF and CSV
-        exports are added with the emergency workflow.
+        {data.entities.length} records in this workspace. Each incident has a
+        PDF report (Incidents and responses tab). Phone numbers in CSV are
+        masked; viewers and reporters do not receive them.
       </p>
     </section>
   );

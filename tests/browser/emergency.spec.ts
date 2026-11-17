@@ -1,0 +1,40 @@
+import { expect, test } from "@playwright/test";
+// Spec §13.5/§16.2 step 6: declare an emergency and see the rescue roll on a 390 px phone.
+test("emergency declaration, rescue roll, alert action, PDF export at phone width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Underground now", exact: true })).toBeVisible();
+  // Declare someone first (manual, consented).
+  await page.getByRole("button", { name: "Manual check-in" }).click();
+  let d = page.getByRole("dialog");
+  await d.getByLabel("Person").selectOption({ label: "Tendai M. (fictional)" });
+  await d.getByLabel("Consent note (how it was given)").fill("Signed form at the lamp room");
+  await d.getByRole("button", { name: "Record consent given in person" }).click();
+  await expect(d.getByRole("button", { name: "Register check-in" })).toBeEnabled();
+  await d.getByLabel("Shaft").selectOption({ label: "2. East incline" });
+  await d.getByRole("button", { name: "Register check-in" }).click();
+  await expect(page.getByRole("article", { name: /East incline: 1 declared underground/ })).toBeVisible();
+  await page.getByRole("button", { name: "Declare emergency" }).click();
+  d = page.getByRole("dialog");
+  await d.getByLabel("Shaft").selectOption({ index: 1 });
+  const declare = d.getByRole("button", { name: "Declare emergency and show rescue roll" });
+  await expect(declare).toBeDisabled();
+  await d.getByLabel(/This is a real emergency/).check();
+  await declare.click();
+  const panel = page.locator(".fs-emergency");
+  await expect(panel).toContainText("Emergency: collapse at East incline");
+  await expect(panel).toContainText("Tendai M. (fictional)");
+  await expect(panel).toContainText("Not yet confirmed");
+  await panel.getByRole("button", { name: /Alert buddies and next of kin/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Dry run" })).toBeVisible();
+  await panel.getByRole("button", { name: "Accounted for" }).click();
+  await page.getByRole("dialog").getByLabel(/Note/).fill("Seen at surface by rescue team leader");
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(panel).toContainText("Accounted for");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const href = await panel.getByRole("link", { name: "Export incident PDF" }).getAttribute("href");
+  const pdf = await page.request.get(href!);
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()["content-type"]).toBe("application/pdf");
+  expect((await pdf.body()).subarray(0, 8).toString()).toBe("%PDF-1.4");
+});

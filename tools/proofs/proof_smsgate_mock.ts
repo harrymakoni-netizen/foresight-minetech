@@ -25,7 +25,7 @@ const env = {
   SMSGATE_WEBHOOK_TOKEN: token,
   MESSAGING_MODE: "allow-list",
   MESSAGING_TEST_NUMBERS: MINER,
-};
+} as NodeJS.ProcessEnv;
 Object.assign(process.env, env);
 const { startMockGateway } = await import("../../services/messaging/mock-gateway.ts");
 const mock = await startMockGateway({ port: mockPort, webhookUrl: `http://localhost:${port}/api/messaging/sms?token=${token}` });
