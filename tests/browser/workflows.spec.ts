@@ -107,6 +107,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
     );
   });
   await page.getByRole("link", { name: "Scenarios", exact: true }).click();
+  await page.getByRole("tab", { name: "Water laboratory" }).click();
   await page.getByRole("button", { name: "Clone current workspace" }).click();
   await page
     .getByLabel("External inflow (m³/hour)", { exact: true })
@@ -262,7 +263,7 @@ test("narrow mobile and tablet navigation stays within viewport", async ({
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/#simulator");
   await expect(
-    page.getByRole("heading", { name: "Scenarios", exact: true }),
+    page.getByRole("heading", { name: "Water laboratory", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(

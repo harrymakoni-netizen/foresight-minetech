@@ -27,8 +27,22 @@ def _escape(data,cancelled):
 def _escape_validate(data):
     from .escape import validate as v
     v(data)
-EXTENDED={'escape':_escape}
-VALIDATORS={'escape':_escape_validate}
+def _chain(data,cancelled):
+    from .scenario_chain import run_chain
+    return run_chain(data,cancelled)
+def _tta(data,cancelled):
+    from .scenario_chain import time_to_act
+    return time_to_act(data,cancelled)
+def _chain_validate(data):
+    from .scenario_chain import water_scenario
+    from .escape import validate as v
+    water_scenario(data)
+    v({'network':data['network'],'people':data['people'],'closures':[],'params':data['params']})
+def _tta_validate(data):
+    if not 0<=float(data['fromSeconds'])<=float(data['toSeconds']) or float(data['stepSeconds'])<=0:raise ValueError('Invalid search interval')
+    _chain_validate(data['chain'])
+EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta}
+VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate}
 def extended_available():
     try:
         import jupedsim,shapely,networkx  # noqa: F401
@@ -59,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
     def authorized(self):return hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+TOKEN)
     def do_GET(self):
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
-        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0'] if extended_available() else [])})
+        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])})
         job_id=self.path.removeprefix('/jobs/')
         with db() as c:row=c.execute('SELECT * FROM jobs WHERE id=? AND workspace_id=?',(job_id,self.headers.get('X-Workspace-Id',''))).fetchone()
         if not row:return self.send(404,{'error':'Job not found'})

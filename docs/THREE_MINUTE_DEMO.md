@@ -1,4 +1,22 @@
-# Three-minute fictional demonstration
+# Three-minute demo (spec §16.2)
+
+One continuous story on the **fictional training mine**. Every number on screen comes from a recorded run. If the venue network fails, show a saved run and say it is saved.
+
+Automated rehearsal of the whole story: `npm run build && npm run setup:sim && npm run test:demo` (isolated database, allow-list to two unassigned `+999` numbers, mock SMS gateway, a test WhatsApp app secret used only to sign the test's webhooks). It passed on 2026-11-17.
+
+1. **Check in live (30 s).** A test phone sends `IN` on WhatsApp → shaft 2 → return time → buddy 1. The reply quotes a reference; Underground now shows the person as *declared underground* at East incline. (Real phones need WhatsApp Cloud API credentials and approved templates; see `docs/MESSAGING_SETUP.md`.)
+2. **The failure (30 s).** Records → Evidence: submit "Pump P1 stopped at East development", review it (equipment P1, serious) and accept. The concern on Underground now shows how many people are declared in that zone. Click **Run scenario**: the builder opens pre-filled with P1 and current declarations.
+3. **The consequence (45 s).** Set *Evacuation ordered at* 100 min and run. The sump reaches its 2 m danger level at 1 h 40 min and closes T4 and T6; named people are *cut off from assumed start in East development*; totals balance (simulated = exit + refuge + cut off + still walking). Use the timeline marker *Route floods*.
+4. **Time to act (30 s).** *Find latest backup start* (60–120 min, 5 min steps): "Latest tested backup start under these assumptions: … (searched 1 h 00 min to 2 h 00 min in 13 steps of 5 min)".
+5. **The alert (30 s).** When the return time passes the buddy gets an SMS through SMSGate; Underground now shows the escalation step and *Delivered* only after a delivery receipt; a muster opens for the shaft. For rehearsal, `npm run messaging:tick -- --at <time>` advances the scheduler.
+6. **The record (15 s).** *Declare emergency* at East incline: the rescue roll lists everyone declared there with buddy and phone; *Export incident PDF*.
+
+Close: "A test phone was checked in, put at risk in a planning calculation and accounted for, with no app to install and no signal needed underground."
+
+What not to claim: live tracking, safety certification, a validated model of a real mine, or delivered messages without receipts.
+
+## Appendix: earlier water-laboratory demonstration (still valid under Scenarios → Water laboratory)
+
 
 Use a fresh isolated browser workspace. Prerequisite: database/auth and simulator are healthy. AI is optional; actual PPE and reconstruction demonstrations require the real dependencies below. Never use real worker records for this script.
 

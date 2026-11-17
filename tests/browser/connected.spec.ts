@@ -5,7 +5,7 @@ test("fictional failure → changed route over traversal → comparison → link
 }) => {
   await page.goto("/#simulator");
   await expect(
-    page.getByRole("heading", { name: "Scenarios", exact: true }),
+    page.getByRole("heading", { name: "Water laboratory", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Clone current workspace" }).click();
   await page

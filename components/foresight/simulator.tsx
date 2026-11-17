@@ -218,7 +218,7 @@ export function Simulator({ data, post, refresh, notify }: ViewProps) {
       <div className="fs-page-heading">
         <div>
           <div className="fs-eyebrow">SCENARIOS / WATER, ROUTES AND ESCAPE</div>
-          <h1>Scenarios</h1>
+          <h2 className="fs-embedded-title">Water laboratory</h2>
           <p>
             Change assumptions. Calculate outcomes. Compare the consequences
             over time.

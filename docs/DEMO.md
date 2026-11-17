@@ -1,3 +1,11 @@
+# Demonstration
+
+The MineTech v2 demonstration story is in [THREE_MINUTE_DEMO.md](THREE_MINUTE_DEMO.md); messaging setup in [MESSAGING_SETUP.md](MESSAGING_SETUP.md); the mine model in [MINE_MODEL.md](MINE_MODEL.md).
+
+Local stack: `npm run build`, `npm run preview` (web on 3001), `npm run setup:sim` then `.venv-sim/bin/python -m services.simulator.server` (escape engines), `npm run worker:messaging` (scheduler/outbox; dry-run unless configured), optionally `npm run mock:gateway`. Or `docker compose up` (not verified in the build environment).
+
+## Earlier demonstration notes
+
 # Reproduce the development demonstration
 
 Use only fictional records. Start `npm run worker:simulator`, then build and run `npm run preview`; open localhost:3001 in a fresh browser context. `npm run test:browser` generates screenshots of the completed software workflows.

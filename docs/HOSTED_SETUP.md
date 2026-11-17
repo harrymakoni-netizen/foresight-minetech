@@ -56,3 +56,11 @@ Live database health and authentication checks return HTTP 200. Three hosted bro
 A separate actual browser-to-private-Blob upload of a **5,243,244-byte** explicitly synthetic GLB passed, exceeding Vercel's ordinary request-body limit. Finalization and authenticated streaming download passed; a different workspace received 404. This is storage and viewer transport evidence, not a captured reconstruction.
 
 Test artifacts are isolated fictional demonstration records. No legacy Blob objects were imported, reset or overwritten. These checks do not establish vision/model accuracy, private staff onboarding or operational mine readiness. Production must receive the same verified code and its environment, followed by health and browser smoke checks.
+
+## MineTech v2 hosting notes (2026-11-17)
+
+* Migration 003 (messaging and scheduling tables) is applied automatically once. Migrations now run only when missing from `foresight.schema_migrations`, avoiding DDL lock deadlocks between concurrently starting instances.
+* Set `FORESIGHT_PERSONAL_DATA_KEY` (32 bytes base64) before storing any phone number; production refuses to seal phones without it.
+* The escape, Time to act and chain engines need the always-on simulation worker built from `deploy/simulator.Dockerfile` (`requirements-sim.txt`, includes JuPedSim). The bundled Vercel Python function runs only the water engine; without a worker, escape runs are recorded as *not run: worker unavailable*.
+* The messaging service (`deploy/messaging.Dockerfile`) must run continuously; point an uptime monitor at `GET /api/messaging/health`.
+* Messaging stays `dry-run` unless `MESSAGING_MODE` is changed; see `docs/MESSAGING_SETUP.md`. Nothing in this work changed the hosted environment.

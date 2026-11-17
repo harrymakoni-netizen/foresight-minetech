@@ -46,7 +46,15 @@ import {
 } from "@/lib/server/checkins";
 import { bindChannel, messagingConfig, messagingMode } from "@/lib/server/messaging";
 import { messagingHealth } from "@/lib/server/gateway";
-import { createDraft, publish as publishModel, saveDraft } from "@/lib/server/mine-model";
+import {
+  escalateRun,
+  planningResponse,
+  pollEscape,
+  scenarioPreflight,
+  startEscapeRun,
+  startTimeToAct,
+} from "@/lib/server/scenarios";
+import { createDraft, publish as publishModel, resetTrainingMine, saveDraft } from "@/lib/server/mine-model";
 import { preflight as modelPreflight, mineModelSchema } from "@/lib/domain/mine-model";
 import {
   alertAndMuster,
@@ -152,7 +160,11 @@ export async function GET(request: Request, route: RouteContext) {
               return { id: z.id, name: z.name, x: old?.x ?? 0, y: old?.y ?? 0 };
             }),
           },
-          entities: protect(await list(ctx), ctx.role),
+          // Trajectory source records are large; fetch them per run instead.
+          entities: protect(
+            (await list(ctx)).filter((e) => e.kind !== "run-trajectory"),
+            ctx.role,
+          ),
           messaging: {
             mode: messagingMode().mode,
             modeProblem: messagingMode().problem,
@@ -190,6 +202,12 @@ export async function GET(request: Request, route: RouteContext) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
+    if (path[0] === "escape" && path[1] === "runs" && path[2])
+      return Response.json(await pollEscape(ctx, path[2], "escape-run"), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "escape" && path[1] === "time-to-act" && path[2])
+      return Response.json(await pollEscape(ctx, path[2], "time-to-act-study"), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "escape" && path[1] === "trajectories" && path[2])
+      return Response.json(await get(ctx, path[2], "run-trajectory"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "emergencies" && path[1] && path[2] === "roll")
       return Response.json(await rescueRoll(ctx, path[1]), {
         headers: { "Cache-Control": "no-store" },
@@ -343,6 +361,7 @@ export async function POST(request: Request, route: RouteContext) {
         "emergencies",
         "roll",
         "mine-model",
+        "escape",
         "assessments",
         "scenarios",
         "snapshots",
@@ -461,6 +480,12 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
       if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "escape" && path[1] === "preflight") return await scenarioPreflight(ctx, body);
+      if (path[0] === "escape" && path[1] === "runs" && !path[2]) return await startEscapeRun(ctx, body);
+      if (path[0] === "escape" && path[1] === "runs" && path[3] === "escalate") return await escalateRun(ctx, path[2], body);
+      if (path[0] === "escape" && path[1] === "runs" && path[3] === "response") return await planningResponse(ctx, path[2], body);
+      if (path[0] === "escape" && path[1] === "time-to-act" && !path[2]) return await startTimeToAct(ctx, body);
+      if (path[0] === "mine-model" && path[1] === "reset-training") return await resetTrainingMine(ctx);
       if (path[0] === "mine-model" && path[1] === "validate")
         return { issues: modelPreflight(mineModelSchema.parse((body as { model: unknown }).model)) };
       if (path[0] === "mine-model" && !path[1])

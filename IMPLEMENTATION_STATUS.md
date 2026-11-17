@@ -4,6 +4,17 @@
 
 Status categories (spec §18): **Implemented and verified** · **Implemented, awaiting environment verification** · **In progress** · **Blocked by a named dependency** · **Not implemented**.
 
+## At a glance (2026-11-17)
+
+Phases 0–5 (the competition build) are implemented on `claude/minetech-v2`. Phases 6–11 are **not implemented** yet.
+
+**Blocked by named dependencies (owner action needed):**
+1. Real SMS: an Android phone with an Econet/NetOne SIM running SMSGate, its credentials, and the consenting test numbers for `MESSAGING_TEST_NUMBERS`.
+2. Real WhatsApp: a Meta WhatsApp Business test app (app secret, verify token, access token, phone number ID, Graph API version) and approved templates for reminders/alerts. Meta's documentation host and SMSGate's documentation site are outside this build environment's network policy, so field shapes were taken from the official SMSGate client and the published WhatsApp API as known; both await verification with real credentials.
+3. Containers: Dockerfiles and `docker-compose.yml` are written but were not built (no Docker daemon in the build environment).
+4. Hosting the always-on simulation worker and messaging service (spec §22 open decision), plus an uptime monitor on `/api/messaging/health`.
+5. Hosted preview data still contains the test record "QA response drill 1789405000522"; this work does not modify hosted data.
+
 ## Phase 0 — assessment and proof tests (2026-11-17)
 
 ### Baseline checks at `40a8290` (before any change)
@@ -128,6 +139,30 @@ Checks after Phase 3: typecheck, build, `npm test` **54/54 on SQLite and 54/54 o
 **Defect found and fixed (PostgreSQL):** with several processes starting against one database, re-running migration DDL on every start caused intermittent `deadlock detected` (4 of 4 full-suite runs had 1–2 failures). `ensureDatabase` now applies only migrations missing from `schema_migrations`, under the existing advisory lock. After the fix: 5 of 5 full runs clean. This also affects concurrent Vercel cold starts.
 
 Checks after Phase 4: typecheck, build, `npm test` **58/58 on SQLite and on PostgreSQL 16 (5 consecutive runs)**, `npm run test:postgres` 1/1, `npm run test:python` 36/36, `npm run test:sim` 13/13, browser **10/10**.
+
+## Phase 5 — escape and Time to act (2026-11-17)
+
+| Item | Status | Where / evidence |
+| --- | --- | --- |
+| Flooding → closures → escape chain (one-way handoff; unchanged `lumped-water-1.0.0`; sump danger level closes the model's listed tunnels from that instant) | **Implemented and verified** | `services/simulator/scenario_chain.py`; `test_chain.py` (danger reached at the analytically expected 6000 s for the template; mass residual < 1e-6 m³) |
+| Escape on the published model (JuPedSim + walkable polygons, timed closures, disconnected parts, refuges with capacity, exits preferred, pre-movement, seeded speeds); per-person outcome, T50/T95/T100 or *not reached*; accounting rule checked on every run | **Implemented and verified** | `escape.py`; named results read "cut off from assumed start in East development" with the reason |
+| Start positions: default **even spread along the zone's tunnel centrelines** (seeded lateral offset); seeded random only when too crowded; method stored per person | **Implemented and verified** | Changed during this phase after the first demo rehearsal showed random placement could cluster everyone on one side of a zone |
+| People source: current declarations (declared zone, else first zone of the shaft — assumption recorded per person) or planned headcount; snapshot frozen at run start; mine-model revision stored | **Implemented and verified** | `lib/server/scenarios.ts` |
+| Preflight before submission lists blocking problems (model preflight, missing sump/pump inputs, empty headcount, unplaced people) | **Implemented and verified** | `tests/mine-model.test.ts` |
+| Long work in the worker only; unreachable worker → run recorded as *not run*, no result shown | **Implemented and verified** | worker job kinds `escape-chain`, `time-to-act` |
+| Time to act: full scan of backup start times (≤ 40 values), success = everyone at an exit or refuge before the horizon; reports latest tested value, "no tested value met the condition", "boundary not reached in the tested range", interval/step, monotonicity note | **Implemented and verified** | `time_to_act`; UI wording "Latest tested backup start under these assumptions: X (searched A to B in C steps of D)". Bisection not used (full scan is exact on the tested grid) |
+| Endurance checks (self-rescuer walking time vs entered rating; refuge air hours = supply ÷ (occupants × consumption)) labelled "not a survival time", inputs and formula shown; unavailable when inputs missing | **Implemented and verified** | |
+| PedPy congestion summary (N-t at exit approaches and narrow tunnels; crossings, first/last, peak per minute) | **Implemented and verified** | PedPy 1.5.1 |
+| Trajectories stored as a separate columnar source record; browser playback derivative (5 s) generated without replacing it | **Implemented and verified** | `run-trajectory` entities |
+| Playback on the plan view with timeline, play/pause, event markers (pump fails, backup starts, evacuation ordered, route floods, last person out), closed tunnels in red, text alternative (per-person table) | **Implemented and verified** — **deviation:** rendered with SVG on the shared `PlanView`, not deck.gl TripsLayer (avoids a large new dependency; same data could feed TripsLayer later) | |
+| Compare runs, export run JSON, planning response (marked planning, no messages), explicit escalation by an authorised user (escalation record + register entry) | **Implemented** (browser-exercised) | |
+| One-click "Run scenario" from a concern (zone, pump, concern prefilled) and declared headcount in the concern's zone | **Implemented and verified** (demo test) | Full `development-controls-2` priority rules remain phase 6 |
+| Demo reset command (restore training mine, delete nothing) | **Implemented and verified** | `POST /api/workspace/mine-model/reset-training` |
+| Underground now refreshes every 20 s while visible | **Implemented** | found during demo rehearsal |
+
+**Demo acceptance (spec §16.2): Implemented and verified in an isolated environment** — `npm run test:demo` passes all six steps (17 s): signed test WhatsApp webhook check-in appears as declared; report → concern → pre-filled scenario; run plays with named cut-off people and balanced totals (danger at 1 h 40 min closes T6/T4); Time to act reports "… (searched 1 h 00 min to 2 h 00 min in 13 steps of 5 min)"; after the return time the buddy's allow-listed test number receives the SMS through the (mock) gateway, the dashboard shows *Delivered* only after the receipt, and a shaft muster opens; emergency roll lists the declared people with phone and the incident PDF exports. With real phones this still needs the owner's WhatsApp/SMSGate credentials (see blockers).
+
+Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and PostgreSQL 16), `npm run test:python` 36/36, `npm run test:sim` 24/24, browser **10/10** + demo acceptance 1/1.
 
 ---
 

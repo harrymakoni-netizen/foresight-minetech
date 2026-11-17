@@ -25,7 +25,7 @@ const MineMap = dynamic(
   { loading: () => <p role="status">Loading workspace view…</p> },
 );
 const Simulator = dynamic(
-  () => import("@/components/foresight/simulator").then((m) => m.Simulator),
+  () => import("@/components/foresight/escape").then((m) => m.Scenarios),
   { loading: () => <p role="status">Loading workspace view…</p> },
 );
 import {
@@ -90,6 +90,7 @@ export default function Workspace() {
   const [data, setData] = useState<WorkspaceData | null>(null),
     [page, setPage] = useState("underground"),
     [recordTab, setRecordTab] = useState("evidence"),
+    [hashKey, setHashKey] = useState(""),
     [zone, setZone] = useState("all"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -150,7 +151,8 @@ export default function Workspace() {
   useEffect(() => {
     void refresh();
     const navigate = () => {
-      const hash = location.hash.slice(1);
+      const hash = location.hash.slice(1).split("?")[0];
+      setHashKey(location.hash);
       setPage(
         aliases[hash] ||
           (nav.some((n) => n[0] === hash) ? hash : "underground"),
@@ -167,6 +169,15 @@ export default function Workspace() {
       window.removeEventListener("online", online);
     };
   }, [refresh]);
+  // Underground now is a live view: refresh while it is visible and online.
+  useEffect(() => {
+    if (page !== "underground") return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine)
+        void refresh();
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [page, refresh]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 7000);
@@ -360,7 +371,7 @@ export default function Workspace() {
             <>
               {page === "underground" && <CommandCentre {...props} />}
               {page === "mine" && <MineMap {...props} />}
-              {page === "scenarios" && <Simulator {...props} />}
+              {page === "scenarios" && <Simulator key={hashKey} {...props} />}
               {page === "records" && (
                 <Records key={recordTab} {...props} initialTab={recordTab} />
               )}

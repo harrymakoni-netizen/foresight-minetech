@@ -79,3 +79,46 @@ test("revisions: workspace starts with the published template; drafts edit, publ
   await repo.insert(ctx, "report", { text: "legacy zone stays valid" }, "zone-b");
   await assert.rejects(() => mm.createDraft({ ...ctx, role: "reporter" }, "template"), /supervisor or administrator/);
 });
+test("escape scenarios: preflight blocks missing inputs; an unreachable worker is shown as not run, never as a result", async () => {
+  process.env.FORESIGHT_SIMULATOR_URL = "http://127.0.0.1:9";
+  const sc = await import("../lib/server/scenarios.ts");
+  const ctx = await repo.workspaceFor("esc-" + randomUUID());
+  const body = {
+    name: "P1 failure",
+    template: "pump-failure",
+    peopleSource: "current-declarations",
+    plannedHeadcount: {},
+    startMethod: "spread-along-zone",
+    water: { sumpId: "S1", dutyPumpId: "P1", backupPumpId: "P2", failAtMinutes: 0, backupStartMinutes: null, inflowM3h: null, initialVolumeM3: null },
+    blockedTunnels: [],
+    evacuationOrderMinutes: 95,
+    preMovementMinutes: { min: 0, max: 2 },
+    speed: { mean: 1, sd: 0.15, min: 0.55, max: 1.45 },
+    horizonMinutes: 120,
+    seed: 11,
+    endurance: { selfRescuerRatedMinutes: 30, refugeConsumptionM3PerPersonHour: null },
+  };
+  const none = await sc.scenarioPreflight(ctx, body);
+  assert.equal(none.ok, false);
+  assert.match(none.problems.join(" "), /Nobody is declared underground/);
+  await assert.rejects(() => sc.startEscapeRun(ctx, body), /preflight failed/);
+  const planned = { ...body, peopleSource: "planned-headcount", plannedHeadcount: { "zone-b": 3 } };
+  assert.equal((await sc.scenarioPreflight(ctx, planned)).ok, true);
+  const run = await sc.startEscapeRun(ctx, planned);
+  assert.equal(run.data.status, "worker-unavailable");
+  assert.equal(run.data.result, null);
+  assert.equal((run.data.peopleSnapshot as unknown[]).length, 3);
+  await assert.rejects(() => sc.startEscapeRun({ ...ctx, role: "reporter" }, planned), /supervisor or administrator/);
+  delete process.env.FORESIGHT_SIMULATOR_URL;
+});
+test("demo reset publishes the training template as a new revision and deletes nothing", async () => {
+  const ctx = await repo.workspaceFor("reset-" + randomUUID());
+  await repo.insert(ctx, "report", { text: "kept" }, "zone-b");
+  const before = (await repo.list(ctx)).length;
+  const r = await mm.resetTrainingMine(ctx);
+  assert.equal(r.revision, 2);
+  const after = await repo.list(ctx);
+  assert.ok(after.length > before);
+  assert.equal(after.filter((e) => e.kind === "report").length, 1);
+  assert.equal((await mm.publishedModel(ctx))!.id, r.revisionId);
+});

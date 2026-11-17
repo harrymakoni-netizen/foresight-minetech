@@ -339,3 +339,83 @@
   padding: 5px 0;
   border-bottom: 1px solid #edf0f2;
 }
+/* Scenarios */
+.fs-app .fs-scenario-grid {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .fs-app .fs-scenario-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.fs-app .fs-scenario-main > section {
+  margin-bottom: 16px;
+}
+.fs-app .fs-builder .fs-field {
+  margin-bottom: 8px;
+}
+.fs-app .fs-group {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+.fs-app .fs-group legend {
+  font-weight: 650;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.fs-app .fs-timeline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.fs-app .fs-timeline input[type="range"] {
+  flex: 1;
+}
+.fs-app .fs-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  font-size: 11px;
+}
+.fs-app .fs-accounting {
+  font-size: 13px;
+  background: #f4f8f8;
+  padding: 10px;
+  border-radius: 6px;
+}
+.fs-app .fs-tta-result {
+  font-weight: 650;
+  font-size: 14px;
+}
+.fs-app .fs-inline-fields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fs-app .fs-runs {
+  list-style: none;
+  padding: 0;
+  font-size: 12px;
+}
+.fs-app .fs-runs li {
+  padding: 4px 0;
+}
+.fs-app .fs-inline-link.active {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.fs-app .fs-pre {
+  white-space: pre-wrap;
+  font-size: 10px;
+  max-height: 300px;
+  overflow: auto;
+}
+.fs-app .fs-concern-actions { display: flex; flex-direction: column; gap: 6px; }

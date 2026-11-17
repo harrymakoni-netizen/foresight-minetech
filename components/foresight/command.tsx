@@ -30,6 +30,27 @@ export function CommandCentre({
   refresh,
   notify,
 }: ViewProps) {
+  // One click from a concern to a pre-filled flooding scenario (spec §10).
+  const declaredIn = (zoneId: string) =>
+    rows(data, "check-in").filter(
+      (x) =>
+        ["declared-underground", "return-overdue", "confirmed-missing"].includes(
+          String(x.data.status),
+        ) &&
+        (x.data.declaredZoneId === zoneId ||
+          (!x.data.declaredZoneId &&
+            data.messaging?.config.shafts
+              .find((s) => s.id === x.data.shaftId)
+              ?.zoneIds[0] === zoneId)),
+    ).length;
+  const scenarioLink = (c: { id: string; zoneId: string; title: string; observationIds: string[] }) => {
+    const asset = c.observationIds
+      .map((id) => data.entities.find((e) => e.id === id)?.data.assetId)
+      .find((a) => typeof a === "string" && a);
+    const q = new URLSearchParams({ zone: c.zoneId, concern: c.id, name: `${c.title} (from concern)` });
+    if (asset) q.set("pump", String(asset));
+    return "#scenarios?" + q.toString();
+  };
   const assessment = rows(data, "assessment")[0],
     current = assessment?.data as Assessment | undefined,
     previous = rows(data, "assessment")[1];
@@ -191,18 +212,27 @@ export function CommandCentre({
                           : "Owner unassigned"}
                       </span>
                       <span>{c.controlState}</span>
+                      <span>
+                        {declaredIn(c.zoneId)} declared underground in this
+                        zone now
+                      </span>
                     </div>
                   </div>
-                  <button
-                    className="fs-button secondary"
-                    onClick={() => {
-                      setSelected(c);
-                      setExplanation(null);
-                      setError("");
-                    }}
-                  >
-                    Review <ArrowRight size={15} />
-                  </button>
+                  <div className="fs-concern-actions">
+                    <button
+                      className="fs-button secondary"
+                      onClick={() => {
+                        setSelected(c);
+                        setExplanation(null);
+                        setError("");
+                      }}
+                    >
+                      Review <ArrowRight size={15} />
+                    </button>
+                    <a className="fs-button" href={scenarioLink(c)}>
+                      Run scenario
+                    </a>
+                  </div>
                 </article>
               );
             })

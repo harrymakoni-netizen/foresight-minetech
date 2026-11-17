@@ -134,6 +134,33 @@ def validate(raw: dict) -> dict:
     return s
 
 
+def _spread_along(zone_tunnels, count, radius, seed):
+    """Default start method: people evenly spaced along the zone's tunnel
+    centrelines (in tunnel-id order, proportional to length), each with a
+    seeded lateral offset inside the tunnel width. Returns (None, method) when
+    the zone is too crowded for even spacing; the caller then uses seeded
+    random placement and records that method instead."""
+    total = sum(t.length for t in zone_tunnels)
+    if not zone_tunnels or total <= 0 or total / count < 2.4 * radius:
+        return None, "random-in-zone (zone too crowded to spread evenly)"
+    rng = random.Random(seed)
+    out = []
+    for i in range(count):
+        d = (i + 0.5) * total / count
+        for t in zone_tunnels:
+            if d <= t.length or t is zone_tunnels[-1]:
+                (ax, ay), (bx, by) = t.line.coords
+                # Keep clear of the junction ends so nobody starts in a neighbour tunnel.
+                k = min(max(d / t.length, (t.width / 2 + radius) / t.length), 1 - (t.width / 2 + radius) / t.length) if t.length > t.width + 2 * radius else 0.5
+                half = max(0.0, t.width / 2 - radius - 0.1)
+                off = rng.uniform(-half, half)
+                nx, ny = -(by - ay) / t.length, (bx - ax) / t.length
+                out.append((ax + (bx - ax) * k + nx * off, ay + (by - ay) * k + ny * off))
+                break
+            d -= t.length
+    return out, "spread-along-zone"
+
+
 def _zone_positions(zone_area, count, radius, seed):
     pieces = [p for p in net.parts(zone_area)]
     total = sum(p.area for p in pieces)
@@ -205,9 +232,12 @@ def run(raw: dict, cancelled=lambda: False) -> dict:
         area = unary_union([net.tunnel_polygon(tunnels[t]) for t in zones[zid]["tunnelIds"] if tunnels[t].walkable])
         if area.is_empty:
             raise EscapeInputError(f"zone {zid} has no walkable tunnel")
-        positions = _zone_positions(area, len(recs), p["radius"], p["seed"] + sum(map(ord, zid)))
+        zone_tunnels = [tunnels[t] for t in sorted(zones[zid]["tunnelIds"]) if tunnels[t].walkable]
+        positions, method = _spread_along(zone_tunnels, len(recs), p["radius"], p["seed"] + sum(map(ord, zid)))
+        if positions is None:
+            positions = _zone_positions(area, len(recs), p["radius"], p["seed"] + sum(map(ord, zid)))
         for rec, pos in zip(recs, positions):
-            rec["start"], rec["startMethod"] = (round(pos[0], 3), round(pos[1], 3)), "spread-along-zone"
+            rec["start"], rec["startMethod"] = (round(pos[0], 3), round(pos[1], 3)), method
     for rec in people:
         rec["speed"] = round(_speed(rng, p["speed"]), 3)
         rec["releaseSeconds"] = round(p["alarmDelaySeconds"] + rng.uniform(p["preMovementSeconds"]["min"], p["preMovementSeconds"]["max"]), 2)
@@ -279,10 +309,11 @@ def run(raw: dict, cancelled=lambda: False) -> dict:
                         length = _path_length(router.compute_waypoints(tuple(r["pos"]), tuple(goal)))
                     except Exception:
                         continue
-                    options.append((length, t["kind"] != "exit", tid))
+                    # Exits first (nearest); refuges only when no exit is reachable.
+                    options.append((t["kind"] != "exit", length, tid))
                 options.sort()
                 chosen = None
-                for length, _, tid in options:
+                for _, length, tid in options:
                     t = stage[tid][2]
                     if t["kind"] == "refuge" and refuge_load[tid] >= t["capacity"]:
                         continue
@@ -308,10 +339,17 @@ def run(raw: dict, cancelled=lambda: False) -> dict:
                 r["targetId"] = chosen
                 agent_of[aid] = r
             frame = 0
-            while sim.agent_count() > 0 and t0 + sim.elapsed_time() < t1 - 1e-9:
+            # Nobody moves before release: start this part's clock at the first
+            # release (positions are unchanged until then).
+            seg_start = max(t0, min(r["releaseSeconds"] for r in agent_of.values())) if agent_of else t1
+            if seg_start > t0:
+                for aid, r in agent_of.items():
+                    if r["releaseSeconds"] <= seg_start:
+                        sim.agent(aid).model.desired_speed = r["speed"]
+            while sim.agent_count() > 0 and seg_start + sim.elapsed_time() < t1 - 1e-9:
                 if cancelled():
                     return {"status": "cancelled", "engineVersion": ENGINE_VERSION, "inputHash": digest}
-                now = t0 + sim.elapsed_time()
+                now = seg_start + sim.elapsed_time()
                 for aid, r in agent_of.items():
                     if r["outcome"] is None and r["releaseSeconds"] <= now:
                         try:
@@ -322,7 +360,7 @@ def run(raw: dict, cancelled=lambda: False) -> dict:
                             a.model.desired_speed = r["speed"]
                 sim.iterate()
                 frame += 1
-                now = t0 + sim.elapsed_time()
+                now = seg_start + sim.elapsed_time()
                 for aid in sim.removed_agents():
                     r = agent_of[aid]
                     kind = stage[r["targetId"]][2]["kind"]
@@ -364,7 +402,7 @@ def run(raw: dict, cancelled=lambda: False) -> dict:
         "inputHash": digest, "seed": p["seed"],
         "assumptions": {"startMethod": p["startMethod"], "speed": p["speed"], "alarmDelaySeconds": p["alarmDelaySeconds"],
                         "preMovementSeconds": p["preMovementSeconds"], "horizonSeconds": p["horizonSeconds"],
-                        "closures": s["closures"], "targetChoice": "shortest walkable path; refuges only while capacity remains"},
+                        "closures": s["closures"], "targetChoice": "nearest reachable exit by walkable path; a refuge only when no exit is reachable and capacity remains"},
         "people": result_people, "totals": totals, "times": times,
         "timesNote": "Time by which the stated share of all simulated people reached an exit or refuge; null means not reached.",
         "segments": segments,

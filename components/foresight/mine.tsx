@@ -246,6 +246,9 @@ export function Mine(props: ViewProps) {
                 <button className="fs-button secondary" onClick={() => void post("mine-model", { from: "template" }).then(refresh)}>
                   New draft from the training template
                 </button>
+                <button className="fs-button secondary" onClick={() => void post("mine-model/reset-training", {}).then(async (r) => (notify(`Training mine restored as revision ${r.revision}. No records were deleted.`), await refresh()))}>
+                  Demo reset: restore training mine
+                </button>
               </div>
             </section>
           )

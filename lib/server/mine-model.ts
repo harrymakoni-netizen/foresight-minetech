@@ -59,3 +59,16 @@ export async function seedMineModel(ctx: Context) {
   const model = trainingMineModel("Foresight template", new Date().toISOString());
   await insert(ctx, "mine-model-revision", { number: 1, status: "published", basedOn: null, model, preflight: preflight(model), createdBy: "Foresight template", publishedAt: new Date().toISOString(), publishedBy: "Foresight template" });
 }
+/** Demo reset (spec §18): publish the training template as a new revision and
+ * restore the training messaging configuration. Deletes nothing: earlier
+ * revisions, runs, check-ins, messages and incidents stay in the record. */
+export async function resetTrainingMine(ctx: Context) {
+  requireEditor(ctx);
+  const draft = await createDraft(ctx, "template");
+  const published = await publish(ctx, draft.id, draft.revision);
+  const { saveMessagingConfig } = await import("./checkins.ts");
+  const { trainingConfig } = await import("../domain/checkin.ts");
+  const { liveEnabled: _l, ...config } = trainingConfig;
+  await saveMessagingConfig(ctx, config);
+  return { revision: published.data.number, revisionId: published.id };
+}
