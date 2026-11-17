@@ -110,6 +110,25 @@ Checks after Phase 2: typecheck, build, `npm test` **50/50 on SQLite and 50/50 o
 
 Checks after Phase 3: typecheck, build, `npm test` **54/54 on SQLite and 54/54 on PostgreSQL 16**, browser **9/9**.
 
+## Phase 4 — mine model (2026-11-17)
+
+| Item | Status | Where / evidence |
+| --- | --- | --- |
+| `mineModelRevision` schema (junctions, tunnels, shafts/adits/exits with hoist and ladder data, refuges, sumps with level–volume tables, pumps, fans, doors, zones, storage links); per-value provenance (measured / survey plan / assumed / default, note, author, time); unknown = null, never 0 | **Implemented and verified** | `lib/domain/mine-model.ts`; JSON schema `contracts/mine-model-1.schema.json` |
+| Revisions: drafts editable, publish requires preflight without errors, published revisions immutable (edits start a new draft; previous becomes superseded) | **Implemented and verified** | `lib/server/mine-model.ts`, `/api/mine-model`; `tests/mine-model.test.ts` |
+| Training template (fictional, labelled), seeded as revision 1 in every training workspace; zones keep ids `zone-a/b/c` so existing records stay valid | **Implemented and verified** | The template also runs through the Python escape engine via the shared fixture `fixtures/mine/training-template.json` |
+| Preflight: connectivity and isolated parts, plan crossings without a junction, elevation consistency (> 60 % error, > 35 % walkway warning), zones without a route, exits/refuges on junctions, refuge capacity/air, pumps on sumps with capacities, sump geometry ordering and danger level, fans/doors on airways, units confirmed, length mismatch, missing provenance, storage links reviewed before multi-sump flooding; each issue names the engines it blocks | **Implemented and verified** | unit tests; live in the editor |
+| Workspace zones follow the published revision (state API and server zone validation) | **Implemented and verified** | |
+| Plan view to scale (zone colours, shafts/adits/incline, refuges, sumps with pumps, fans, doors, 50 m scale bar, declared headcount per shaft) | **Implemented and verified** | `PlanView` in `components/foresight/mine.tsx` (reused by scenario playback in Phase 5) |
+| 3D schematic: Three.js boxes along centrelines from width/height/elevation; orbit, zoom, reset; faded where size unknown; text alternative (Table tab) | **Implemented and verified** (headless Chromium rendered it) | `components/foresight/tunnels-3d.tsx` |
+| Editor: add junction (click, snap 1/5/10 m), connect tunnel, delete, property panel with provenance per value, undo/redo, live validation, save draft, publish | **Implemented and verified** | `tests/browser/mine.spec.ts` |
+| GLB scans kept as zone pictures only | **Implemented** | "Zone pictures" tab hosts the previous map/GLB view |
+| DXF import, GeoTIFF base map, subsidence marks | **Not implemented** (phase 9) | |
+
+**Defect found and fixed (PostgreSQL):** with several processes starting against one database, re-running migration DDL on every start caused intermittent `deadlock detected` (4 of 4 full-suite runs had 1–2 failures). `ensureDatabase` now applies only migrations missing from `schema_migrations`, under the existing advisory lock. After the fix: 5 of 5 full runs clean. This also affects concurrent Vercel cold starts.
+
+Checks after Phase 4: typecheck, build, `npm test` **58/58 on SQLite and on PostgreSQL 16 (5 consecutive runs)**, `npm run test:postgres` 1/1, `npm run test:python` 36/36, `npm run test:sim` 13/13, browser **10/10**.
+
 ---
 
 # Historical status (codex/atu-foresight-upgrade, October 2026)

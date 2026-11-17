@@ -1,0 +1,140 @@
+{
+  "$ref": "#/definitions/person-1",
+  "definitions": {
+    "person-1": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\+[1-9]\\d{7,14}$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "channels": {
+          "type": "object",
+          "properties": {
+            "whatsapp": {
+              "type": "boolean"
+            },
+            "sms": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "whatsapp",
+            "sms"
+          ],
+          "additionalProperties": false,
+          "default": {
+            "whatsapp": false,
+            "sms": true
+          }
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "miner",
+            "shift-boss",
+            "supervisor",
+            "administrator",
+            "buddy-contact"
+          ]
+        },
+        "zoneId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "defaultBuddyId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nextOfKin": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100
+              },
+              "phone": {
+                "allOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^\\+[1-9]\\d{7,14}$"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "phone"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 3,
+          "default": []
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "en",
+              "sn",
+              "nd"
+            ]
+          },
+          "minItems": 1,
+          "default": [
+            "en"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "role"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

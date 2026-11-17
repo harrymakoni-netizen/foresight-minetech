@@ -160,6 +160,7 @@ test("GLB format validation, private import and viewer plumbing use a labelled s
   expect(invalid.status()).toBe(422);
   await page.getByRole("button", { name: "Refresh workspace" }).click();
   await page.getByRole("link", { name: "Mine", exact: true }).click();
+  await page.getByRole("tab", { name: "Zone pictures" }).click();
   await page.getByRole("tab", { name: "Reconstructed area" }).click();
   await expect(
     page.getByText("Walkthrough · scale unverified", { exact: true }),

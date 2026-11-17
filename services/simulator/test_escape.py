@@ -112,3 +112,16 @@ class EscapeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrainingTemplateTests(unittest.TestCase):
+    """The TypeScript training template (fixtures/mine/training-template.json,
+    written by npm run contracts) runs through the escape engine unchanged."""
+
+    def test_template_network_runs_and_balances(self):
+        fixture = json.loads((pathlib.Path(__file__).parents[2] / "fixtures/mine/training-template.json").read_text())
+        people = [{"id": f"b{i}", "zoneId": "zone-b"} for i in range(6)] + [{"id": f"c{i}", "zoneId": "zone-c"} for i in range(4)]
+        r = escape.run({"network": fixture["escapeNetwork"], "people": people, "closures": [], "params": {"seed": 3, "horizonSeconds": 1800, "recordTrajectories": False}})
+        self.assertTrue(r["totals"]["balanced"])
+        self.assertEqual(r["totals"]["cut-off"], 0)
+        self.assertEqual(r["totals"]["reached-exit"] + r["totals"]["reached-refuge"], 10)

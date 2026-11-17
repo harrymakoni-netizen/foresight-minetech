@@ -21,7 +21,7 @@ const Records = dynamic(
   { loading: () => <p role="status">Loading workspace view…</p> },
 );
 const MineMap = dynamic(
-  () => import("@/components/foresight/mine-map").then((m) => m.MineMap),
+  () => import("@/components/foresight/mine").then((m) => m.Mine),
   { loading: () => <p role="status">Loading workspace view…</p> },
 );
 const Simulator = dynamic(

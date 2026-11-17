@@ -14,6 +14,7 @@ import {
   update,
   useBudget,
   DomainError,
+  knownZones,
 } from "@/lib/server/repository";
 import { mutate, extract, explain } from "@/lib/server/workflows";
 import {
@@ -45,6 +46,8 @@ import {
 } from "@/lib/server/checkins";
 import { bindChannel, messagingConfig, messagingMode } from "@/lib/server/messaging";
 import { messagingHealth } from "@/lib/server/gateway";
+import { createDraft, publish as publishModel, saveDraft } from "@/lib/server/mine-model";
+import { preflight as modelPreflight, mineModelSchema } from "@/lib/domain/mine-model";
 import {
   alertAndMuster,
   closeEmergency,
@@ -141,7 +144,14 @@ export async function GET(request: Request, route: RouteContext) {
             actor: ctx.actor,
             role: ctx.role,
           },
-          site,
+          site: {
+            ...site,
+            // Zones follow the published mine model; old map positions are kept where ids match.
+            zones: (await knownZones(ctx)).map((z) => {
+              const old = site.zones.find((x) => x.id === z.id);
+              return { id: z.id, name: z.name, x: old?.x ?? 0, y: old?.y ?? 0 };
+            }),
+          },
           entities: protect(await list(ctx), ctx.role),
           messaging: {
             mode: messagingMode().mode,
@@ -332,6 +342,7 @@ export async function POST(request: Request, route: RouteContext) {
         "messaging",
         "emergencies",
         "roll",
+        "mine-model",
         "assessments",
         "scenarios",
         "snapshots",
@@ -450,6 +461,21 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
       if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "mine-model" && path[1] === "validate")
+        return { issues: modelPreflight(mineModelSchema.parse((body as { model: unknown }).model)) };
+      if (path[0] === "mine-model" && !path[1])
+        return await createDraft(
+          ctx,
+          z.object({ from: z.string().min(1).max(80) }).strict().parse(body).from,
+        );
+      if (path[0] === "mine-model" && path[2] === "publish")
+        return await publishModel(
+          ctx,
+          path[1],
+          z.object({ expectedRevision: z.number().int().positive() }).strict().parse(body).expectedRevision,
+        );
+      if (path[0] === "mine-model" && path[1] && !path[2])
+        return await saveDraft(ctx, path[1], body);
       if (path[0] === "emergencies" && !path[1]) return await declareEmergency(ctx, body);
       if (path[0] === "emergencies" && path[2] === "alert")
         return await alertAndMuster(ctx, path[1]);

@@ -154,6 +154,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
     page.getByText("Inputs changed.", { exact: false }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Mine", exact: true }).click();
+  await page.getByRole("tab", { name: "Zone pictures" }).click();
   await page.getByLabel("Laboratory overlay").selectOption({ index: 1 });
   await shot(page, "mine-map");
   await page.getByRole("tab", { name: "Reconstructed area" }).click();

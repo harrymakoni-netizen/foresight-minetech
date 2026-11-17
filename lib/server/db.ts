@@ -82,10 +82,29 @@ export async function ensureDatabase() {
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('foresight-schema-v1'))",
       );
-      for (const file of ["002-postgres.sql", "003-postgres-messaging.sql"])
-        await client.query(
-          readFileSync(path.join(process.cwd(), "migrations", file), "utf8"),
-        );
+      // Only apply migrations that are missing. Re-running DDL (REVOKE, CREATE
+      // INDEX, CREATE OR REPLACE FUNCTION) on every cold start takes table
+      // locks while other instances are mid-transaction and can deadlock.
+      const {
+        rows: [exists],
+      } = await client.query(
+        "SELECT to_regclass('foresight.schema_migrations') IS NOT NULL AS ok",
+      );
+      const applied = new Set<number>(
+        exists?.ok
+          ? (
+              await client.query("SELECT version FROM foresight.schema_migrations")
+            ).rows.map((r) => Number(r.version))
+          : [],
+      );
+      for (const [version, file] of [
+        [1, "002-postgres.sql"],
+        [3, "003-postgres-messaging.sql"],
+      ] as const)
+        if (!applied.has(version))
+          await client.query(
+            readFileSync(path.join(process.cwd(), "migrations", file), "utf8"),
+          );
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});

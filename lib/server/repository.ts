@@ -361,6 +361,7 @@ export async function workspaceFor(userId: string): Promise<Context> {
     );
     // Training-mine shafts, escalation timings and fictional people (no phones).
     await (await import("./checkins.ts")).seedMessaging(ctx);
+    await (await import("./mine-model.ts")).seedMineModel(ctx);
     return ctx;
   });
 }
