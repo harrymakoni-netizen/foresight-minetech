@@ -1,4 +1,61 @@
-# Foresight upgrade implementation status
+# Foresight implementation status
+
+**Current work:** Foresight MineTech v2 per *Foresight Development Specification 2.0* (16 Nov 2026), on branch `claude/minetech-v2`, created from `codex/atu-foresight-upgrade` at `40a8290` (not `main`). Development and preview only: no production data, live records or production deployment were touched. Messaging is **dry-run**; no SMS or WhatsApp message has been sent to anyone.
+
+Status categories (spec §18): **Implemented and verified** · **Implemented, awaiting environment verification** · **In progress** · **Blocked by a named dependency** · **Not implemented**.
+
+## Phase 0 — assessment and proof tests (2026-11-17)
+
+### Baseline checks at `40a8290` (before any change)
+
+Environment: Linux x86_64 container, Node 22.23.4, Python 3.13.18, PostgreSQL 16 (local throwaway cluster), Chromium 1243 (pre-installed).
+
+| Check | Result at baseline | Note |
+| --- | --- | --- |
+| `npm ci` | Pass (620 packages) | |
+| `npm run typecheck` | Pass | |
+| `npm test` (SQLite) | **18 pass, 15 cancelled**, exit 1 | Cause: `AbortSignal.timeout()` in `lib/server/ai.ts` uses an unreferenced timer. In the mocked timeout test nothing else holds Node's event loop, so it drains before the deadline fires and the runner cancels the rest. Reproduced in isolation. Production is unaffected (the HTTP server keeps the loop alive) but the bounded-failure path was not actually exercised. |
+| `npm run test:python` | **36 pass** | System Python 3.13 (earlier reports used 3.12) |
+| `npm run build` | Pass (Next.js 16.3.4, Turbopack) | |
+| `npm run test:postgres` | Pass (1) | Needs a role not named `foresight`: PostgreSQL's default `"$user", public` search path otherwise puts Better Auth tables in the `foresight` schema. Environment note, not a product defect (Supabase uses `postgres`). |
+| `npm test` on PostgreSQL 16 | 33 pass (after fix below) | |
+| Browser suite (production build, port 3001 + worker 8100) | **6 pass** | Needed `PLAYWRIGHT_CHROMIUM_EXECUTABLE` (new optional config) because the pinned Playwright 1.64.1 expects browser build 1248 and this container has 1243. Tracked screenshots it rewrote were restored. |
+
+**Fix applied:** `lib/server/ai.ts` now uses a referenced timer (`requestDeadline`) cleared in `finally`. After the fix: `npm test` **33/33 pass** on SQLite and **33/33 on PostgreSQL 16**.
+
+### Gap list: spec §3 versus the code at `40a8290`
+
+| §3 claim | Finding |
+| --- | --- |
+| Five destinations, legacy hash aliases | Confirmed (`app/workspace.tsx`). |
+| Legacy WorkSafe workspace "built as preview" | `app/legacy-workspace.tsx` exists but is **not mounted** by any route (`app/page.tsx` renders only `workspace.tsx`). `/api/records` still serves the old Blob-backed register; `scripts/migrate-legacy.ts` already migrates an exported legacy file into scoped records. Foresight Lite there is a simulated outbox only. |
+| Zod contracts, `zoneId` fixed enum | Confirmed: `z.enum(["zone-a","zone-b","zone-c"])`, also used by the vision event and report schemas. |
+| `development-controls-1` | Confirmed (`assess`, `can`, `validTransition` in `lib/domain/assessment.ts`). |
+| Persistence, migrations 001/002 | Confirmed. |
+| Water engine `lumped-water-1.0.0` | Confirmed; note `MAX_NODES = 3`, `MAX_PUMPS = 6`. The new mine model must map sumps onto at most three storage nodes per run unless the engine limit is reviewed. |
+| Simulation transport | Confirmed. The local worker **bound only to 127.0.0.1**, so it could not serve from a container; now configurable (`FORESIGHT_SIMULATOR_HOST`). The "job callback" is a poll by the web app (`GET /jobs/:id`), not a push. |
+| Vision/PPE worker | Present, shown in Evidence. To be hidden behind a flag in Phase 1. |
+| GLB viewer | Confirmed. |
+| Offline queue | Confirmed. |
+| Tests | 33 Node, 36 Python, 1 PostgreSQL auth, 6 browser (counts verified above). |
+| Test record "QA response drill 1789405000522" | Not in source or seed data; it exists only in hosted database data. Not touched (no production/preview data changes in this work). |
+
+### Proof tests
+
+| # | Test | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | JuPedSim runs 100 agents in a tunnel-shaped polygon on CPU | **Implemented and verified.** 100/100 reached the exit; first exit 114.25 s, last 179.35 s (simulated); 0.6 s wall clock; 1.7 MB SQLite trajectory written | `tools/proofs/proof_jupedsim.py` (seed 42, L-shaped 3 m drift, 180 m path, JuPedSim 1.4.2 CollisionFreeSpeedModel, dt 0.05 s) |
+| 2 | Walkable polygons from a 10-junction network; close a tunnel; reroute or count as cut off | **Implemented and verified.** Open: 18/18 out, T100 323.35 s. T2 closed: 18/18 reroute, T100 434.75 s. T2+T3+T10 closed: 4 people in North stope counted *cut off* ("no route … from assumed start"), 14 out, T95/T100 not reached. T4 closes at 10 s with people inside: 4 cut off ("in tunnel T4 when it closed at 10 s"). Accounting balanced in every run | `services/simulator/escape.py`, `network.py`, `test_escape.py` (10 tests), `fixtures/mine/ten-junction.json`, `tools/proofs/proof_network_escape.py` |
+| 3 | SMSGate send/receive via API with a mock; allow-listed phone if provided | **In progress → Phase 2 (mock).** Real phone: **Blocked** — no gateway phone, SIM or allow-listed numbers supplied. API shapes taken from the official SMSGate Python client 4.4.0 on PyPI (`POST {base}/messages`, `{phoneNumbers, textMessage:{text}, withDeliveryReport}`, states Pending/Processed/Sent/Delivered/Failed, webhook events `sms:received/sent/delivered/failed`, `system:ping`, health `pass/warn/fail`, devices `lastSeen`). `docs.sms-gate.app` is outside this environment's network policy, so the webhook-signing method could not be read; the spec fallback (secret URL token) will be used | — |
+| 4 | WhatsApp Cloud API webhook verification against a test app | **Blocked** — no Meta test app, app secret, verify token or phone number ID supplied; `developers.facebook.com` is also outside this environment's network policy. Webhook verification will be implemented to the contract in Phase 2 and recorded as *awaiting environment verification* | — |
+| 5 | Simulation worker runs as a container and reports results through the job path | **Partly verified.** Worker process accepts an authenticated `kind: "escape"` job, is idempotent and workspace-scoped, and returns a completed balanced result through the polling path (`test_worker_escape.py`). Container image: `deploy/simulator.Dockerfile` written but **not built** — this environment has a Docker client but no daemon. Status: *Implemented, awaiting environment verification* | `services/simulator/server.py`, `deploy/simulator.Dockerfile`, `requirements-sim.txt` |
+
+New commands: `npm run setup:sim` (creates `.venv-sim` from pinned `requirements-sim.txt`), `npm run test:sim` (12 tests). JuPedSim 1.4.2 installs PySide6 and VTK as hard dependencies, so the worker image is large; the stdlib water engine still runs without them, and the worker reports which engines it has at `/health`.
+
+---
+
+# Historical status (codex/atu-foresight-upgrade, October 2026)
+
 
 Branch: `codex/atu-foresight-upgrade`. Baseline: `5c1b21850f9c4ce405bf1bd179acebbc507641de` (clean main, checked 2026-10-17 UTC). Product direction: supplied Foresight Development Specification v1.0. The initial development upgrade did not change production or live records. Hosted work is recorded below; no paid plan upgrade or external notification was made. **This is a working development release, not the complete validated core release.**
 

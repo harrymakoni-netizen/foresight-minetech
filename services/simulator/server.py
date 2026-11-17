@@ -19,6 +19,21 @@ def db():
 with db() as c:
     c.execute('CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL,status TEXT NOT NULL,progress REAL NOT NULL,input TEXT NOT NULL,result TEXT,error TEXT,created_at TEXT NOT NULL,started_at TEXT,finished_at TEXT,cancel INTEGER NOT NULL DEFAULT 0)')
     c.execute("UPDATE jobs SET status='queued',progress=0 WHERE status='running'")
+def _escape(data,cancelled):
+    # Imported lazily: the escape engine needs the simulation-worker environment
+    # (requirements-sim.txt); the stdlib water engine keeps working without it.
+    from .escape import run
+    return run(data,cancelled)
+def _escape_validate(data):
+    from .escape import validate as v
+    v(data)
+EXTENDED={'escape':_escape}
+VALIDATORS={'escape':_escape_validate}
+def extended_available():
+    try:
+        import jupedsim,shapely,networkx  # noqa: F401
+        return True
+    except ImportError:return False
 def now():return datetime.now(timezone.utc).isoformat()
 def execute(job_id):
     with db() as c:
@@ -31,7 +46,9 @@ def execute(job_id):
     def progress(value):
         with db() as c:c.execute('UPDATE jobs SET progress=? WHERE id=?',(value,job_id))
     try:
-        payload=json.loads(row['input']);result=ensemble(payload['scenario'],payload['sensitivity'],cancelled,progress) if 'sensitivity' in payload else solve(payload,cancelled,progress)
+        payload=json.loads(row['input'])
+        if payload.get('kind') in EXTENDED:result=EXTENDED[payload['kind']](payload['input'],cancelled)
+        else:result=ensemble(payload['scenario'],payload['sensitivity'],cancelled,progress) if 'sensitivity' in payload else solve(payload,cancelled,progress)
         with db() as c:c.execute('UPDATE jobs SET status=?,progress=?,result=?,finished_at=? WHERE id=?',(result['status'],1 if result['status']=='completed' else result.get('progress',0),json.dumps(result,allow_nan=False),now(),job_id))
     except Exception as exc:
         with db() as c:c.execute("UPDATE jobs SET status='failed',error=?,finished_at=? WHERE id=?",(str(exc)[:500],now(),job_id))
@@ -42,7 +59,7 @@ class Handler(BaseHTTPRequestHandler):
     def authorized(self):return hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+TOKEN)
     def do_GET(self):
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
-        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True})
+        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0'] if extended_available() else [])})
         job_id=self.path.removeprefix('/jobs/')
         with db() as c:row=c.execute('SELECT * FROM jobs WHERE id=? AND workspace_id=?',(job_id,self.headers.get('X-Workspace-Id',''))).fetchone()
         if not row:return self.send(404,{'error':'Job not found'})
@@ -52,7 +69,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
         size=int(self.headers.get('Content-Length',0))
-        if not 0 < size <= 200000:return self.send(413,{'error':'Body limit exceeded'})
+        if not 0 < size <= 2000000:return self.send(413,{'error':'Body limit exceeded'})
         try:body=json.loads(self.rfile.read(size))
         except ValueError:return self.send(400,{'error':'Invalid JSON'})
         if self.path.endswith('/cancel'):
@@ -63,16 +80,22 @@ class Handler(BaseHTTPRequestHandler):
                 c.execute('UPDATE jobs SET cancel=1 WHERE id=?',(job_id,))
             return self.send(200,{'id':job_id,'cancelRequested':True})
         if self.path!='/jobs':return self.send(404,{'error':'Unknown path'})
+        if body.get('kind') in EXTENDED:
+            if not extended_available():return self.send(503,{'error':'Escape engine dependencies are not installed on this worker'})
+            try:VALIDATORS[body['kind']](body.get('input'))
+            except (ValueError,KeyError,TypeError) as exc:return self.send(422,{'error':str(exc)})
+            if body.get('workspaceId')!=self.headers.get('X-Workspace-Id'):return self.send(403,{'error':'Workspace mismatch'})
+            return self.enqueue(body.get('id'),body['workspaceId'],json.dumps({'kind':body['kind'],'input':body['input']},sort_keys=True))
         try:
             validate(body['scenario'])
             if body.get('sensitivity'):validate_ranges(body['scenario'],body['sensitivity'])
         except (ValidationError,KeyError,TypeError) as exc:return self.send(422,{'error':str(exc)})
         workspace=body['scenario']['workspaceId']
         if workspace!=self.headers.get('X-Workspace-Id'):return self.send(403,{'error':'Workspace mismatch'})
-        job_id=body.get('id')
+        return self.enqueue(body.get('id'),workspace,json.dumps({'scenario':body['scenario'],'sensitivity':body['sensitivity']} if body.get('sensitivity') else body['scenario'],sort_keys=True))
+    def enqueue(self,job_id,workspace,raw):
         try:uuid.UUID(job_id)
         except (ValueError,TypeError,AttributeError):return self.send(422,{'error':'UUID job ID required'})
-        raw=json.dumps({'scenario':body['scenario'],'sensitivity':body['sensitivity']} if body.get('sensitivity') else body['scenario'],sort_keys=True)
         with db() as c:
             previous=c.execute('SELECT * FROM jobs WHERE id=?',(job_id,)).fetchone()
             if previous:
@@ -85,5 +108,6 @@ class Handler(BaseHTTPRequestHandler):
 if __name__=='__main__':
     with db() as c:
         for row in c.execute("SELECT id FROM jobs WHERE status='queued'").fetchall():POOL.submit(execute,row['id'])
-    print('Simulator worker: http://127.0.0.1:8100 (authenticated, persistent jobs)',flush=True)
-    ThreadingHTTPServer(('127.0.0.1',int(os.environ.get('FORESIGHT_SIMULATOR_PORT','8100'))),Handler).serve_forever()
+    host=os.environ.get('FORESIGHT_SIMULATOR_HOST','127.0.0.1');port=int(os.environ.get('FORESIGHT_SIMULATOR_PORT','8100'))
+    print(f'Simulator worker: http://{host}:{port} (authenticated, persistent jobs)',flush=True)
+    ThreadingHTTPServer((host,port),Handler).serve_forever()

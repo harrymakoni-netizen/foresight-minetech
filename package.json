@@ -22,7 +22,9 @@
     "worker:vision": ".venv/bin/python -m services.vision.server",
     "preview": "node scripts/start-local.mjs",
     "test:postgres": "node --experimental-strip-types --test tests/postgres-auth.test.ts",
-    "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate-db.ts"
+    "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/migrate-db.ts",
+    "test:sim": ".venv-sim/bin/python -m unittest services.simulator.test_escape services.simulator.test_worker_escape -v",
+    "setup:sim": "python3 -m venv .venv-sim && .venv-sim/bin/pip install -r requirements-sim.txt"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.99",

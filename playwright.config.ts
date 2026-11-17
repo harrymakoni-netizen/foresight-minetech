@@ -8,7 +8,14 @@ export default defineConfig({
     baseURL: process.env.PREVIEW_URL || "http://localhost:3000",
     headless: true,
     trace: "retain-on-failure",
-    launchOptions: { args: ["--no-sandbox"] },
+    launchOptions: {
+      args: ["--no-sandbox"],
+      // Optional: reuse a pre-installed Chromium when the pinned Playwright
+      // browser build is not downloaded (e.g. sandboxed CI containers).
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+        ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+        : {}),
+    },
   },
   reporter: [
     ["list"],

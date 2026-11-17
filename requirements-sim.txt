@@ -1,0 +1,11 @@
+# Simulation worker (escape, routes, cage/hoist, DXF). Pinned to the versions
+# tested in this repository on Python 3.13 / Linux x86_64 (see IMPLEMENTATION_STATUS.md).
+# The water engine itself still needs only the standard library.
+# jupedsim 1.4.2 pulls PySide6 and VTK as hard dependencies (large image).
+jupedsim==1.4.2
+pedpy==1.5.1
+simpy==4.1.2
+networkx==3.7
+shapely==2.2.0
+ezdxf==1.4.5
+numpy==2.5.5
