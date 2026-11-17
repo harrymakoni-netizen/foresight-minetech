@@ -69,6 +69,31 @@ New commands: `npm run setup:sim` (creates `.venv-sim` from pinned `requirements
 
 Checks after Phase 1: typecheck, build, `npm test` **37/37** (33 existing + 4 new), `npm run test:python` 36/36, `npm run test:sim` 12/12, browser 6/6.
 
+## Phase 2 — real messaging, dry-run by default (2026-11-17)
+
+No SMS or WhatsApp message was sent to any phone. All sending tests used the local mock gateway with unassigned `+999` numbers.
+
+| Item | Status | Where / evidence |
+| --- | --- | --- |
+| Messaging modes `dry-run` (default) / `allow-list` / `live` enforced on the server; live also needs administrator enablement | **Implemented and verified** | `lib/server/messaging.ts`; tests: dry-run never reaches the gateway, allow-list blocks others, live blocked until enabled, non-admin cannot enable |
+| Message records with status history `queued → accepted → delivered \| failed \| unconfirmed` (+ `dry-run`, `blocked`); accepted ≠ delivered; unconfirmed after deadline; WhatsApp→SMS failover | **Implemented and verified** (mock) | `tests/messaging.test.ts` |
+| Check-in flows: WhatsApp dialogue (IN → shaft → time → buddy → registered with Ref), SMS one-line `IN 1 1430 TENDAI`, OUT, HELP, unknown numbers (reply + supervisor notified), consent (YES/STOP, in-person), shift-boss `TEAM`, manual check-in | **Implemented and verified** | `lib/domain/checkin.ts`, `lib/server/checkins.ts`, `lib/messaging/templates.ts` (keyed English templates; Shona/Ndebele keys empty) |
+| Return times in Africa/Harare; past and beyond-max-shift rejected and asked again; overnight handled | **Implemented and verified** | unit tests |
+| Server-first protection: confirmation queued only after the check-in commits; offline saves shown as **not yet registered** | **Implemented and verified** | messaging tests + browser `underground.spec.ts` |
+| Status machine (5 statuses; modelled status cannot change a real check-in) with audit events | **Implemented and verified** | `assertTransition`, tests |
+| Escalation ladder with persisted steps, fake-clock timing, stop on check-out (records steps run), no double execution under parallel schedulers, idempotent message keys; confirmed missing opens an incident with check-in, messages and timeline; supervisor step opens a shaft muster; muster confirmation marks the check-in accounted for | **Implemented and verified** | `escalation_steps`, `runDueSteps`, tests |
+| Scheduler health: heartbeat, "Escalation scheduler stopped" on Underground now, `GET /api/messaging/health` 503 for an external monitor | **Implemented and verified** (unit); **external pager not set up** | `lib/server/gateway.ts` |
+| SMSGate gateway: send, inbound webhook (secret URL token), receipts, heartbeat (offline/low battery), secondary gateway failover, admin alert once per outage | **Implemented, awaiting environment verification** (no phone/SIM supplied). Verified against the mock over real HTTP (proof 3 below) | `docs/MESSAGING_SETUP.md` |
+| WhatsApp Cloud API: challenge, `X-Hub-Signature-256` verification, inbound/status parsing, text replies, template sends, "template not approved" state | **Implemented, awaiting environment verification** — no Meta app credentials supplied; Meta's documentation host is blocked from this environment, so shapes are from the published API as known, unverified | `lib/messaging/webhooks.ts` |
+| Phone numbers sealed (AES-256-GCM, keyed hash lookup), masked for supervisors, hidden from viewers/reporters; inbound text hidden from viewers/reporters | **Implemented and verified** (unit + state filter) | `lib/server/personal.ts`, `protect()` in the workspace route. Production requires `FORESIGHT_PERSONAL_DATA_KEY` |
+| Migration 003 (SQLite + PostgreSQL): escalation steps, provider message ids (replay rejection), contact index, conversations, channel bindings, message queue, heartbeats | **Implemented and verified** on SQLite and PostgreSQL 16 | `migrations/003-*.sql` |
+| Underground now: headcount by shaft, overdue first, alerts with step and per-message status, gateway and scheduler status, Manual check-in, Start muster; Records: People register, Check-ins, Messages | **Implemented and verified** (browser, 1366 px and 390 px) | `components/foresight/underground.tsx`, `records.tsx` |
+| Messaging service, mock gateway, Dockerfiles, `docker-compose.yml` | **Implemented**; compose/images **not built** (no Docker daemon here) | `services/messaging/*`, `deploy/*` |
+
+**Proof test 3 (mock, over HTTP): Implemented and verified.** `tools/proofs/proof_smsgate_mock.ts`: mock SMSGate posts `sms:received` to `/api/messaging/sms`, the check-in is stored (Ref issued), one service tick sends the confirmation through the gateway API in allow-list mode, the mock's `sms:delivered` webhook moves it to delivered (history `queued, accepted, delivered`), and a non-allow-listed sender's reply never reached the gateway. Real Econet/NetOne phones: **Blocked** — needs an Android phone with SIM, SMSGate credentials and allow-listed test numbers from the owner.
+
+Checks after Phase 2: typecheck, build, `npm test` **50/50 on SQLite and 50/50 on PostgreSQL 16**, `npm run test:python` 36/36, `npm run test:sim` 12/12, browser **8/8**.
+
 ---
 
 # Historical status (codex/atu-foresight-upgrade, October 2026)

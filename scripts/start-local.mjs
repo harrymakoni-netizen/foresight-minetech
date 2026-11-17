@@ -12,6 +12,13 @@ if (!existsSync(secretPath))
     mode: 0o600,
     flag: "wx",
   });
+// Private local key for sealing phone numbers in the preview database.
+const personalKeyPath = ".minetech-data/personal-data-key";
+if (!existsSync(personalKeyPath))
+  writeFileSync(personalKeyPath, randomBytes(32).toString("base64"), {
+    mode: 0o600,
+    flag: "wx",
+  });
 const port = process.env.PORT || "3001";
 const child = spawn(
   process.execPath,
@@ -35,6 +42,9 @@ const child = spawn(
         process.env.FORESIGHT_SIMULATOR_URL || "http://127.0.0.1:8100",
       FORESIGHT_WORKER_TOKEN:
         process.env.FORESIGHT_WORKER_TOKEN || "development-worker-token",
+      FORESIGHT_PERSONAL_DATA_KEY:
+        process.env.FORESIGHT_PERSONAL_DATA_KEY ||
+        readFileSync(personalKeyPath, "utf8"),
     },
   },
 );

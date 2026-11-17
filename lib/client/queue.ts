@@ -1,7 +1,7 @@
 export type Queued = {
   key: string;
   workspaceId: string;
-  operation: "reports" | "inspections" | "workers" | "worker-status";
+  operation: "reports" | "inspections" | "workers" | "worker-status" | "checkins";
   body: unknown;
   queuedAt: string;
   state: "pending" | "synced" | "conflict" | "rejected";

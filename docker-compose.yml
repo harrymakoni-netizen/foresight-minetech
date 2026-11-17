@@ -1,0 +1,52 @@
+# Local development stack (spec §5.2): web, Postgres, simulation worker,
+# messaging service and a mock SMS gateway. Messaging is dry-run unless you
+# set MESSAGING_MODE=allow-list and MESSAGING_TEST_NUMBERS in .env.local.
+# Not verified in the build environment (no Docker daemon there).
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: foresight_dev
+      POSTGRES_PASSWORD: foresight_dev
+      POSTGRES_DB: foresight
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  simulator:
+    build: { context: ., dockerfile: deploy/simulator.Dockerfile }
+    environment:
+      FORESIGHT_WORKER_TOKEN: ${FORESIGHT_WORKER_TOKEN:-development-worker-token-change-me-000000}
+    volumes: [simdata:/data]
+  mock-gateway:
+    build: { context: ., dockerfile: deploy/messaging.Dockerfile }
+    command: ["node", "--experimental-strip-types", "services/messaging/mock-gateway.ts"]
+    environment:
+      MOCK_GATEWAY_PORT: "8300"
+      SMSGATE_USERNAME: mock
+      SMSGATE_PASSWORD: mock-password
+      MOCK_GATEWAY_WEBHOOK_URL: http://web:3000/api/messaging/sms?token=${SMSGATE_WEBHOOK_TOKEN:-local-mock-webhook-token-000000000}
+  web:
+    build: { context: ., dockerfile: deploy/web.Dockerfile }
+    ports: ["3000:3000"]
+    env_file: [{ path: .env.local, required: false }]
+    environment: &app
+      DATABASE_URL: postgres://foresight_dev:foresight_dev@postgres:5432/foresight
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-only-auth-secret-change-me-0000000000}
+      FORESIGHT_PERSONAL_DATA_KEY: ${FORESIGHT_PERSONAL_DATA_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      FORESIGHT_SIMULATOR_URL: http://simulator:8100
+      FORESIGHT_WORKER_TOKEN: ${FORESIGHT_WORKER_TOKEN:-development-worker-token-change-me-000000}
+      SMSGATE_URL: http://mock-gateway:8300
+      SMSGATE_USERNAME: mock
+      SMSGATE_PASSWORD: mock-password
+      SMSGATE_WEBHOOK_TOKEN: ${SMSGATE_WEBHOOK_TOKEN:-local-mock-webhook-token-000000000}
+      MESSAGING_MODE: ${MESSAGING_MODE:-dry-run}
+      MESSAGING_TEST_NUMBERS: ${MESSAGING_TEST_NUMBERS:-}
+    depends_on: [postgres, simulator, mock-gateway]
+  messaging:
+    build: { context: ., dockerfile: deploy/messaging.Dockerfile }
+    env_file: [{ path: .env.local, required: false }]
+    environment: *app
+    depends_on: [postgres, web]
+volumes:
+  pgdata:
+  simdata:

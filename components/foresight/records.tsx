@@ -5,9 +5,12 @@ import {
   ClipboardList,
   Download,
   FileText,
+  LogIn,
+  MessageSquare,
   ShieldAlert,
   Users,
 } from "lucide-react";
+import { messageText, messageTone, statusText, statusTone } from "./underground";
 import {
   date,
   Dialog,
@@ -59,6 +62,8 @@ const tabs = [
   ["evidence", "Evidence and inspections", FileText],
   ["incidents", "Incidents and responses", ShieldAlert],
   ["people", "People and musters", Users],
+  ["checkins", "Check-ins", LogIn],
+  ["messages", "Messages", MessageSquare],
   ["exports", "Exports and audit", ClipboardList],
 ] as const;
 export function Records(props: ViewProps & { initialTab?: string }) {
@@ -87,7 +92,14 @@ export function Records(props: ViewProps & { initialTab?: string }) {
       </div>
       {tab === "evidence" && <Evidence {...props} />}
       {tab === "incidents" && <IncidentRegister {...props} />}
-      {tab === "people" && <People {...props} />}
+      {tab === "people" && (
+        <>
+          <PeopleRegister {...props} />
+          <People {...props} />
+        </>
+      )}
+      {tab === "checkins" && <CheckInLog {...props} />}
+      {tab === "messages" && <MessageLog {...props} />}
       {tab === "exports" && <Exports {...props} />}
     </>
   );
@@ -352,6 +364,235 @@ function Exports({ data }: ViewProps) {
         {data.entities.length} records in this workspace. Incident PDF and CSV
         exports are added with the emergency workflow.
       </p>
+    </section>
+  );
+}
+
+const hhmm = (iso: unknown) => (iso ? date(String(iso)) : "—");
+function PeopleRegister({ data, post, refresh, notify }: ViewProps) {
+  const people = rows(data, "person");
+  const supervisor = ["supervisor", "administrator"].includes(data.workspace.role);
+  const [adding, setAdding] = useState(false), [error, setError] = useState("");
+  const [f, setF] = useState({ name: "", phone: "", role: "miner", zoneId: "", buddy: "", whatsapp: false, sms: true });
+  return (
+    <section className="fs-panel">
+      <div className="fs-section-heading">
+        <div>
+          <h2>People register</h2>
+          <p>Everyone who can check in, be a buddy or receive alerts. Phone numbers are stored sealed and shown masked to supervisors only.</p>
+        </div>
+        {supervisor && (
+          <button className="fs-button" onClick={() => setAdding(true)}>
+            Add person
+          </button>
+        )}
+      </div>
+      <div className="fs-table-wrap">
+        <table className="fs-register">
+          <caption className="fs-sr-only">People register</caption>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Role</th>
+              <th scope="col">Phone</th>
+              <th scope="col">Channels</th>
+              <th scope="col">Consent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((p) => {
+              const consent = p.data.consent as { status: string; at?: string; channel?: string };
+              const ch = p.data.channels as { whatsapp: boolean; sms: boolean };
+              return (
+                <tr key={p.id}>
+                  <td>
+                    {String(p.data.name)}
+                    {p.data.fictional ? <small className="fs-block">Fictional training person</small> : null}
+                  </td>
+                  <td>{String(p.data.role)}</td>
+                  <td>{p.data.phoneMasked ? String(p.data.phoneMasked) : supervisor ? "No phone" : "Hidden"}</td>
+                  <td>{[ch.whatsapp && "WhatsApp", ch.sms && "SMS"].filter(Boolean).join(", ") || "None"}</td>
+                  <td>
+                    <Tag tone={consent.status === "given" ? "teal" : "amber"}>
+                      {consent.status === "given" ? "Given" : consent.status === "withdrawn" ? "Withdrawn" : "Not recorded"}
+                    </Tag>
+                    {consent.at ? <small className="fs-block">{hhmm(consent.at)} · {consent.channel}</small> : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {adding && (
+        <Dialog title="Add person" onClose={() => setAdding(false)}>
+          <p className="fs-help">Consent is recorded separately: on first message (reply YES) or in person.</p>
+          <Field label="Name">
+            <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          </Field>
+          <Field label="Phone (international format)" help="Only add numbers of people who agreed to receive Foresight messages.">
+            <input value={f.phone} inputMode="tel" placeholder="+263…" onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          </Field>
+          <Field label="Role">
+            <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+              <option value="miner">Miner</option>
+              <option value="shift-boss">Shift boss</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="administrator">Administrator</option>
+            </select>
+          </Field>
+          <Field label="Usual zone">
+            <select value={f.zoneId} onChange={(e) => setF({ ...f, zoneId: e.target.value })}>
+              <option value="">Not stated</option>
+              {data.site.zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Saved buddy">
+            <select value={f.buddy} onChange={(e) => setF({ ...f, buddy: e.target.value })}>
+              <option value="">None</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {String(p.data.name)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <fieldset className="fs-checks">
+            <legend>Channels</legend>
+            <label>
+              <input type="checkbox" checked={f.sms} onChange={(e) => setF({ ...f, sms: e.target.checked })} /> SMS
+            </label>
+            <label>
+              <input type="checkbox" checked={f.whatsapp} onChange={(e) => setF({ ...f, whatsapp: e.target.checked })} /> WhatsApp
+            </label>
+          </fieldset>
+          <ErrorText message={error} />
+          <button
+            className="fs-button"
+            onClick={() =>
+              void post("people", { name: f.name, phone: f.phone || null, role: f.role, zoneId: f.zoneId || null, defaultBuddyId: f.buddy || null, channels: { whatsapp: f.whatsapp, sms: f.sms } })
+                .then(async () => {
+                  setAdding(false);
+                  notify("Person added. Record consent before their first check-in.");
+                  await refresh();
+                })
+                .catch((e) => setError(e.message))
+            }
+          >
+            Save person
+          </button>
+        </Dialog>
+      )}
+    </section>
+  );
+}
+function CheckInLog({ data }: ViewProps) {
+  const list = rows(data, "check-in").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const steps = data.messaging?.steps || [];
+  return (
+    <section className="fs-panel">
+      <div className="fs-section-heading">
+        <div>
+          <h2>Check-ins</h2>
+          <p>Declarations at the shaft collar, with their escalation steps. A check-in is never a confirmed location.</p>
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <Empty title="No check-ins yet">Check-ins arrive by WhatsApp, SMS, shift-boss team message or manual entry.</Empty>
+      ) : (
+        <div className="fs-table-wrap">
+          <table className="fs-register">
+            <caption className="fs-sr-only">Check-ins</caption>
+            <thead>
+              <tr>
+                <th scope="col">Person · Ref</th>
+                <th scope="col">Shaft</th>
+                <th scope="col">In · expected back · out</th>
+                <th scope="col">Buddy · method</th>
+                <th scope="col">Status</th>
+                <th scope="col">Escalation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((c) => (
+                <tr key={c.id} className={c.data.status === "return-overdue" || c.data.status === "confirmed-missing" ? "overdue" : ""}>
+                  <td>
+                    {String(c.data.personName)}
+                    <small className="fs-block">Ref {String(c.data.reference)}</small>
+                  </td>
+                  <td>{String(c.data.shaftName)}</td>
+                  <td>
+                    {hhmm(c.data.timeIn)}
+                    <small className="fs-block">Back by {hhmm(c.data.expectedReturn)}</small>
+                    <small className="fs-block">Out {c.data.timeOut ? hhmm(c.data.timeOut) : "not checked out"}</small>
+                  </td>
+                  <td>
+                    {String(c.data.buddyName || "None")}
+                    <small className="fs-block">{c.data.method === "manual" ? "Manual check-in" : String(c.data.method)} · {String(c.data.declaredBy)}</small>
+                  </td>
+                  <td>
+                    <Tag tone={statusTone[String(c.data.status)]}>{statusText[String(c.data.status)]}</Tag>
+                  </td>
+                  <td>
+                    {steps
+                      .filter((s) => s.checkin_id === c.id)
+                      .map((s) => (
+                        <small className="fs-block" key={s.step}>
+                          {s.step}: {s.executed_at ? `ran ${hhmm(s.executed_at)}` : s.cancelled_at ? "stopped" : `due ${hhmm(s.due_at)}`}
+                        </small>
+                      ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+function MessageLog({ data }: ViewProps) {
+  const list = rows(data, "message").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const mode = data.messaging?.mode;
+  return (
+    <section className="fs-panel">
+      <div className="fs-section-heading">
+        <div>
+          <h2>Messages</h2>
+          <p>
+            Every message in and out, with its status history. Accepted by a provider is not delivered; only a delivery receipt counts.
+            {mode === "dry-run" ? " Dry-run mode: nothing has been sent to anyone." : ""}
+          </p>
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <Empty title="No messages yet" />
+      ) : (
+        <ul className="fs-message-log">
+          {list.map((m) => (
+            <li key={m.id}>
+              <div>
+                <strong>{m.data.direction === "inbound" ? "In" : "Out"} · {String(m.data.channel).toUpperCase()}</strong>{" "}
+                {m.data.direction === "inbound" ? `from ${String(m.data.senderMasked || "hidden")}` : `to ${String(m.data.recipientMasked || "hidden")}`}
+                {m.data.templateKey ? <small> · {String(m.data.templateKey)}</small> : null}{" "}
+                <Tag tone={messageTone[String(m.data.status)]}>{messageText[String(m.data.status)] || String(m.data.status)}</Tag>
+              </div>
+              <p>{String(m.data.text)}</p>
+              <ol className="fs-history">
+                {(m.data.statusHistory as { status: string; at: string; detail: string }[]).map((h, i) => (
+                  <li key={i}>
+                    {hhmm(h.at)} · {messageText[h.status] || h.status} · {h.detail}
+                  </li>
+                ))}
+              </ol>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

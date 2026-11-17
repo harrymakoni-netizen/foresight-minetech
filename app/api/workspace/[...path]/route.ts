@@ -33,6 +33,56 @@ import { visionStatus } from "@/lib/server/vision";
 import { aiStatus } from "@/lib/server/ai-config";
 import { aiConfigured } from "@/lib/server/ai";
 import { assetsGet, assetsPost } from "@/lib/server/assets";
+import {
+  createCheckIn,
+  createPerson,
+  openShaftMuster,
+  recordConsent,
+  saveMessagingConfig,
+  setCheckInStatus,
+  setLiveMessaging,
+  steps as escalationSteps,
+} from "@/lib/server/checkins";
+import { bindChannel, messagingConfig, messagingMode } from "@/lib/server/messaging";
+import { messagingHealth } from "@/lib/server/gateway";
+import { canSeePersonal, personalKeySource } from "@/lib/server/personal";
+import { manualCheckInSchema, checkInStatusSchema } from "@/lib/domain/checkin";
+import type { Entity } from "@/lib/domain/contracts";
+
+// Phone numbers and miners' message bodies are personal data (spec §15).
+// Sealed values never leave the server; viewers and reporters also lose masks
+// and inbound text.
+function protect(entities: Entity[], role: string) {
+  const personal = canSeePersonal(role);
+  return entities.map((e) => {
+    if (!["person", "message"].includes(e.kind)) return e;
+    const {
+      phoneSealed: _p,
+      recipientSealed: _r,
+      senderSealed: _s,
+      ...data
+    } = e.data as Record<string, unknown>;
+    if (Array.isArray(data.nextOfKin))
+      data.nextOfKin = (data.nextOfKin as Record<string, unknown>[]).map(
+        ({ phoneSealed: _k, ...k }) => (personal ? k : { name: k.name }),
+      );
+    if (!personal) {
+      delete data.phoneMasked;
+      delete data.recipientMasked;
+      delete data.senderMasked;
+      if (data.direction === "inbound") data.text = "(hidden: personal data)";
+    }
+    return { ...e, data };
+  });
+}
+async function manualCheckIn(ctx: Awaited<ReturnType<typeof context>>, body: unknown) {
+  const b = manualCheckInSchema.parse(body);
+  return await createCheckIn(ctx, {
+    ...b,
+    method: "manual",
+    declaredBy: `${ctx.actor} (manual check-in)`,
+  });
+}
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
@@ -84,7 +134,17 @@ export async function GET(request: Request, route: RouteContext) {
             role: ctx.role,
           },
           site,
-          entities: await list(ctx),
+          entities: protect(await list(ctx), ctx.role),
+          messaging: {
+            mode: messagingMode().mode,
+            modeProblem: messagingMode().problem,
+            testNumberCount: messagingMode().testNumberCount,
+            liveEnabled: (await messagingConfig(ctx)).config.liveEnabled,
+            config: (await messagingConfig(ctx)).config,
+            personalDataKey: personalKeySource(),
+            ...(await messagingHealth()),
+            steps: await escalationSteps(ctx),
+          },
           latestSyncedAt: new Date().toISOString(),
           services: {
             ai: aiConfigured(),
@@ -108,6 +168,16 @@ export async function GET(request: Request, route: RouteContext) {
             ],
             register: "/api/workspace/legacy-register",
           },
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (path[0] === "checkins") {
+      const all = await list(ctx, "check-in");
+      return Response.json(
+        {
+          checkIns: path[1] ? all.filter((c) => c.id === path[1]) : all,
+          steps: await escalationSteps(ctx, path[1]),
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -213,6 +283,9 @@ export async function POST(request: Request, route: RouteContext) {
       [
         "cases",
         "incidents",
+        "people",
+        "checkins",
+        "messaging",
         "assessments",
         "scenarios",
         "snapshots",
@@ -264,6 +337,7 @@ export async function POST(request: Request, route: RouteContext) {
                   "inspections",
                   "workers",
                   "worker-status",
+                  "checkins",
                 ]),
                 body: z.unknown(),
               }),
@@ -295,6 +369,8 @@ export async function POST(request: Request, route: RouteContext) {
                       .parse(item.body);
                     return await mutate(ctx, ["workers", id, "status"], body);
                   }
+                  if (item.operation === "checkins")
+                    return await manualCheckIn(ctx, item.body);
                   return await mutate(ctx, [item.operation], item.body);
                 },
               ),
@@ -327,6 +403,52 @@ export async function POST(request: Request, route: RouteContext) {
       }
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
+      if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "people" && path[2] === "consent") {
+        const b = z
+          .object({ given: z.boolean(), note: z.string().trim().min(3).max(500) })
+          .strict()
+          .parse(body);
+        return await recordConsent(ctx, path[1], "in-person", b.given, b.note);
+      }
+      if (path[0] === "checkins" && !path[1]) return await manualCheckIn(ctx, body);
+      if (path[0] === "checkins" && path[2] === "status") {
+        const b = checkInStatusSchema.parse(body);
+        return await setCheckInStatus(
+          ctx,
+          await get(ctx, path[1], "check-in"),
+          b.status,
+          "human",
+          b.reason,
+          b.expectedRevision,
+        );
+      }
+      if (path[0] === "messaging" && path[1] === "config")
+        return await saveMessagingConfig(ctx, body);
+      if (path[0] === "messaging" && path[1] === "live") {
+        const b = z
+          .object({ enabled: z.boolean(), reason: z.string().min(3).max(500) })
+          .strict()
+          .parse(body);
+        return await setLiveMessaging(ctx, b.enabled, b.reason);
+      }
+      if (path[0] === "messaging" && path[1] === "bind") {
+        const b = z
+          .object({
+            provider: z.enum(["smsgate", "whatsapp"]),
+            channelKey: z.string().min(1).max(120),
+          })
+          .strict()
+          .parse(body);
+        return await bindChannel(ctx, b.provider, b.channelKey);
+      }
+      if (path[0] === "muster" && path[1] === "shaft") {
+        const b = z
+          .object({ shaftId: z.string().min(1).max(64), reason: z.string().min(3).max(300) })
+          .strict()
+          .parse(body);
+        return { outcome: await openShaftMuster(ctx, b.shaftId, b.reason, null) };
+      }
       return await mutate(ctx, path, body);
     });
     return Response.json(result, { status: 201 });

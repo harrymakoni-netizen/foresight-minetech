@@ -61,12 +61,10 @@ export function localDatabase() {
     sqlite.pragma("journal_mode = WAL");
     sqlite.pragma("foreign_keys = ON");
     sqlite.pragma("busy_timeout = 5000");
-    sqlite.exec(
-      readFileSync(
-        path.join(process.cwd(), "migrations/001-workspaces.sql"),
-        "utf8",
-      ),
-    );
+    for (const file of ["001-workspaces.sql", "003-messaging.sql"])
+      sqlite.exec(
+        readFileSync(path.join(process.cwd(), "migrations", file), "utf8"),
+      );
   }
   return sqlite;
 }
@@ -84,12 +82,10 @@ export async function ensureDatabase() {
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('foresight-schema-v1'))",
       );
-      await client.query(
-        readFileSync(
-          path.join(process.cwd(), "migrations/002-postgres.sql"),
-          "utf8",
-        ),
-      );
+      for (const file of ["002-postgres.sql", "003-postgres-messaging.sql"])
+        await client.query(
+          readFileSync(path.join(process.cwd(), "migrations", file), "utf8"),
+        );
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});

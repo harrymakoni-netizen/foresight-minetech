@@ -58,12 +58,16 @@ const aliases: Record<string, string> = {
   inspections: "records",
   assistant: "records",
   audit: "records",
+  checkins: "records",
+  messages: "records",
 };
 const recordTabFor: Record<string, string> = {
   people: "people",
   workers: "people",
   incidents: "incidents",
   audit: "exports",
+  checkins: "checkins",
+  messages: "messages",
 };
 let sessionStarting: Promise<void> | undefined;
 async function ensureSession() {

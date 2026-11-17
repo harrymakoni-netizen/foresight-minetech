@@ -496,13 +496,28 @@ export async function mutate(
         "ROSTER",
         "Worker is absent from this frozen roster.",
       );
-    return await update(ctx, record, body.expectedRevision, {
+    const saved = await update(ctx, record, body.expectedRevision, {
       ...record.data,
       members,
       status: members.every((m) => m.confirmed)
         ? "accounted-for"
         : "awaiting-confirmation",
     });
+    // A human confirmation on a check-in roster accounts for that declaration.
+    const member = members.find((m) => m.workerId === body.workerId);
+    if (body.confirmed && member?.checkInId) {
+      const { setCheckInStatus } = await import("./checkins.ts");
+      const checkIn = await get(ctx, member.checkInId, "check-in");
+      if (checkIn.data.status !== "accounted-for")
+        await setCheckInStatus(
+          ctx,
+          checkIn,
+          "accounted-for",
+          "human",
+          `Muster confirmation: ${body.reason}`,
+        );
+    }
+    return saved;
   }
   if (operation === "workers" && action === "status") {
     const body = z

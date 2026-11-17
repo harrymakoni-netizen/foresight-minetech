@@ -22,6 +22,7 @@ import {
   type Row,
 } from "./shared";
 import type { Concern, Assessment } from "@/lib/domain/contracts";
+import { UndergroundNow } from "./underground";
 export function CommandCentre({
   data,
   zone,
@@ -102,6 +103,8 @@ export function CommandCentre({
           Submit evidence <ArrowRight size={16} />
         </a>
       </div>
+      <UndergroundNow data={data} zone={zone} post={post} refresh={refresh} notify={notify} />
+      <h2 className="fs-embedded-title fs-concerns-title">Concerns and responses</h2>
       <div className="fs-metrics">
         <Metric
           icon={<ShieldCheck size={20} />}

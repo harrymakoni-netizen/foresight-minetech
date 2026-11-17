@@ -59,3 +59,25 @@ Numerical jobs persist in a separate SQLite store and requeue interrupted runs a
 `POST /api/workspace/cases/from-source` requires a supervisor, normal idempotency header, and `{sourceKind:"run"|"vision-event",sourceId,title,owner,dueAt,reason}`. Runs must be completed; events must be supervisor-acknowledged or resolved with accepted evidence. A laboratory case copies the immutable scenario assumptions and result summary/thresholds/routes/hash, retaining run and snapshot links. An event case retains the event and accepted observation IDs. This explicit human action changes neither operational assessments nor muster.
 
 Spatial import metadata adds `reconstructionMethod` and `coverage`. Older imports remain readable and missing metadata is explicitly recorded as unknown/legacy. New UI imports require actual method/coverage and capture timestamp; scale remains unverified. GLB validation checks chunks, embedded resources, buffer/accessor bounds and dense mesh positions; unsupported sparse or externally decoded layouts return a clear import error. Scale registration never automatically supplies route/simulation geometry.
+
+## MineTech v2 additions (spec 2.0)
+
+Same session, role, same-origin and `Idempotency-Key` rules as above. Supervisor or administrator unless stated.
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/incidents` | `{title,zoneId,category,source:"real-event"\|"report",description,peopleAffected,owner,dueAt,occurredAt}` → register entry (`case` kind) |
+| POST `/api/workspace/people` | `{name,phone,role,zoneId,defaultBuddyId,channels,nextOfKin,languages}`; phone sealed at rest |
+| POST `/api/workspace/people/:id/consent` | `{given,note}` → in-person consent recorded with history |
+| POST `/api/workspace/checkins` (alias `/api/checkins`) | `{personId,shaftId,zoneId,expectedReturn,buddyPersonId,reason}` → manual check-in (recorded as manual); escalation steps scheduled |
+| GET `/api/checkins[/:id]` | Check-ins and their escalation steps |
+| POST `/api/workspace/checkins/:id/status` | `{expectedRevision,status:"accounted-for"\|"confirmed-missing",reason}`; confirmed missing opens an incident |
+| POST `/api/workspace/muster/shaft` | `{shaftId,reason}` → frozen roster of people declared at the shaft |
+| POST `/api/workspace/messaging/config` | Shafts, grace/second interval, max shift, unconfirmed deadline |
+| POST `/api/workspace/messaging/live` | `{enabled,reason}`; **administrator only** |
+| GET `/api/gateway` / POST `/api/gateway` | Gateway + scheduler health / `{provider,channelKey}` binds a channel to this workspace |
+| GET `/api/messaging/health` | Public; 503 when the scheduler heartbeat is stale (for uptime monitors) |
+| GET/POST `/api/messaging/whatsapp` | Meta webhook (challenge; `X-Hub-Signature-256` required) |
+| POST `/api/messaging/sms?token=` and `/api/messaging/status?token=` | SMSGate webhooks (`sms:received`, `sms:delivered`, `sms:failed`, `system:ping`) |
+
+`GET /api/workspace/state` now includes `messaging` (mode, allow-list count, live enablement, config, scheduler/gateway health, escalation steps) and `features.vision`. Sealed phone values never leave the server; viewers and reporters lose masked numbers and inbound text. `/api/workspace/sync` accepts `checkins` operations; queued check-ins are shown as "not yet registered" until stored.

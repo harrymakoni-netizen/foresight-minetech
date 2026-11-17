@@ -34,6 +34,40 @@ export type WorkspaceData = {
     directUploads?: boolean;
   };
   features?: { vision: boolean };
+  messaging?: MessagingState;
+};
+export type Shaft = { id: string; number: number; name: string; zoneIds: string[] };
+export type MessagingState = {
+  mode: "dry-run" | "allow-list" | "live";
+  modeProblem: string | null;
+  testNumberCount: number;
+  liveEnabled: { by: string; at: string } | null;
+  config: {
+    timezone: string;
+    shafts: Shaft[];
+    gracePeriodMinutes: number;
+    secondIntervalMinutes: number;
+    maxShiftHours: number;
+    unconfirmedAfterMinutes: number;
+  };
+  personalDataKey: string;
+  scheduler: { running: boolean; lastBeatAt: string | null; message: string };
+  gateways: {
+    gateway: string;
+    status: string;
+    reason: string;
+    batteryPercent: number | null;
+    checkedAt: string | null;
+    stale: boolean;
+  }[];
+  steps: {
+    checkin_id: string;
+    step: string;
+    due_at: string;
+    executed_at: string | null;
+    cancelled_at: string | null;
+    outcome: string | null;
+  }[];
 };
 export type ViewProps = {
   data: WorkspaceData;

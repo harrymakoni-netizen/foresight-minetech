@@ -359,6 +359,8 @@ export async function workspaceFor(userId: string): Promise<Context> {
       },
       "zone-b",
     );
+    // Training-mine shafts, escalation timings and fictional people (no phones).
+    await (await import("./checkins.ts")).seedMessaging(ctx);
     return ctx;
   });
 }
