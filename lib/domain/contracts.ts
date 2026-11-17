@@ -1,6 +1,16 @@
 import { z } from "zod";
 
-export const zoneId = z.enum(["zone-a", "zone-b", "zone-c"]);
+// Zone identifiers are defined per workspace (training-mine template or the
+// published mine-model revision) and validated on the server against that
+// list (lib/server/repository.ts knownZones). The original fixed ids
+// zone-a/zone-b/zone-c remain valid unchanged.
+export const zoneId = z
+  .string()
+  .regex(
+    /^[a-z0-9][a-z0-9_-]{0,63}$/,
+    "Zone identifiers use lowercase letters, digits, hyphen or underscore",
+  );
+export const legacyZoneIds = ["zone-a", "zone-b", "zone-c"] as const;
 export const instant = z.string().datetime({ offset: true });
 export const roleSchema = z.enum([
   "viewer",
@@ -94,6 +104,28 @@ export const workerSchema = z
     (x) => Date.parse(x.endsAt) > Date.parse(x.startsAt),
     "Assignment end must follow start",
   );
+// One incidents-and-responses register (spec §11.3): response cases and the
+// legacy MineShield incident register share these fields.
+export const incidentCategory = z.enum([
+  "near-miss",
+  "injury",
+  "equipment-failure",
+  "overdue-miner",
+  "collapse",
+  "flooding",
+  "drill",
+  "planning",
+]);
+export const incidentSource = z.enum([
+  "real-event",
+  "overdue-escalation",
+  "declared-emergency",
+  "report",
+  "concern",
+  "planning-scenario",
+  "escalated-scenario",
+  "legacy-mineshield",
+]);
 export const caseSchema = z
   .object({
     concernId: z.string().min(1),
@@ -102,6 +134,30 @@ export const caseSchema = z
     title: z.string().min(3).max(140),
     owner: z.string().min(2).max(100),
     dueAt: instant,
+    category: incidentCategory.exclude(["planning"]).default("near-miss"),
+  })
+  .strict();
+export const incidentSchema = z
+  .object({
+    title: z.string().trim().min(3).max(140),
+    zoneId,
+    category: incidentCategory.exclude(["planning"]),
+    source: z.enum(["real-event", "report"]),
+    description: z.string().trim().min(3).max(4000),
+    peopleAffected: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(2).max(100),
+            personId: z.string().max(80).nullable().default(null),
+          })
+          .strict(),
+      )
+      .max(200)
+      .default([]),
+    owner: z.string().trim().min(2).max(100),
+    dueAt: instant,
+    occurredAt: instant.nullable().default(null),
   })
   .strict();
 export const transitionSchema = z
@@ -113,6 +169,7 @@ export const transitionSchema = z
       "action-in-progress",
       "awaiting-verification",
       "closed",
+      "reopened",
     ]),
     reason: z.string().min(3).max(1000),
     verificationIds: z.array(z.string()).max(20).default([]),

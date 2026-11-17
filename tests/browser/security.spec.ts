@@ -5,7 +5,7 @@ test("actual persisted role denies closure and writes; browser role fields canno
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Command Centre", exact: true }),
+    page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   const state = await page.evaluate(
     async () => await (await fetch("/api/workspace/state")).json(),
@@ -80,7 +80,7 @@ test("GLB format validation, private import and viewer plumbing use a labelled s
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Command Centre", exact: true }),
+    page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   const document = {
     asset: { version: "2.0" },
@@ -159,7 +159,7 @@ test("GLB format validation, private import and viewer plumbing use a labelled s
   });
   expect(invalid.status()).toBe(422);
   await page.getByRole("button", { name: "Refresh workspace" }).click();
-  await page.getByRole("link", { name: "Mine Map", exact: true }).click();
+  await page.getByRole("link", { name: "Mine", exact: true }).click();
   await page.getByRole("tab", { name: "Reconstructed area" }).click();
   await expect(
     page.getByText("Walkthrough · scale unverified", { exact: true }),

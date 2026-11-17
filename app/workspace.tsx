@@ -5,7 +5,6 @@ import {
   Activity,
   Map,
   FileText,
-  Users,
   FlaskConical,
   Menu,
   Settings,
@@ -17,12 +16,8 @@ import {
 import { authClient } from "@/lib/client/auth";
 import { cache, cached, clearCache, queued, sync } from "@/lib/client/queue";
 import { CommandCentre } from "@/components/foresight/command";
-const Evidence = dynamic(
-  () => import("@/components/foresight/evidence").then((m) => m.Evidence),
-  { loading: () => <p role="status">Loading workspace view…</p> },
-);
-const People = dynamic(
-  () => import("@/components/foresight/people").then((m) => m.People),
+const Records = dynamic(
+  () => import("@/components/foresight/records").then((m) => m.Records),
   { loading: () => <p role="status">Loading workspace view…</p> },
 );
 const MineMap = dynamic(
@@ -41,21 +36,34 @@ import {
   type WorkspaceData,
 } from "@/components/foresight/shared";
 import "./upgrade.css";
+import "./v2.css";
+// Four sections in the order a supervisor uses them (spec §4.1).
 const nav = [
-  ["overview", "Command Centre", Activity],
-  ["map", "Mine Map", Map],
-  ["evidence", "Evidence", FileText],
-  ["people", "People and Response", Users],
-  ["simulator", "Simulator Lab", FlaskConical],
+  ["underground", "Underground now", Activity],
+  ["mine", "Mine", Map],
+  ["scenarios", "Scenarios", FlaskConical],
+  ["records", "Records", FileText],
 ] as const;
+// Old bookmarks keep resolving: five-destination and legacy WorkSafe hashes.
 const aliases: Record<string, string> = {
-  zones: "map",
+  overview: "underground",
+  lite: "underground",
+  map: "mine",
+  zones: "mine",
+  simulator: "scenarios",
+  evidence: "records",
+  people: "records",
+  workers: "records",
+  incidents: "records",
+  inspections: "records",
+  assistant: "records",
+  audit: "records",
+};
+const recordTabFor: Record<string, string> = {
+  people: "people",
   workers: "people",
-  incidents: "people",
-  inspections: "evidence",
-  assistant: "evidence",
-  lite: "evidence",
-  audit: "overview",
+  incidents: "incidents",
+  audit: "exports",
 };
 let sessionStarting: Promise<void> | undefined;
 async function ensureSession() {
@@ -76,7 +84,8 @@ async function ensureSession() {
 }
 export default function Workspace() {
   const [data, setData] = useState<WorkspaceData | null>(null),
-    [page, setPage] = useState("overview"),
+    [page, setPage] = useState("underground"),
+    [recordTab, setRecordTab] = useState("evidence"),
     [zone, setZone] = useState("all"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -139,8 +148,11 @@ export default function Workspace() {
     const navigate = () => {
       const hash = location.hash.slice(1);
       setPage(
-        aliases[hash] || (nav.some((n) => n[0] === hash) ? hash : "overview"),
+        aliases[hash] ||
+          (nav.some((n) => n[0] === hash) ? hash : "underground"),
       );
+      if (aliases[hash] === "records" || hash === "records")
+        setRecordTab(recordTabFor[hash] || "evidence");
     };
     navigate();
     window.addEventListener("hashchange", navigate);
@@ -213,12 +225,17 @@ export default function Workspace() {
         Skip to content
       </a>
       <aside className={"fs-sidebar " + (menu ? "open" : "")}>
-        <a className="fs-brand" href="#overview">
-          <span className="fs-brand-mark">
-            F<span>°</span>
-          </span>
+        <a className="fs-brand" href="#underground">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="fs-brand-logo"
+            src="/brand/foresight-mark-192.png"
+            alt=""
+            width={42}
+            height={42}
+          />
           <span>
-            foresight<small>MINE INTELLIGENCE</small>
+            foresight<small>MINE SAFETY</small>
           </span>
         </a>
         <div className="fs-site-label">YOUR WORKSPACE</div>
@@ -239,13 +256,6 @@ export default function Workspace() {
           ))}
         </nav>
         <div className="fs-sidebar-bottom">
-          <div className="fs-mode">
-            <span className="fs-status-dot" />
-            <div>
-              <strong>Isolated demonstration</strong>
-              <small>Fictional site · human review</small>
-            </div>
-          </div>
           <button onClick={() => setSettings(true)}>
             <Settings size={17} /> Workspace and records
           </button>
@@ -266,7 +276,7 @@ export default function Workspace() {
           </span>
           <div className="fs-top-actions">
             <Tag tone={offline ? "amber" : "teal"}>
-              {offline ? "Offline · cached" : "Development"}
+              {offline ? "Offline · cached" : "Records connected"}
             </Tag>
             <button
               onClick={() => void refresh()}
@@ -284,6 +294,12 @@ export default function Workspace() {
             <span>
               {data?.site.name || "Mavambo training mine"}{" "}
               <ArrowUpRight size={13} />
+            </span>
+            <span
+              className="fs-training-notice"
+              title="All people, equipment and layout in this mine are fictional. Results are planning calculations, never a safety certification."
+            >
+              Training mine · fictional data · planning calculations
             </span>
             <label>
               Zone{" "}
@@ -338,20 +354,19 @@ export default function Workspace() {
             </div>
           ) : (
             <>
-              {page === "overview" && <CommandCentre {...props} />}{" "}
-              {page === "evidence" && <Evidence {...props} />}{" "}
-              {page === "people" && <People {...props} />}{" "}
-              {page === "map" && <MineMap {...props} />}{" "}
-              {page === "simulator" && <Simulator {...props} />}
+              {page === "underground" && <CommandCentre {...props} />}
+              {page === "mine" && <MineMap {...props} />}
+              {page === "scenarios" && <Simulator {...props} />}
+              {page === "records" && (
+                <Records key={recordTab} {...props} initialTab={recordTab} />
+              )}
             </>
           )}
           <footer className="fs-footer">
             <span>
-              FORESIGHT <span> / </span> Evidence before decisions.
+              FORESIGHT <span> / </span> Notices when someone does not come back.
             </span>
-            <span>
-              Fictional inputs · planning approximation · no automatic actions
-            </span>
+            <span>No automatic actions · a person decides</span>
           </footer>
         </main>
       </div>

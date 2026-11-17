@@ -1,0 +1,100 @@
+/* MineTech v2 additions. Same tokens as upgrade.css (navy sidebar, light
+   working area, one teal accent, text label with every status colour). */
+.fs-app .fs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.fs-app .fs-block {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.fs-app .fs-help {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 14px;
+}
+.fs-app .fs-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.fs-app .fs-inline-select select {
+  width: auto;
+  min-height: 34px;
+}
+.fs-app .fs-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.fs-app .fs-register {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fs-app .fs-register th,
+.fs-app .fs-register td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f2;
+}
+.fs-app .fs-register th {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: #f8fafb;
+}
+.fs-app .fs-register tr.overdue td:first-child {
+  box-shadow: inset 3px 0 0 #b42318;
+}
+/* Brand mark from the supplied logo, on a light tile so its white details read. */
+.fs-app .fs-brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  background: #fff;
+  padding: 3px;
+  flex: none;
+}
+/* Single training-mine notice on the mine selector. */
+.fs-app .fs-training-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff5e6;
+  color: #7a4a0e;
+  border: 1px solid #f1d3a6;
+  font-size: 10px;
+  font-weight: 650;
+}
+.fs-app .fs-tone-red {
+  color: #b42318;
+}
+.fs-app .tag-red,
+.fs-app .fs-tag.red {
+  background: #fdecea;
+  color: #8f1d14;
+}
+.fs-app .fs-embedded-title {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+@media (max-width: 640px) {
+  .fs-app .fs-section-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

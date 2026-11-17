@@ -95,6 +95,9 @@ export async function GET(request: Request, route: RouteContext) {
             vision: vision.ready,
             visionMessage: vision.message,
           },
+          features: {
+            vision: process.env.FORESIGHT_FEATURE_VISION === "1",
+          },
           legacy: {
             replayFiles: [
               "wet",
@@ -209,6 +212,7 @@ export async function POST(request: Request, route: RouteContext) {
     const review =
       [
         "cases",
+        "incidents",
         "assessments",
         "scenarios",
         "snapshots",

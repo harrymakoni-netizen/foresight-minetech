@@ -33,6 +33,7 @@ export type WorkspaceData = {
     visionMessage?: string;
     directUploads?: boolean;
   };
+  features?: { vision: boolean };
 };
 export type ViewProps = {
   data: WorkspaceData;

@@ -90,11 +90,7 @@
               },
               "zoneId": {
                 "type": "string",
-                "enum": [
-                  "zone-a",
-                  "zone-b",
-                  "zone-c"
-                ]
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
               },
               "geometry": {
                 "type": "array",
@@ -441,11 +437,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": [
-                          "zone-a",
-                          "zone-b",
-                          "zone-c"
-                        ]
+                        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
                       },
                       {
                         "type": "null"
@@ -483,11 +475,7 @@
                   },
                   "zoneId": {
                     "type": "string",
-                    "enum": [
-                      "zone-a",
-                      "zone-b",
-                      "zone-c"
-                    ]
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
                   },
                   "lengthM": {
                     "type": "number",

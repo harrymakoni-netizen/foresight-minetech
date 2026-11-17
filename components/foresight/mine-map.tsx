@@ -119,7 +119,7 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
           <div className="fs-eyebrow">
             SPATIAL CONTEXT / {data.site.layoutVersion}
           </div>
-          <h1>Mine Map</h1>
+          <h1>Mine</h1>
           <p>
             Connect zones, evidence, equipment and laboratory route assumptions.
           </p>

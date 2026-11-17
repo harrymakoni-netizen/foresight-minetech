@@ -5,7 +5,7 @@ test("fictional failure → changed route over traversal → comparison → link
 }) => {
   await page.goto("/#simulator");
   await expect(
-    page.getByRole("heading", { name: "Simulator Lab", exact: true }),
+    page.getByRole("heading", { name: "Scenarios", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Clone current workspace" }).click();
   await page
@@ -80,12 +80,10 @@ test("fictional failure → changed route over traversal → comparison → link
   await expect(outcome).toContainText("78.00 m³");
   await page.getByLabel("Compare with completed run").selectOption(early.id);
   await expect(outcome).toContainText("compared with 6.00 m³");
-  await page.getByRole("link", { name: "Evidence", exact: true }).click();
-  await page.getByRole("tab", { name: /Vision/ }).click();
+  await page.getByRole("link", { name: "Records", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Process actual frames" }),
-  ).toBeDisabled();
-  await expect(
-    page.getByText("Inference unavailable", { exact: true }),
+    page.getByRole("heading", { name: "Evidence and inspections", exact: true }),
   ).toBeVisible();
+  // PPE vision is frozen behind FORESIGHT_FEATURE_VISION (spec §4.2).
+  await expect(page.getByRole("tab", { name: /Vision/ })).toHaveCount(0);
 });

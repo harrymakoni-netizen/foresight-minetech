@@ -71,6 +71,43 @@ export async function get(
     throw new DomainError(422, "REFERENCE_TYPE", "Invalid record reference.");
   return entity;
 }
+export type ZoneSummary = { id: string; name: string; source: string };
+// The zones a workspace may reference: the latest published mine-model
+// revision's zones, otherwise the fictional training-mine template.
+export async function knownZones(ctx: Context): Promise<ZoneSummary[]> {
+  const published = (await list(ctx, "mine-model-revision"))
+    .filter((r) => r.data.status === "published")
+    .sort((a, b) =>
+      String(b.data.publishedAt).localeCompare(String(a.data.publishedAt)),
+    )[0];
+  const zones = (published?.data.model as { zones?: { id: string; name: string }[] } | undefined)?.zones;
+  if (zones?.length)
+    return zones.map((z) => ({
+      id: z.id,
+      name: z.name,
+      source: "mine-model:" + published!.id,
+    }));
+  return site.zones.map((z) => ({
+    id: z.id,
+    name: z.name,
+    source: "training-template",
+  }));
+}
+export async function assertZone(ctx: Context, zoneId: string | null) {
+  if (zoneId === null) return;
+  // Zones from earlier published revisions stay valid for historical records.
+  const ids = new Set((await knownZones(ctx)).map((z) => z.id));
+  for (const r of await list(ctx, "mine-model-revision"))
+    for (const z of ((r.data.model as { zones?: { id: string }[] })?.zones || []))
+      ids.add(z.id);
+  for (const z of site.zones) ids.add(z.id);
+  if (!ids.has(zoneId))
+    throw new DomainError(
+      422,
+      "UNKNOWN_ZONE",
+      "Choose a zone defined for this mine.",
+    );
+}
 export async function insert(
   ctx: Context,
   kind: string,
@@ -79,6 +116,7 @@ export async function insert(
   links: { id: string; relation: string }[] = [],
 ): Promise<Entity> {
   return atomic(async () => {
+    await assertZone(ctx, zoneId);
     const now = new Date().toISOString(),
       id = randomUUID();
     const entity = {

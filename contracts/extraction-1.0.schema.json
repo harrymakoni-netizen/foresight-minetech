@@ -25,11 +25,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": [
-                      "zone-a",
-                      "zone-b",
-                      "zone-c"
-                    ]
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
                   },
                   {
                     "type": "null"

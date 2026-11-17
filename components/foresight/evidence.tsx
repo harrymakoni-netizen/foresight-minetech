@@ -141,7 +141,7 @@ export function Evidence(props: ViewProps) {
       <div className="fs-page-heading">
         <div>
           <div className="fs-eyebrow">SOURCES / REVIEW / ASSESSMENT</div>
-          <h1>Evidence</h1>
+          <h2 className="fs-embedded-title">Evidence and inspections</h2>
           <p>
             Keep the original account. Review the interpretation. Preserve what
             changed.
@@ -161,7 +161,10 @@ export function Evidence(props: ViewProps) {
           ["reports", "Reports", FileText],
           ["inspections", "Inspections", ClipboardCheck],
           ["vision", "Vision", Video],
-        ].map(([id, label, Icon]) => {
+        ]
+          // PPE vision is frozen (spec §4.2): shown only when the feature flag is on.
+          .filter(([id]) => id !== "vision" || data.features?.vision)
+          .map(([id, label, Icon]) => {
           const I = Icon as typeof FileText;
           return (
             <button

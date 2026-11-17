@@ -52,6 +52,23 @@ Environment: Linux x86_64 container, Node 22.23.4, Python 3.13.18, PostgreSQL 16
 
 New commands: `npm run setup:sim` (creates `.venv-sim` from pinned `requirements-sim.txt`), `npm run test:sim` (12 tests). JuPedSim 1.4.2 installs PySide6 and VTK as hard dependencies, so the worker image is large; the stdlib water engine still runs without them, and the worker reports which engines it has at `/health`.
 
+## Phase 1 — clean base (2026-11-17)
+
+| Item | Status | Where / evidence |
+| --- | --- | --- |
+| Four sections (Underground now, Mine, Scenarios, Records) with legacy hash aliases (`#overview`, `#map`, `#evidence`, `#people`, `#simulator`, `#workers`, `#incidents`, `#lite`, `#audit` …) | **Implemented and verified** | `app/workspace.tsx`; browser suite 6/6 updated to the new labels, including old-bookmark navigation |
+| Records section with tabs: Evidence and inspections, Incidents and responses, People and musters, Exports and audit | **Implemented and verified** | `components/foresight/records.tsx`; check-ins and message log tabs arrive with Phase 2 |
+| One incidents-and-responses register (category, source, people affected, owner, due date, planning flag, `reopened` status) | **Implemented and verified** | `incidentSchema`, `POST /api/workspace/incidents` (supervisor/administrator), concern and run cases now carry `source`/`category`; scenario cases are `planning: true`. `tests/v2.test.ts` |
+| Legacy MineShield incidents migrated into the register with audit history | **Implemented and verified** on a copied fixture | `lib/server/migrate.ts` maps status (`investigating` → in progress, `closed-record` → closed), keeps `legacyStatus`, links `migrated-from` and `legacy-audit`. No hosted Blob read |
+| Zone generalisation | **Implemented and verified** | `zoneId` is now a workspace-defined id (regex); `insert()` rejects zones not defined for the mine (`UNKNOWN_ZONE`); zones come from the latest published `mine-model-revision`, else the training template; `zone-a/b/c` records unchanged (no DB constraint existed, no data rewrite needed) |
+| Vision/PPE frozen behind `FORESIGHT_FEATURE_VISION=1` | **Implemented and verified** | Tab hidden by default (browser test asserts absence); code and tests unchanged |
+| One training-mine notice on the mine selector; repeated sidebar/footer/topbar disclaimers removed | **Implemented** | Visual check at 1366 px and 390 px |
+| Supplied Foresight logo in sidebar and favicon | **Implemented** | `public/brand/*` cropped from the supplied image |
+| Merged people register and muster (WorkerSafe + check-ins) | **In progress** — depends on the Phase 2 `person`/`checkIn` records | |
+| Demo data clean-up ("QA response drill …") | **Not applicable in source** — the record exists only in hosted data, which this work does not modify. Remove it from the hosted preview database before a demo | |
+
+Checks after Phase 1: typecheck, build, `npm test` **37/37** (33 existing + 4 new), `npm run test:python` 36/36, `npm run test:sim` 12/12, browser 6/6.
+
 ---
 
 # Historical status (codex/atu-foresight-upgrade, October 2026)

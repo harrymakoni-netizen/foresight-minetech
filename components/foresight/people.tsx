@@ -52,7 +52,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
       <div className="fs-page-heading">
         <div>
           <div className="fs-eyebrow">WORKERSAFE / DOCUMENTED RESPONSE</div>
-          <h1>People and Response</h1>
+          <h2 className="fs-embedded-title">People, responses and musters</h2>
           <p>
             Assignments, response ownership and human confirmations in one
             timeline.
@@ -267,7 +267,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
           ))}
           {!cases.length && (
             <Empty title="No response cases">
-              Review a concern in Command Centre and assign an owner. A
+              Review a concern in Underground now and assign an owner. A
               completed action still needs verification before case closure.
             </Empty>
           )}

@@ -35,7 +35,7 @@ export function ResponseCase({
       </p>
       {created ? (
         <p role="status">
-          Response case saved. <a href="#people">Open People and Response</a>
+          Response case saved. <a href="#incidents">Open the incidents register</a>
         </p>
       ) : (
         <form

@@ -128,7 +128,9 @@ export function validTransition(
     acknowledged: ["action-in-progress", "awaiting-verification"],
     "action-in-progress": ["awaiting-verification"],
     "awaiting-verification": ["action-in-progress", "closed"],
-    closed: ["open"],
+    // "open" is kept for records reopened before the register merge.
+    closed: ["reopened", "open"],
+    reopened: ["acknowledged", "action-in-progress"],
   };
   if (!edges[from]?.includes(to)) throw new Error("Invalid case transition.");
   if (reason.trim().length < 3) throw new Error("A reason is required.");

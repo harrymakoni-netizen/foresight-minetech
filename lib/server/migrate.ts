@@ -69,9 +69,58 @@ export async function migrateLegacy(filename: string) {
             null,
           ),
       );
+      // Port legacy MineShield incidents into the single incidents register,
+      // linked to the preserved original and its audit entries.
+      const statusMap: Record<string, string> = {
+        open: "open",
+        acknowledged: "acknowledged",
+        investigating: "action-in-progress",
+        "closed-record": "closed",
+      };
+      const incidents = await sequential(
+        records.filter((r) => (r.data as any).original?.kind === "incident"),
+        async (legacy) => {
+          const original = (legacy.data as any).original,
+            d = original.data || {};
+          const auditIds = audit
+            .filter((a) => (a.data as any).original?.record_id === original.id)
+            .map((a) => ({ id: a.id, relation: "legacy-audit" }));
+          return await insert(
+            ctx,
+            "case",
+            {
+              title: String(d.name || "Legacy incident").slice(0, 140),
+              zoneId: original.zone || null,
+              category: d.category || "near-miss",
+              source: "legacy-mineshield",
+              description: String(d.notes || ""),
+              peopleAffected: (Array.isArray(d.people) ? d.people : []).map(
+                (name: unknown) => ({ name: String(name), personId: null }),
+              ),
+              owner: String(d.actor || "Legacy record (unverified actor)"),
+              dueAt: null,
+              planning: false,
+              status: statusMap[d.status] || "open",
+              legacyStatus: d.status ?? null,
+              actions: [],
+              history: [
+                {
+                  at: original.createdAt || null,
+                  actor: "Legacy migration",
+                  status: statusMap[d.status] || "open",
+                  reason: "Migrated from the MineShield register",
+                },
+              ],
+            },
+            original.zone || null,
+            [{ id: legacy.id, relation: "migrated-from" }, ...auditIds],
+          );
+        },
+      );
       return {
         workspaceId,
         backup,
+        incidentCount: incidents.length,
         sourceDocumentHash: digest,
         recordCount: records.length,
         auditCount: audit.length,

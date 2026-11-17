@@ -21,7 +21,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Command Centre", exact: true }),
+    page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Submit evidence" }).click();
   await page.getByLabel("Original report", { exact: true }).fill(text);
@@ -58,7 +58,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
     .getByRole("button", { name: "Accept reviewed facts and assess" })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("link", { name: "Command Centre", exact: true }).click();
+  await page.getByRole("link", { name: "Underground now", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Drainage control needs review" }),
   ).toBeVisible();
@@ -70,9 +70,8 @@ test("report → unavailable extraction → manual review → fresh assessment �
   await expect(page.getByRole("dialog")).toContainText("Manage case");
   await page.getByRole("button", { name: "Close detail panel" }).click();
   await shot(page, "command-concern");
-  await page
-    .getByRole("link", { name: "People and Response", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Records", exact: true }).click();
+  await page.getByRole("tab", { name: "People and musters" }).click();
   await page.getByRole("tab", { name: "Cases and actions" }).click();
   await page.locator(".fs-case-row").click();
   await page
@@ -107,7 +106,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
       ),
     );
   });
-  await page.getByRole("link", { name: "Simulator Lab", exact: true }).click();
+  await page.getByRole("link", { name: "Scenarios", exact: true }).click();
   await page.getByRole("button", { name: "Clone current workspace" }).click();
   await page
     .getByLabel("External inflow (m³/hour)", { exact: true })
@@ -154,7 +153,7 @@ test("report → unavailable extraction → manual review → fresh assessment �
   await expect(
     page.getByText("Inputs changed.", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Mine Map", exact: true }).click();
+  await page.getByRole("link", { name: "Mine", exact: true }).click();
   await page.getByLabel("Laboratory overlay").selectOption({ index: 1 });
   await shot(page, "mine-map");
   await page.getByRole("tab", { name: "Reconstructed area" }).click();
@@ -173,10 +172,10 @@ test("cross-workspace access, duplicate submissions, offline queue restart and o
   await a.goto("/");
   await b.goto("/");
   await expect(
-    a.getByRole("heading", { name: "Command Centre", exact: true }),
+    a.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   await expect(
-    b.getByRole("heading", { name: "Command Centre", exact: true }),
+    b.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   const wa = await a.evaluate(
     async () => await (await fetch("/api/workspace/state")).json(),
@@ -208,11 +207,11 @@ test("cross-workspace access, duplicate submissions, offline queue restart and o
   expect(duplicate[0].id).toEqual(duplicate[1].id);
   await a.goto("/#workers");
   await expect(
-    a.getByRole("heading", { name: "People and Response", exact: true }),
+    a.getByRole("heading", { name: "People, responses and musters", exact: true }),
   ).toBeVisible();
   await a.goto("/#evidence");
   await expect(
-    a.getByRole("heading", { name: "Evidence", exact: true }),
+    a.getByRole("heading", { name: "Evidence and inspections", exact: true }),
   ).toBeVisible();
   await a.waitForFunction(() => !!navigator.serviceWorker?.controller);
   await a.waitForTimeout(1000);
@@ -246,12 +245,12 @@ test("narrow mobile and tablet navigation stays within viewport", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Command Centre", exact: true }),
+    page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("link", { name: "Evidence", exact: true }).click();
+  await page.getByRole("link", { name: "Records", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Evidence", exact: true }),
+    page.getByRole("heading", { name: "Evidence and inspections", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -262,7 +261,7 @@ test("narrow mobile and tablet navigation stays within viewport", async ({
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/#simulator");
   await expect(
-    page.getByRole("heading", { name: "Simulator Lab", exact: true }),
+    page.getByRole("heading", { name: "Scenarios", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(

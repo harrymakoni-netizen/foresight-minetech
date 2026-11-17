@@ -4,13 +4,16 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Foresight",
   description:
-    "Foresight development workspace — reviewed mine evidence, water scenario planning and human response records.",
+    "Foresight mine safety — declared check-ins, overdue alerts, scenario planning and accountable incident records.",
   other: {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/brand/foresight-mark-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/foresight-mark-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/brand/apple-touch-icon.png",
   },
 };
 

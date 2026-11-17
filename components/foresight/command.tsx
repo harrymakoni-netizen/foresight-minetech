@@ -91,10 +91,11 @@ export function CommandCentre({
     <>
       <div className="fs-page-heading">
         <div>
-          <div className="fs-eyebrow">OPERATIONS / EVIDENCE WORKSPACE</div>
-          <h1>Command Centre</h1>
+          <div className="fs-eyebrow">UNDERGROUND NOW / CONCERNS / RESPONSES</div>
+          <h1>Underground now</h1>
           <p>
-            Understand the concern. Review the evidence. Record the response.
+            Who is declared underground, who is overdue, and what needs
+            attention.
           </p>
         </div>
         <a className="fs-button" href="#evidence">
@@ -296,7 +297,7 @@ export function CommandCentre({
           ) : (
             <p className="fs-muted">
               No completed runs. Clone the latest workspace snapshot in
-              Simulator Lab.
+              Scenarios.
             </p>
           )}
         </section>

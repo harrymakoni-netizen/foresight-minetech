@@ -9,6 +9,7 @@ import {
   inspectionSchema,
   workerSchema,
   caseSchema,
+  incidentSchema,
   transitionSchema,
   actionSchema,
   musterSchema,
@@ -297,6 +298,10 @@ export async function mutate(
         status: "open",
         actions: [],
         mode: lab ? "laboratory-response" : "reviewed-evidence-response",
+        category: lab ? "planning" : "near-miss",
+        source: lab ? "planning-scenario" : "report",
+        planning: lab,
+        peopleAffected: [],
         sourceRunId: lab ? source.id : null,
         sourceEventId: lab ? null : source.id,
         sourceEvidenceIds: evidenceIds,
@@ -350,6 +355,9 @@ export async function mutate(
       "case",
       {
         ...body,
+        source: "concern",
+        planning: false,
+        peopleAffected: [],
         status: "open",
         actions: [],
         history: [
@@ -366,6 +374,28 @@ export async function mutate(
         { id: assessment.id, relation: "assessment" },
         ...concern.observationIds.map((id) => ({ id, relation: "evidence" })),
       ],
+    );
+  }
+  if (operation === "incidents" && !id) {
+    const body = incidentSchema.parse(input);
+    return await insert(
+      ctx,
+      "case",
+      {
+        ...body,
+        planning: false,
+        status: "open",
+        actions: [],
+        history: [
+          {
+            at: new Date().toISOString(),
+            actor: ctx.actor,
+            status: "open",
+            reason: "Incident recorded",
+          },
+        ],
+      },
+      body.zoneId,
     );
   }
   if (operation === "cases" && action === "transition") {
