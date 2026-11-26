@@ -31,12 +31,10 @@ export async function assessmentContext(ctx: Context, cutoffAt: string): Promise
     forecast: f ? { id: f.id, retrievedAt: String(f.data.retrievedAt), summary: f.data.summary as ForecastSummary } : null,
     weather: config.weather,
     preEntry: (await list(ctx, "pre-entry-check")).map((e) => ({ id: e.id, ...(e.data as Omit<PreEntryRecord, "id">) })),
-    subsidence: (await list(ctx, "subsidence-mark")).map((e) => ({
-      id: e.id,
-      zoneId: String(e.data.zoneId),
-      markedAt: String(e.data.markedAt),
-      note: String(e.data.note || ""),
-    })),
+    // Only active marks that sit near a zone are evidence for a concern.
+    subsidence: (await list(ctx, "subsidence-mark"))
+      .filter((e) => e.data.status !== "retracted" && e.data.zoneId)
+      .map((e) => ({ id: e.id, zoneId: String(e.data.zoneId), markedAt: String(e.data.markedAt), note: String(e.data.note || e.data.description || "") })),
     ...developmentContextDefaults,
   };
 }

@@ -166,6 +166,19 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Phase 9 — surveyor features (2026-11-27)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| DXF import (ezdxf 1.4.5 in the worker) | **Implemented and verified** | `services/simulator/test_survey.py` with DXF fixtures written by ezdxf and expected values worked out by hand: layers and unsupported entities listed; snap of a 0.02 m gap; a T-junction splitting a line; a 1.5 m near miss proposed and only joined when accepted; unit conversion (12000 mm = 12 m) with the unit chosen by the person; elevations from a 3D layer, constant or unknown (a flat layer is never 0 m); a bent polyline keeps its 70 m path length (chord 50 m); arcs approximated and counted; bad input refused; deterministic |
+| Import review flow | **Implemented and verified** | `tests/survey.test.ts` through the real worker: inspect → build → accept near miss → both confirmations required → **draft** revision with `survey-plan` provenance and widths left not entered; cannot be published until preflight passes. The UI wizard is covered in `tests/browser/survey.spec.ts` |
+| GeoTIFF base maps (rasterio 1.4.3 / GDAL 3.9.3) | **Implemented and verified** | Bounds and pixel size match the fixture exactly (300000–300200 × 7999840–8000000 at 2 m; 5 m fixture in the server test); downsampling keeps the covered ground; elevation range and nodata share computed; geographic, no-CRS, rotated and unreadable files refused with a reason; alignment and metres confirmation required; only one map shown |
+| Subsidence marks | **Implemented and verified** | Placed near a zone by plan distance to its tunnels (development default 100 m); near a zone raises a `development-controls-2` concern with the mark as evidence; far marks recorded only; photo type and content checked (an SVG or HTML disguised as PNG is refused); retract removes the concern |
+| Views | **Implemented and verified** | Base map under the plan and on the 3D surface plane, marks as diamonds/pins (click in 3D shows the entered text) |
+| Render image | **Verified in the built image** | `deploy/requirements-engine.txt` includes ezdxf, rasterio and pillow. Building the image caught a real gap: the slim Python image has no `libexpat`, so rasterio failed to import and the base map engine was silently absent. `deploy/render.Dockerfile` now copies libexpat from the build stage. In the rebuilt image `/health` lists `cage-simpy`, `dxf-ezdxf` and `basemap-rasterio`, and a DXF, GeoTIFF and cage job each completed. The image is about 2 GB; **Render must be redeployed to get the cage, DXF and base map engines** |
+
+Limits and gaps (stated in the UI): ASCII DXF only; LINE, LWPOLYLINE and POLYLINE only; closed polylines with nothing attached to them are not made into tunnels (warned); the original GeoTIFF is not kept; no rotation or reprojection of base maps; DXF up to 4 MB and GeoTIFF up to 3 MB because of the 4.5 MB hosting request limit; subsidence "near" distance is a development default.
+
 ## Phase 8 — report trigger and AI tools (2026-11-27)
 
 | Item | Status | Evidence |

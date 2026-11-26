@@ -29,6 +29,12 @@ export async function createDraft(ctx: Context, from: "template" | "published" |
   const number = (await list(ctx, "mine-model-revision")).length + 1;
   return await insert(ctx, "mine-model-revision", { number, status: "draft", basedOn, model, preflight: preflight(model), createdBy: ctx.actor }, null, basedOn ? [{ id: basedOn, relation: "based-on" }] : []);
 }
+/** A draft from a model built elsewhere (DXF import). Still needs the editor and a clean preflight to publish. */
+export async function createDraftFromModel(ctx: Context, model: MineModel, extra: Record<string, unknown> = {}) {
+  requireEditor(ctx);
+  const number = (await list(ctx, "mine-model-revision")).length + 1;
+  return await insert(ctx, "mine-model-revision", { number, status: "draft", basedOn: null, model, preflight: preflight(model), createdBy: ctx.actor, ...extra });
+}
 export async function saveDraft(ctx: Context, id: string, input: unknown) {
   requireEditor(ctx);
   const body = input as { expectedRevision?: number; model?: unknown };

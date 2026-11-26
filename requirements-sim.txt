@@ -9,3 +9,5 @@ networkx==3.7
 shapely==2.2.0
 ezdxf==1.4.5
 numpy==2.5.5
+rasterio==1.4.3
+pillow==13.0.0

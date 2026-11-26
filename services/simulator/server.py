@@ -12,6 +12,7 @@ TOKEN=(os.environ.get('FORESIGHT_WORKER_TOKEN') or 'development-worker-token')
 if os.environ.get('FORESIGHT_ENV')=='production' and (TOKEN=='development-worker-token' or len(TOKEN)<32):raise RuntimeError('Set a strong worker token')
 DB=os.environ.get('FORESIGHT_JOB_DATABASE','.minetech-data/simulator-jobs.sqlite')
 Path(DB).parent.mkdir(parents=True,exist_ok=True)
+BODY_LIMIT=int(os.environ.get('FORESIGHT_WORKER_BODY_LIMIT') or 8000000)
 LOCK=threading.RLock();POOL=ThreadPoolExecutor(max_workers=2)
 
 def db():
@@ -47,13 +48,24 @@ def _cage(data,cancelled):
 def _cage_validate(data):
     from .cage import validate as v
     v(data)
-EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta,'cage':_cage}
-VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate,'cage':_cage_validate}
-def extended_available():
+def _survey(fn):
+    def run(data,cancelled):
+        from . import survey
+        out=getattr(survey,fn)(data);out['status']='completed';return out
+    return run
+def _survey_validate(data):
+    if not isinstance(data,dict):raise ValueError('Input must be an object')
+EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta,'cage':_cage,'dxf-inspect':_survey('inspect'),'dxf-build':_survey('build'),'basemap':_survey('basemap')}
+VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate,'cage':_cage_validate,'dxf-inspect':_survey_validate,'dxf-build':_survey_validate,'basemap':_survey_validate}
+# Modules each job kind needs; a kind is offered only where they are installed.
+NEEDS={'escape':('jupedsim','shapely','networkx'),'escape-chain':('jupedsim','shapely','networkx'),'time-to-act':('jupedsim','shapely','networkx'),'cage':('simpy',),'dxf-inspect':('ezdxf',),'dxf-build':('ezdxf',),'basemap':('rasterio','PIL','numpy')}
+def kind_available(kind):
     try:
-        import jupedsim,shapely,networkx  # noqa: F401
+        import importlib
+        for m in NEEDS[kind]:importlib.import_module(m)
         return True
     except ImportError:return False
+def extended_available():return kind_available('escape')
 def now():return datetime.now(timezone.utc).isoformat()
 def execute(job_id):
     with db() as c:
@@ -81,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
         # Unauthenticated liveness for hosting platforms (Render). Reveals nothing.
         if self.path=='/healthz':return self.send(200,{'status':'ok'})
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
-        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0','cage-simpy-1.0.0'] if extended_available() else [])})
+        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])+(['cage-simpy-1.0.0'] if kind_available('cage') else [])+(['dxf-ezdxf-1.0.0'] if kind_available('dxf-inspect') else [])+(['basemap-rasterio-1.0.0'] if kind_available('basemap') else [])})
         job_id=self.path.removeprefix('/jobs/')
         with db() as c:row=c.execute('SELECT * FROM jobs WHERE id=? AND workspace_id=?',(job_id,self.headers.get('X-Workspace-Id',''))).fetchone()
         if not row:return self.send(404,{'error':'Job not found'})
@@ -91,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
         size=int(self.headers.get('Content-Length',0))
-        if not 0 < size <= 2000000:return self.send(413,{'error':'Body limit exceeded'})
+        if not 0 < size <= BODY_LIMIT:return self.send(413,{'error':'Body limit exceeded'})
         try:body=json.loads(self.rfile.read(size))
         except ValueError:return self.send(400,{'error':'Invalid JSON'})
         if self.path.endswith('/cancel'):
@@ -103,7 +115,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{'id':job_id,'cancelRequested':True})
         if self.path!='/jobs':return self.send(404,{'error':'Unknown path'})
         if body.get('kind') in EXTENDED:
-            if not extended_available():return self.send(503,{'error':'Escape engine dependencies are not installed on this worker'})
+            if not kind_available(body['kind']):return self.send(503,{'error':'Dependencies for this job are not installed on this worker'})
             try:VALIDATORS[body['kind']](body.get('input'))
             except (ValueError,KeyError,TypeError) as exc:return self.send(422,{'error':str(exc)})
             if body.get('workspaceId')!=self.headers.get('X-Workspace-Id'):return self.send(403,{'error':'Workspace mismatch'})

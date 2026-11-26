@@ -58,6 +58,8 @@ project (Production and Preview) and redeploy. Then in the app:
 
 ## Notes
 
+- After pulling new commits, **Manual Deploy** the service: the cage (SimPy), DXF (ezdxf) and base map (rasterio) engines only exist in the newer image. `/health` (with the worker token) should list `cage-simpy-1.0.0`, `dxf-ezdxf-1.0.0` and `basemap-rasterio-1.0.0`.
+- The image is about 2 GB (JuPedSim, SciPy, GDAL). rasterio needs `libexpat`, which the Dockerfile copies from its build stage.
 - `autoDeploy` is off: deploy new commits with **Manual Deploy** in Render.
 - JuPedSim is installed with `--no-deps`; its GUI dependencies (PySide6, VTK,
   ~1.2 GB) are not used by the engines.

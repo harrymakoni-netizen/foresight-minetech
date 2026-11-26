@@ -5,8 +5,11 @@
 import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import { preflight, tunnelLength, type MineModel, type Provenance, type Quality } from "@/lib/domain/mine-model";
+import { activeBaseMap, planMarks } from "./surface-data";
 import { Empty, ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
 
+const Surface = dynamic(() => import("./surface").then((m) => m.Surface), { loading: () => <p role="status">Loading surface view…</p> });
+const ImportDxf = dynamic(() => import("./import-dxf").then((m) => m.ImportDxf), { loading: () => <p role="status">Loading import…</p> });
 const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
 const MineMapLegacy = dynamic(() => import("./mine-map").then((m) => m.MineMap), { loading: () => <p role="status">Loading…</p> });
 
@@ -18,6 +21,9 @@ export function zoneColour(model: MineModel) {
 }
 export type Dot = { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string };
 export type Trail = { id: string; points: [number, number][]; tone: Dot["tone"] };
+/** Georeferenced image drawn under the plan: plan-coordinate extent of the picture. */
+export type PlanBaseMap = { href: string; west: number; south: number; east: number; north: number; opacity?: number };
+export type PlanMark = { id: string; x: number; y: number; label: string; tone: "near" | "far" | "pending" };
 export function PlanView({
   model,
   counts = {},
@@ -27,6 +33,8 @@ export function PlanView({
   closed,
   dots = [],
   trails = [],
+  baseMap,
+  marks = [],
   label,
   height = 460,
 }: {
@@ -38,6 +46,8 @@ export function PlanView({
   closed?: Set<string>;
   dots?: Dot[];
   trails?: Trail[];
+  baseMap?: PlanBaseMap | null;
+  marks?: PlanMark[];
   label: string;
   height?: number;
 }) {
@@ -73,6 +83,10 @@ export function PlanView({
           <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e3e9ec" strokeWidth={unit * 0.15} />
         </pattern>
       </defs>
+      {baseMap && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <image href={baseMap.href} x={sx(baseMap.west)} y={sy(baseMap.north)} width={baseMap.east - baseMap.west} height={baseMap.north - baseMap.south} preserveAspectRatio="none" opacity={baseMap.opacity ?? 0.75} />
+      )}
       <rect width={W} height={H} fill="url(#grid)" />
       {model.tunnels.map((t) => {
         const a = j(t.from), c = j(t.to);
@@ -172,6 +186,12 @@ export function PlanView({
           {d.label && <title>{d.label}</title>}
         </circle>
       ))}
+      {marks.map((m) => (
+        <g key={m.id} transform={`translate(${sx(m.x)},${sy(m.y)})`}>
+          <path d={`M 0 ${-unit * 2.2} L ${unit * 1.6} 0 L 0 ${unit * 2.2} L ${-unit * 1.6} 0 Z`} fill={m.tone === "near" ? "#b42318" : m.tone === "pending" ? "#a76a2b" : "#7a8794"} stroke="#fff" strokeWidth={unit * 0.3} />
+          <title>{m.label}</title>
+        </g>
+      ))}
       <g transform={`translate(${unit * 3},${H - unit * 4})`}>
         <line x1={0} y1={0} x2={50} y2={0} stroke="#142a3c" strokeWidth={unit * 0.4} />
         <text x={0} y={-unit} fontSize={unit * 2.4} fill="#142a3c">50 m</text>
@@ -209,7 +229,9 @@ export function Mine(props: ViewProps) {
         {[
           ["plan", "Plan"],
           ["3d", "3D"],
+          ["surface", "Surface"],
           ["edit", "Edit"],
+          ...(supervisor ? [["import", "Import"]] : []),
           ["table", "Table"],
           ["pictures", "Zone pictures"],
         ].map(([id, label]) => (
@@ -220,15 +242,17 @@ export function Mine(props: ViewProps) {
       </div>
       {tab === "plan" && (
         <section className="fs-panel">
-          <PlanView model={model} counts={counts} label={`Plan of ${model.meta.name}: tunnels coloured by zone, exits with declared headcount. The Table tab lists the same data.`} />
+          <PlanView model={model} counts={counts} baseMap={activeBaseMap(data)} marks={planMarks(data)} label={`Plan of ${model.meta.name}: tunnels coloured by zone, exits with declared headcount. The Table tab lists the same data.`} />
           <Legend model={model} />
         </section>
       )}
       {tab === "3d" && (
         <section className="fs-panel">
-          <Tunnels3D model={model} colour={zoneColour(model)} counts={counts} />
+          <Tunnels3D model={model} colour={zoneColour(model)} counts={counts} baseMap={activeBaseMap(data)} marks={planMarks(data).map((m) => ({ id: m.id, x: m.x, y: m.y, label: m.label, near: m.tone === "near" }))} />
         </section>
       )}
+      {tab === "surface" && <Surface data={data} model={model} post={post} refresh={refresh} notify={notify} />}
+      {tab === "import" && supervisor && <ImportDxf data={data} post={post} refresh={refresh} notify={notify} onDraft={() => setTab("edit")} />}
       {tab === "table" && <ModelTable model={model} />}
       {tab === "pictures" && <MineMapLegacy {...props} />}
       {tab === "edit" &&

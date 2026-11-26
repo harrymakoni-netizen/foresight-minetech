@@ -1165,3 +1165,19 @@
   display: block;
   color: var(--muted);
 }
+
+/* ---- surveyor features (phase 9) ----------------------------------------- */
+.fs-app .fs-mark-photo {
+  display: block;
+  max-width: 220px;
+  max-height: 150px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+.fs-app .fs-mark-form {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}

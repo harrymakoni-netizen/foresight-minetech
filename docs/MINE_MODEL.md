@@ -21,3 +21,21 @@ Connectivity and isolated parts; tunnels crossing in plan without a junction (th
 * Escape (`services/simulator/escape.py`): walkable polygons are tunnel centrelines buffered by half their width; closures split the run; people start **evenly spread along their zone's tunnel centrelines** with a seeded lateral offset (falls back to seeded random placement only if the zone is too crowded, and records that).
 * Flooding (`lumped-water-1.0.0`, unchanged): one sump per run; the sump's danger level closes the tunnels listed in `closesTunnelIds` from that instant (one-way handoff). The engine labels storage with `zone-a/b/c` only; a sump in another zone is reported as a limitation rather than relabelled.
 * Not yet built: DXF import, GeoTIFF base maps, subsidence marks (phase 9); ventilation (phase 10).
+
+
+## Importing a surveyor's DXF (phase 9)
+
+Mine → Import. ASCII DXF only (not DWG or binary DXF); `LINE`, `LWPOLYLINE` and `POLYLINE` centrelines are read and everything else on a layer is listed as "not read".
+
+1. **Layers and unit.** Pick the centreline layers. Choose the drawing unit yourself (the file's `$INSUNITS` is only shown as a hint; a file that declares none gives no default). Coordinates are converted to metres and otherwise kept as drawn.
+2. **Detection.** Line ends closer than the snap distance (default 0.1 m) are joined; a line end resting on another line splits it there (T-junction); crossings without an end are not junctions. Dead ends within the near-miss distance (default 3 m) of something else are **listed, never joined**: tick the ones that are the same drive and rebuild. Isolated parts are reported. A bent polyline keeps its drawn path length; arcs (bulges) are approximated by chords and counted in a warning.
+3. **Elevations.** Use the drawing's Z values (only on lines that carry any: a flat layer is never read as 0 m), one constant (recorded as an *assumed* value), or leave them not entered.
+4. **Confirm and create a draft.** Both the unit and the elevation handling must be confirmed. The result is a **draft** (never published) with `survey-plan` provenance. A centreline drawing has no tunnel widths, exits, zones, sumps or pumps, so preflight blocks runs and publishing until you add them in the editor.
+
+Limits: 4 MB per file; at most 5000 line ends. Larger drawings: export only the centreline layers or split them.
+
+## Base maps and subsidence marks (phase 9)
+
+Mine → Surface. A GeoTIFF orthophoto or elevation model (metre-based projected CRS such as UTM, north-up, up to 3 MB; reduce larger ones first, for example `gdal_translate -outsize 2000 0`) is read in the worker and shown as a reduced picture. You enter the map coordinate the plan's origin sits at and confirm both are in metres; rotation is not applied. It is a picture to read the plan against and never changes a tunnel. Elevation models are drawn with a plain colour ramp and report their real value range, not assumed to be metres.
+
+A subsidence mark (click the plan, describe it, add a photo of up to 2.5 MB) is placed **near a zone** when it is within 100 m (plan distance) of one of that zone's tunnels. That distance is a development default, not a validated value. A mark near a zone raises a concern for review; a mark farther away is only recorded. Marks can be retracted with a reason.

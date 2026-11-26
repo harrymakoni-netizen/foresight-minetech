@@ -10,6 +10,9 @@ RUN npm ci --omit=dev --ignore-scripts=false
 
 FROM python:3.13-slim-bookworm
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
+# rasterio's bundled GDAL needs libexpat, which the slim Python image lacks. Taken
+# from the (same Debian release) build stage so no apt access is needed.
+COPY --from=node /usr/lib/x86_64-linux-gnu/libexpat.so.1* /usr/lib/x86_64-linux-gnu/
 WORKDIR /app
 COPY deploy/requirements-engine.txt deploy/requirements-engine.txt
 RUN pip install --no-cache-dir --no-deps jupedsim==1.4.2 \

@@ -125,3 +125,21 @@ Assistant tools (server-side, act as the signed-in user): `list_declared_undergr
 AI data policy (`lib/server/privacy.ts`): phone numbers and miners' message bodies are never sent to a provider; names reach the tools only when the workspace has an `ai-policy` record with `allowNames: true`. Free text from the user passes the existing masking of phone numbers, e-mail addresses and worker names.
 
 A report's review dialog has **Run scenario from this report**: it opens the builder with the report's zone and equipment and records the report as the source of the run.
+
+## Phase 9 additions: surveyor features
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/mine-model/import` | `{filename,text}` ASCII DXF up to 4 MB → `model-import` (worker job `dxf-inspect`: layers, entity counts per layer, what is not read, declared unit) |
+| GET `/api/workspace/mine-model/imports/:id` | Polls the worker and stores the result |
+| POST `/api/workspace/mine-model/imports/:id/build` | `{layers,unit,snapMetres,nearMissMetres,elevation:{mode:"dxf"\|"constant"\|"unknown",constant},acceptNearMiss:[ids]}` → proposal (junctions, tunnels, near misses, isolated parts, warnings). The unit has no default. Nothing is joined beyond the snap distance unless its near-miss id is accepted |
+| POST `/api/workspace/mine-model/imports/:id/accept` | `{unitsConfirmed:true,elevationsConfirmed:true}` → **draft** revision (`meta.source:"dxf"`, `survey-plan` provenance; widths, exits, zones, sumps not in the drawing stay not entered). Never publishes |
+| POST `/api/workspace/base-maps` | `{name,filename,b64}` GeoTIFF up to 3 MB → `base-map` (worker job `basemap`: bounds, CRS, pixel size, a reduced PNG). Geographic (degree), unreferenced, non-metre and rotated rasters are refused with a reason |
+| GET `/api/workspace/base-maps/:id` | Polls the worker |
+| POST `/api/workspace/base-maps/:id/align` | `{planOriginEasting,planOriginNorthing,confirmMetres:true}`: the map coordinate the plan's (0, 0) sits at; warns when the plan falls outside the map |
+| POST `/api/workspace/base-maps/:id/active` | `{active}` (one map is shown at a time) |
+| POST `/api/workspace/subsidence-marks` | `{x,y,description,observedAt,photo?:{filename,contentType,b64}}`: plan position in metres; placed near a zone when within 100 m (development default) of one of its tunnels, which raises a concern for review |
+| POST `/api/workspace/subsidence-marks/:id/retract` | `{reason}` |
+| GET `/api/workspace/files/:id` | Stored images (PNG/JPEG/WebP only, `nosniff`, sandboxed CSP) |
+
+Worker env `FORESIGHT_WORKER_BODY_LIMIT` (default 8 MB). Hosted uploads are capped below Vercel's 4.5 MB request limit. The original GeoTIFF is not kept; the reduced picture and its metadata are.

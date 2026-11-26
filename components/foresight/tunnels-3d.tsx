@@ -30,6 +30,8 @@ export default function Tunnels3D({
   highlight,
   counts = {},
   playback,
+  baseMap,
+  marks = [],
   label: ariaLabel,
   fallback,
 }: {
@@ -38,6 +40,10 @@ export default function Tunnels3D({
   highlight?: Set<string>;
   counts?: Record<string, number>;
   playback?: Playback;
+  /** Georeferenced picture laid on the surface plane (plan coordinates, metres). */
+  baseMap?: { href: string; west: number; south: number; east: number; north: number } | null;
+  /** Subsidence marks, shown as pins on the surface. */
+  marks?: { id: string; x: number; y: number; label: string; near: boolean }[];
   label?: string;
   fallback?: React.ReactNode;
 }) {
@@ -62,6 +68,11 @@ export default function Tunnels3D({
   const countsRef = useRef(counts);
   countsRef.current = counts;
   const countsKey = JSON.stringify(counts);
+  const overlayKey = JSON.stringify([baseMap, marks]);
+  const baseMapRef = useRef(baseMap);
+  baseMapRef.current = baseMap;
+  const marksRef = useRef(marks);
+  marksRef.current = marks;
   const playbackRef = useRef(playback);
   playbackRef.current = playback;
   const applyRef = useRef<(pb: Playback | undefined) => void>(() => {});
@@ -375,6 +386,32 @@ export default function Tunnels3D({
     (grid.material as THREE.Material).opacity = 0.35;
     grid.position.set(cx, 0.05, -cy);
     surface.add(grid);
+    // Base map: a picture laid on the surface plane at its real plan extent.
+    const bm = baseMapRef.current;
+    if (bm) {
+      const w = bm.east - bm.west, h = bm.north - bm.south;
+      const bmMat = mat({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
+      const bmPlane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), bmMat);
+      disposables.push(bmPlane.geometry);
+      bmPlane.rotation.x = -Math.PI / 2;
+      bmPlane.position.set((bm.west + bm.east) / 2, 0.15, -(bm.south + bm.north) / 2);
+      surface.add(bmPlane);
+      new THREE.TextureLoader().load(bm.href, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        bmMat.map = tex;
+        bmMat.needsUpdate = true;
+        disposables.push(tex);
+      });
+    }
+    // Subsidence marks: pins standing on the surface.
+    for (const mk of marksRef.current) {
+      const pin = new THREE.Mesh(new THREE.OctahedronGeometry(Math.max(2.5, spanX / 90), 0), mat({ color: mk.near ? 0xd92d20 : 0x7a8794, emissive: new THREE.Color(mk.near ? 0x701510 : 0x2a3138) }));
+      disposables.push(pin.geometry);
+      pin.position.set(mk.x, Math.max(2.5, spanX / 90) * 1.6, -mk.y);
+      pin.userData.pick = { title: "Subsidence mark", rows: [["What was seen", mk.label], ["Near a zone", mk.near ? "Yes: raised a concern" : "No: recorded only"]] } satisfies Picked;
+      surface.add(pin);
+      pickable.push(pin);
+    }
     world.add(surface);
     // Rock: faint box down to below the deepest working, with depth ticks.
     const rock = new THREE.Group();
@@ -613,7 +650,7 @@ export default function Tunnels3D({
     };
     // view is applied through api.current.view without rebuilding the scene.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, countsKey, exaggerate, layers]);
+  }, [model, countsKey, overlayKey, exaggerate, layers]);
 
   useEffect(() => {
     const onChange = () => setFull(document.fullscreenElement === frame.current);

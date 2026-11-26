@@ -18,6 +18,7 @@ import {
 } from "@/lib/server/repository";
 import { mutate, extract, explain, newAssessment } from "@/lib/server/workflows";
 import { cagePreflight, startCageRun } from "@/lib/server/cage";
+import { acceptDxfImport, alignBaseMap, buildDxfProposal, pollBaseMap, pollImport, readFile, recordSubsidenceMark, retractSubsidenceMark, setBaseMapActive, startDxfImport, uploadBaseMap } from "@/lib/server/survey";
 import { explainRuns, runAssistant } from "@/lib/server/ai-tools";
 import { issueAdvisory, withdrawAdvisory, recordPreEntryCheck, preEntrySchema, pollWeatherFor, recordSensorReading } from "@/lib/server/concerns";
 import {
@@ -165,7 +166,7 @@ export async function GET(request: Request, route: RouteContext) {
           },
           // Trajectory source records are large; fetch them per run instead.
           entities: protect(
-            (await list(ctx)).filter((e) => e.kind !== "run-trajectory"),
+            (await list(ctx)).filter((e) => !["run-trajectory", "file-blob", "model-import-source"].includes(e.kind)),
             ctx.role,
           ),
           messaging: {
@@ -207,6 +208,16 @@ export async function GET(request: Request, route: RouteContext) {
     }
     if (path[0] === "escape" && path[1] === "runs" && path[2])
       return Response.json(await pollEscape(ctx, path[2], "escape-run"), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "mine-model" && path[1] === "imports" && path[2])
+      return Response.json(await pollImport(ctx, path[2]), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "base-maps" && path[1])
+      return Response.json(await pollBaseMap(ctx, path[1]), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "files" && path[1]) {
+      const f = await readFile(ctx, path[1]);
+      return new Response(new Uint8Array(f.bytes), {
+        headers: { "Content-Type": f.contentType, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox", "Cache-Control": "private, max-age=3600" },
+      });
+    }
     if (path[0] === "cage" && path[1] === "runs" && path[2])
       return Response.json(await pollEscape(ctx, path[2], "cage-run"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "escape" && path[1] === "time-to-act" && path[2])
@@ -378,10 +389,14 @@ export async function POST(request: Request, route: RouteContext) {
         "pre-entry",
         "forecast",
         "sensor-readings",
+        "base-maps",
+        "subsidence-marks",
       ].includes(path[0]) || path[2] === "review";
     const ctx = await context(request, review ? "review" : "submit");
     if (path[0] === "assets") return await assetsPost(ctx, request);
-    const body = await jsonBody(request);
+    // Uploads travel as JSON; keep them under the 4.5 MB hosting limit.
+    const large = (path[0] === "base-maps" && !path[1]) || (path[0] === "subsidence-marks" && !path[1]) || (path[0] === "mine-model" && path[1] === "import");
+    const body = await jsonBody(request, large ? 4_400_000 : 200000);
     if (path[0] === "reports" && path[2] === "extract")
       return Response.json(await extract(ctx, path[1]));
     if (path[0] === "assessments" && path[2] === "explain")
@@ -497,6 +512,14 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "escape" && path[1] === "runs" && path[3] === "escalate") return await escalateRun(ctx, path[2], body);
       if (path[0] === "escape" && path[1] === "runs" && path[3] === "response") return await planningResponse(ctx, path[2], body);
       if (path[0] === "escape" && path[1] === "time-to-act" && !path[2]) return await startTimeToAct(ctx, body);
+      if (path[0] === "mine-model" && path[1] === "import" && !path[2]) return await startDxfImport(ctx, body);
+      if (path[0] === "mine-model" && path[1] === "imports" && path[3] === "build") return await buildDxfProposal(ctx, path[2], body);
+      if (path[0] === "mine-model" && path[1] === "imports" && path[3] === "accept") return await acceptDxfImport(ctx, path[2], body);
+      if (path[0] === "base-maps" && !path[1]) return await uploadBaseMap(ctx, body);
+      if (path[0] === "base-maps" && path[2] === "align") return await alignBaseMap(ctx, path[1], body);
+      if (path[0] === "base-maps" && path[2] === "active") return await setBaseMapActive(ctx, path[1], z.object({ active: z.boolean() }).strict().parse(body).active);
+      if (path[0] === "subsidence-marks" && !path[1]) return await recordSubsidenceMark(ctx, body);
+      if (path[0] === "subsidence-marks" && path[2] === "retract") return await retractSubsidenceMark(ctx, path[1], z.object({ reason: z.string().min(3).max(300) }).strict().parse(body).reason);
       if (path[0] === "mine-model" && path[1] === "reset-training") return await resetTrainingMine(ctx);
       if (path[0] === "mine-model" && path[1] === "validate")
         return { issues: modelPreflight(mineModelSchema.parse((body as { model: unknown }).model)) };
