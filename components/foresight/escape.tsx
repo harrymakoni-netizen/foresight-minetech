@@ -5,7 +5,9 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import type { MineModel } from "@/lib/domain/mine-model";
-import { PlanView, type Dot, type Trail } from "./mine";
+import { PlanView, zoneColour, type Dot, type Trail } from "./mine";
+import type { Playback } from "./tunnels-3d";
+const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
 import { download, ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
 
 const hm = (s: number | null | undefined) => {
@@ -324,6 +326,8 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
   const lastEvent = Math.max(firstRelease + 60, ...r.escape.people.map((p) => p.atSeconds ?? 0), ...(r.closures.map((c) => c.atSeconds)));
   const [t, setT] = useState(Math.max(0, firstRelease - 30));
   const [playing, setPlaying] = useState(false);
+  const [mode, setMode] = useState<"3d" | "plan">("3d");
+  const colour = useMemo(() => zoneColour(model), [model]);
   useEffect(() => {
     if (!playing) return;
     const timer = setInterval(() => setT((x) => (x >= lastEvent ? (setPlaying(false), x) : Math.min(lastEvent, x + (lastEvent - firstRelease) / 150))), 100);
@@ -341,6 +345,22 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
     dots.push({ id: p.id, x: pos[0], y: pos[1], tone, label: `${p.name || p.id}: ${outcomeText[p.outcome]}` });
     trails.push({ id: p.id, tone: res?.outcome === "cut-off" ? "cut-off" : "walking", points: p.path.filter((q) => q[0] <= t).map((q) => [q[1], q[2]]) });
   }
+  const playLabel = `Scenario playback at ${hm(t)}: ${dots.length} people shown, ${closed.size} tunnels closed. Results are listed beside the map.`;
+  // Sump level at time t, interpolated from the recorded flooding series.
+  const series = r.flooding.series;
+  let levelM = series[0]?.levelM ?? 0;
+  for (let i = 0; i < series.length - 1; i++)
+    if (t >= series[i].t && t <= series[i + 1].t) {
+      const k = (t - series[i].t) / (series[i + 1].t - series[i].t || 1);
+      levelM = series[i].levelM + (series[i + 1].levelM - series[i].levelM) * k;
+      break;
+    } else if (t > series[i + 1].t) levelM = series[i + 1].levelM;
+  const playback: Playback = {
+    people: dots,
+    closed,
+    sumps: { [r.flooding.sumpId]: { levelM, dangerLevelM: r.flooding.dangerLevelM } },
+    clock: `${hm(t)} · sump ${levelM.toFixed(2)} m of ${r.flooding.dangerLevelM} m danger · ${closed.size} tunnel(s) closed`,
+  };
   const totals = r.escape.totals as Record<string, number>;
   const cut = r.escape.people.filter((p) => p.outcome === "cut-off");
   const markers = [
@@ -363,7 +383,21 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
           </div>
           <Tag tone="amber">Planning calculation</Tag>
         </div>
-        <PlanView model={model} closed={closed} dots={dots} trails={trails} height={380} label={`Scenario playback at ${hm(t)}: ${dots.length} people shown, ${closed.size} tunnels closed. Results are listed beside the map.`} />
+        <div className="fs-seg fs-playback-mode" role="group" aria-label="Playback view">
+          <button aria-pressed={mode === "3d"} onClick={() => setMode("3d")}>3D mine</button>
+          <button aria-pressed={mode === "plan"} onClick={() => setMode("plan")}>Plan</button>
+        </div>
+        {mode === "3d" ? (
+          <Tunnels3D
+            model={model}
+            colour={colour}
+            playback={playback}
+            label={playLabel}
+            fallback={<PlanView model={model} closed={closed} dots={dots} trails={trails} height={380} label={playLabel} />}
+          />
+        ) : (
+          <PlanView model={model} closed={closed} dots={dots} trails={trails} height={380} label={playLabel} />
+        )}
         <div className="fs-timeline">
           <button className="fs-button secondary" aria-label={playing ? "Pause" : "Play"} onClick={() => (t >= lastEvent && setT(Math.max(0, firstRelease - 30)), setPlaying(!playing))}>
             {playing ? <Pause size={16} /> : <Play size={16} />}
@@ -380,7 +414,7 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
             </li>
           ))}
         </ul>
-        <p className="fs-help">Dots: dark = walking, amber = not yet moving, red = cut off. Red tunnels are closed. Start positions are assumed.</p>
+        <p className="fs-help">{mode === "3d" ? "People: white = walking, amber = not yet moving, red (pulsing) = cut off. Red tunnels are closed by water; the sump fills with the recorded level. Start positions are assumed." : "Dots: dark = walking, amber = not yet moving, red = cut off. Red tunnels are closed. Start positions are assumed."}</p>
       </section>
       <section className="fs-panel fs-results" aria-label="Results">
         <h3>Results</h3>

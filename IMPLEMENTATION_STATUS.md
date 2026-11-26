@@ -166,6 +166,13 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Scenario playback in 3D (2026-11-27)
+
+- Scenario results now play in the 3D mine by default (toggle to the plan). People move along their recorded escape paths (plan positions from the engine; elevation taken from the nearest tunnel), coloured white walking, amber not yet moving, red pulsing cut off. Tunnels turn red at their recorded closure time. The sump water rises with the recorded flooding series and turns red at the danger level. A clock overlay shows time, sump level against danger level and closed tunnels.
+- Cut-off people are named when there are one or two; larger groups get one tag pointing to the named results, so labels stay readable.
+- The playback updates without rebuilding the scene; all 3D controls (camera presets, depth exaggeration, layers, full screen, click to inspect) work during playback. Without WebGL the plan playback is shown instead.
+- Verified: production build, 10/10 browser specs, demo acceptance story (which checks the playback at "Route floods") and a headless 3D render at 1 h 40 min showing 2 closed tunnels, sump at 2.00 m of 2 m and 4 people cut off.
+
 ## 3D mine view upgrade and roadmap change (2026-11-27)
 
 - **Roadmap:** the owner removed Phase 11 (Shona/Ndebele templates and polish) for now. Remaining: Phase 6 rain and pre-entry checks, 7 cage and hoist evacuation, 8 report trigger and AI tools, 9 surveyor features, 10 ventilation, gas and re-entry.

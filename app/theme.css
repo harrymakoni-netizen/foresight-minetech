@@ -1022,8 +1022,8 @@
 }
 .fs-app .fs-3d-info {
   position: absolute;
-  right: 14px;
-  top: 58px;
+  right: 12px;
+  top: 12px;
   width: min(300px, calc(100% - 28px));
   background: rgb(255 255 255 / 96%);
   border-radius: 10px;
@@ -1066,4 +1066,36 @@
 .fs-app .fs-3d-select select {
   width: auto;
   min-height: 0;
+}
+.fs-app .fs-playback-mode {
+  margin-bottom: 10px;
+}
+.fs-app .fs-3d-stage {
+  position: relative;
+}
+.fs-app .fs-3d-frame.full .fs-3d-stage {
+  flex: 1;
+  display: flex;
+}
+.fs-app .fs-3d-clock {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgb(13 27 39 / 85%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1;
+}
+.fs-app .fs-3d-clock.on {
+  display: block;
+}
+.fs-app .fs-3d-label.person {
+  background: #b42318;
+  border-color: #ff8a80;
+  font-size: 11px;
 }

@@ -12,6 +12,13 @@ import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import type { MineModel } from "@/lib/domain/mine-model";
 
 type View = "perspective" | "top" | "section";
+/** Scenario state at one moment, applied without rebuilding the scene. */
+export type Playback = {
+  people: { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string }[];
+  closed: Set<string>;
+  sumps?: Record<string, { levelM: number; dangerLevelM: number | null }>;
+  clock?: string;
+};
 type Picked = { title: string; rows: [string, string][] } | null;
 
 export default function Tunnels3D({
@@ -19,11 +26,17 @@ export default function Tunnels3D({
   colour,
   highlight,
   counts = {},
+  playback,
+  label: ariaLabel,
+  fallback,
 }: {
   model: MineModel;
   colour: (tunnelId: string) => string;
   highlight?: Set<string>;
   counts?: Record<string, number>;
+  playback?: Playback;
+  label?: string;
+  fallback?: React.ReactNode;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -33,6 +46,8 @@ export default function Tunnels3D({
   const [exaggerate, setExaggerate] = useState(3);
   const [layers, setLayers] = useState({ surface: true, labels: true, rock: true });
   const [spin, setSpin] = useState(false);
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   const [picked, setPicked] = useState<Picked>(null);
   const [full, setFull] = useState(false);
   const spinRef = useRef(spin);
@@ -44,6 +59,10 @@ export default function Tunnels3D({
   const countsRef = useRef(counts);
   countsRef.current = counts;
   const countsKey = JSON.stringify(counts);
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const applyRef = useRef<(pb: Playback | undefined) => void>(() => {});
+  useEffect(() => applyRef.current(playback), [playback]);
 
   useEffect(() => {
     const el = host.current;
@@ -83,6 +102,8 @@ export default function Tunnels3D({
     const P = (x: number, y: number, z: number | null) => new THREE.Vector3(x, (z ?? 0) * ex, -y);
     const world = new THREE.Group();
     const pickable: THREE.Object3D[] = [];
+    const tunnelMeshes = new Map<string, { mesh: THREE.Mesh; base: THREE.Color }>();
+    const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number }>();
     const disposables: { dispose: () => void }[] = [];
     const mat = (o: THREE.MeshStandardMaterialParameters) => {
       const m = new THREE.MeshStandardMaterial(o);
@@ -161,6 +182,7 @@ export default function Tunnels3D({
       } satisfies Picked;
       world.add(mesh);
       pickable.push(mesh);
+      tunnelMeshes.set(t.id, { mesh, base });
     }
     // Junction nodes.
     const nodeGeo = new THREE.SphereGeometry(Math.max(1.2, Math.min(spanX, spanY) / 160), 16, 12);
@@ -263,6 +285,7 @@ export default function Tunnels3D({
       disposables.push(water.geometry);
       water.position.copy(at).add(new THREE.Vector3(0, -10, 0));
       water.userData.water = true;
+      sumpWater.set(s.id, { mesh: water, floor: at.y - 12 });
       const pumps = model.pumps.filter((p) => p.sumpId === s.id);
       water.userData.pick = {
         title: s.name,
@@ -367,6 +390,102 @@ export default function Tunnels3D({
       if (o.userData.label) o.visible = layers.labels && (!tickLabels.includes(o as CSS2DObject) || layers.rock);
     });
 
+    // Scenario playback: people, closed tunnels and sump level.
+    const people = new THREE.Group();
+    world.add(people);
+    const personGeo = new THREE.CapsuleGeometry(Math.max(1.4, Math.min(spanX, spanY) / 150), Math.max(2.4, Math.min(spanX, spanY) / 90), 4, 10);
+    disposables.push(personGeo);
+    const toneMat = {
+      walking: mat({ color: 0xf5f8fb, emissive: new THREE.Color(0x6f8aa3) }),
+      waiting: mat({ color: 0xf2a33a, emissive: new THREE.Color(0x7a4a0c) }),
+      "cut-off": mat({ color: 0xff3b30, emissive: new THREE.Color(0x9a1208) }),
+      safe: mat({ color: 0x3ccf7a, emissive: new THREE.Color(0x0f5a2c) }),
+    };
+    const segs = model.tunnels
+      .map((t) => ({ t, a: byId.get(t.from), b: byId.get(t.to) }))
+      .filter((x): x is { t: (typeof model.tunnels)[number]; a: (typeof model.junctions)[number]; b: (typeof model.junctions)[number] } => !!x.a && !!x.b);
+    // Engines report plan positions; elevation comes from the nearest tunnel.
+    const elevationAt = (x: number, y: number) => {
+      let best = Infinity, z = 0;
+      for (const { a, b } of segs) {
+        const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+        const k = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2));
+        const d = Math.hypot(a.x + dx * k - x, a.y + dy * k - y);
+        if (d < best) {
+          best = d;
+          z = (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * k;
+        }
+      }
+      return z;
+    };
+    const personMeshes = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>();
+    const groupDiv = document.createElement("div");
+    groupDiv.className = "fs-3d-label person";
+    const groupTag = new CSS2DObject(groupDiv);
+    groupTag.visible = false;
+    people.add(groupTag);
+    const lift = Math.max(1, Math.min(spanX, spanY) / 110) * 1.6;
+    applyRef.current = (pb) => {
+      const closed = pb?.closed || highlight || new Set<string>();
+      for (const [id, { mesh, base }] of tunnelMeshes) {
+        const m = mesh.material as THREE.MeshStandardMaterial;
+        const c = closed.has(id) ? new THREE.Color(0xd92d20) : base;
+        m.color.copy(c);
+        m.emissive.copy(c).multiplyScalar(closed.has(id) ? 0.5 : 0.25);
+      }
+      for (const [id, { mesh, floor }] of sumpWater) {
+        const sl = pb?.sumps?.[id];
+        if (!sl) continue;
+        const ratio = sl.dangerLevelM ? sl.levelM / sl.dangerLevelM : 0.4;
+        const h = Math.max(0.3, Math.min(14, ratio * 8));
+        mesh.scale.y = h / 4;
+        mesh.position.y = floor + h / 2;
+        (mesh.material as THREE.MeshStandardMaterial).color.set(ratio >= 1 ? 0xd9534f : 0x2f7fd0);
+      }
+      const seen = new Set<string>();
+      for (const p of pb?.people || []) {
+        seen.add(p.id);
+        let entry = personMeshes.get(p.id);
+        if (!entry) {
+          const mesh = new THREE.Mesh(personGeo, toneMat.walking);
+          const div = document.createElement("div");
+          div.className = "fs-3d-label person";
+          const tag = new CSS2DObject(div);
+          tag.userData.label = true;
+          mesh.add(tag);
+          people.add(mesh);
+          entry = { mesh, tag };
+          personMeshes.set(p.id, entry);
+        }
+        entry.mesh.material = toneMat[p.tone];
+        entry.mesh.userData.tone = p.tone;
+        entry.mesh.position.copy(P(p.x, p.y, elevationAt(p.x, p.y))).add(new THREE.Vector3(0, lift, 0));
+        // Name tags only for people cut off, and only while few enough to read;
+        // otherwise one group tag is shown.
+        const cutCount = (pb?.people || []).filter((q) => q.tone === "cut-off").length;
+        const show = p.tone === "cut-off" && cutCount <= 2 && layersRef.current.labels;
+        entry.tag.visible = show;
+        (entry.tag.element as HTMLElement).textContent = show ? p.label || p.id : "";
+        entry.tag.position.set(0, lift * 2.2, 0);
+        entry.mesh.visible = true;
+      }
+      for (const [id, e] of personMeshes) if (!seen.has(id)) e.mesh.visible = false;
+      const cut = (pb?.people || []).filter((q) => q.tone === "cut-off");
+      if (cut.length > 2 && layersRef.current.labels) {
+        const mid = cut
+          .map((q) => P(q.x, q.y, elevationAt(q.x, q.y)))
+          .reduce((a, b) => a.add(b), new THREE.Vector3())
+          .multiplyScalar(1 / cut.length);
+        groupTag.position.copy(mid).add(new THREE.Vector3(0, lift * 4, 0));
+        (groupTag.element as HTMLElement).textContent = `${cut.length} people cut off · names in results`;
+        groupTag.visible = true;
+      } else groupTag.visible = false;
+      if (clockEl) clockEl.textContent = pb?.clock || "";
+      clockEl?.classList.toggle("on", !!pb?.clock);
+    };
+    const clockEl = el.parentElement?.querySelector<HTMLElement>(".fs-3d-clock") || null;
+    applyRef.current(playbackRef.current);
+
     // Camera and views.
     const box = new THREE.Box3();
     pickable.forEach((o) => box.expandByObject(o));
@@ -435,7 +554,7 @@ export default function Tunnels3D({
       orbit.autoRotateSpeed = 0.8;
       world.traverse((o) => {
         if (o.userData.spin) o.rotation.z += dt * 2.5;
-        if (o.userData.water) (o as THREE.Mesh).scale.y = 1 + Math.sin(time * 1.4) * 0.04;
+        if (o.userData.tone === "cut-off") o.scale.setScalar(1 + Math.sin(time * 6) * 0.18);
       });
       lamp.position.copy(camera.position);
       orbit.update();
@@ -458,7 +577,7 @@ export default function Tunnels3D({
     };
     // view is applied through api.current.view without rebuilding the scene.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, highlight, countsKey, exaggerate, layers]);
+  }, [model, countsKey, exaggerate, layers]);
 
   useEffect(() => {
     const onChange = () => setFull(document.fullscreenElement === frame.current);
@@ -470,7 +589,7 @@ export default function Tunnels3D({
     setView(v);
     api.current.view(v);
   };
-  if (error) return <p role="status">{error}</p>;
+  if (error) return fallback ? <>{fallback}</> : <p role="status">{error}</p>;
   return (
     <div className={"fs-3d-frame" + (full ? " full" : "")} ref={frame}>
       <div className="fs-3d-toolbar" role="toolbar" aria-label="3D view controls">
@@ -523,12 +642,14 @@ export default function Tunnels3D({
           {full ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
         </button>
       </div>
+      <div className="fs-3d-stage">
       <div
         ref={host}
         className="fs-3d"
         role="img"
-        aria-label={`3D schematic of ${model.tunnels.length} tunnels with ${model.exits.length} exits. Drag to orbit, scroll to zoom, click an item for details. The table tab lists the same values.`}
+        aria-label={ariaLabel || `3D schematic of ${model.tunnels.length} tunnels with ${model.exits.length} exits. Drag to orbit, scroll to zoom, click an item for details. The table tab lists the same values.`}
       />
+      <div className="fs-3d-clock" aria-hidden="true" />
       {picked && (
         <aside className="fs-3d-info" aria-live="polite">
           <button aria-label="Close details" onClick={() => setPicked(null)}>
@@ -545,6 +666,7 @@ export default function Tunnels3D({
           </dl>
         </aside>
       )}
+      </div>
       <p className="fs-help">
         Drag to orbit, right-drag to pan, scroll to zoom, click a tunnel or feature for its entered values. Depth is
         exaggerated ×{exaggerate} and tunnel cross-sections are enlarged so they stay visible; the surface is a flat
