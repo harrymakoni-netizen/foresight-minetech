@@ -112,3 +112,16 @@ Assessments created from now on record `policyVersion: "development-controls-2"`
 | GET `/api/workspace/cage/runs/:id` | Polls the worker and stores the result (`totals`, `lastSurfaceSeconds` or null = not reached, `queueSeries`, `cycles`, `people`, `effect` vs. a no-failure baseline, `assumptions`) |
 
 Cage and hoist values come from the published mine model (`exits[].hoist`, `ladderClimbSeconds`). Worker job kind `cage` (engine `cage-simpy-1.0.0`).
+
+## Phase 8 additions: assistant and grounded explanations
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/assistant/chat` | `{message,allowRuns}` → `{text,steps,drafts,runsAllowed}`. 503 `ASSISTANT_UNAVAILABLE` when no AI provider is configured. `allowRuns:true` needs a supervisor or administrator and applies to this request only |
+| POST `/api/workspace/assistant/explain` | `{runIds:[1–2],question?,mode:"deterministic"\|"ai"}` → `{paragraphs:[{text,citations:[{runId,metricId}]}],assumptions,unavailable,limitation}`. `deterministic` needs no AI. `ai` is rejected (502 `UNGROUNDED_EXPLANATION`) unless every citation names a real run and metric and every number is a value of the metrics it cites |
+
+Assistant tools (server-side, act as the signed-in user): `list_declared_underground`, `inspect_mine_model`, `identify_missing_inputs`, `create_scenario_draft`, `validate_scenario`, `submit_run`, `get_run_results`, `compare_runs`, `draft_incident_report`. There is no tool to send a message, declare an emergency, change a status or accept evidence. `create_scenario_draft` stores a `scenario-draft` record that opens in the builder (`#scenarios?draft=<id>`) and runs nothing; endurance values stay "not entered". Metric ids look like `escape.people.cut-off`, `escape.time.t100`, `flooding.first-danger`, `cage.time.last-surface`.
+
+AI data policy (`lib/server/privacy.ts`): phone numbers and miners' message bodies are never sent to a provider; names reach the tools only when the workspace has an `ai-policy` record with `allowNames: true`. Free text from the user passes the existing masking of phone numbers, e-mail addresses and worker names.
+
+A report's review dialog has **Run scenario from this report**: it opens the builder with the report's zone and equipment and records the report as the source of the run.

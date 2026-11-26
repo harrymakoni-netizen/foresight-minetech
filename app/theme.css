@@ -1136,3 +1136,32 @@
   border-color: #e2b07a;
   font-size: 12px;
 }
+
+/* ---- assistant and explanations (phase 8) -------------------------------- */
+.fs-app .fs-assistant {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+.fs-app .fs-assistant summary {
+  cursor: pointer;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fs-app .fs-assistant[open] summary {
+  margin-bottom: 10px;
+}
+.fs-app .fs-explain {
+  margin: 4px 0 12px;
+}
+.fs-app .fs-explain .fs-explanation {
+  margin-top: 10px;
+}
+.fs-app .fs-explanation small {
+  display: block;
+  color: var(--muted);
+}

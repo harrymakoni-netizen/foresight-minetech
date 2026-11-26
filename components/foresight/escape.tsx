@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import type { MineModel } from "@/lib/domain/mine-model";
 import { PlanView, zoneColour, type Dot, type Trail } from "./mine";
+import { AssistantPanel, RunExplain } from "./assistant";
 import type { Playback } from "./tunnels-3d";
 const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
 import { download, ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
@@ -65,6 +66,7 @@ export function EscapeScenarios({ data, post, refresh, notify }: ViewProps) {
   if (!model || !published) return <p>Publish a mine model before running escape scenarios.</p>;
   return (
     <section className="fs-scenarios" aria-label="Escape scenarios">
+      <AssistantPanel data={data} post={post} refresh={refresh} notify={notify} />
       <div className="fs-scenario-grid">
         <Builder data={data} model={model} revision={Number(published.data.number)} post={post} onStarted={async (r) => (setSelectedId(r.id), await refresh(), notify("Scenario submitted to the simulation worker."))} />
         <div className="fs-scenario-main">
@@ -106,29 +108,34 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
   const duty = pumps.find((p) => p.id === params.get("pump")) || pumps.find((p) => p.role === "duty") || pumps[0];
   const backup = pumps.find((p) => p.role === "backup" && p.id !== duty?.id) || null;
   const declared = rows(data, "check-in").filter((c) => ["declared-underground", "return-overdue", "confirmed-missing"].includes(String(c.data.status))).length;
+  // A draft saved by the assistant opens pre-filled; nothing in it has been run.
+  const draft = params.get("draft") ? rows(data, "scenario-draft").find((d) => d.id === params.get("draft")) : undefined;
+  const ds = draft?.data.scenario as
+    | { name: string; template: "pump-failure" | "blocked-tunnel"; peopleSource: "current-declarations" | "planned-headcount"; plannedHeadcount: Record<string, number>; water: { sumpId: string; dutyPumpId: string; backupPumpId: string | null; failAtMinutes: number; backupStartMinutes: number | null; inflowM3h: number | null; initialVolumeM3: number | null }; blockedTunnels: { tunnelId: string; atMinutes: number }[]; evacuationOrderMinutes: number; preMovementMinutes: { min: number; max: number }; speed: { mean: number; sd: number }; horizonMinutes: number; seed: number; endurance: { selfRescuerRatedMinutes: number | null; refugeConsumptionM3PerPersonHour: number | null } }
+    | undefined;
   const [f, setF] = useState({
-    name: params.get("name") || `${duty?.name || "Pump"} failure`,
-    template: "pump-failure" as "pump-failure" | "blocked-tunnel",
-    peopleSource: (declared ? "current-declarations" : "planned-headcount") as "current-declarations" | "planned-headcount",
-    planned: Object.fromEntries(model.zones.map((z) => [z.id, z.id === (params.get("zone") || "zone-b") ? 8 : 4])) as Record<string, number>,
-    sumpId: sump?.id || "",
-    dutyPumpId: duty?.id || "",
-    backupPumpId: backup?.id || "",
-    failAt: 0,
-    backupStart: "" as string,
-    inflow: "",
-    initial: "",
-    blockedTunnel: model.tunnels[0]?.id || "",
-    blockedAt: 0,
-    order: 95,
-    preMin: 0,
-    preMax: 2,
-    speedMean: 1.0,
-    speedSd: 0.15,
-    horizon: 120,
-    seed: 11,
-    rescuer: "30",
-    consumption: "",
+    name: ds?.name || params.get("name") || `${duty?.name || "Pump"} failure`,
+    template: (ds?.template || "pump-failure") as "pump-failure" | "blocked-tunnel",
+    peopleSource: (ds?.peopleSource || (declared ? "current-declarations" : "planned-headcount")) as "current-declarations" | "planned-headcount",
+    planned: (ds && ds.peopleSource === "planned-headcount" ? Object.fromEntries(model.zones.map((z) => [z.id, ds.plannedHeadcount[z.id] ?? 0])) : Object.fromEntries(model.zones.map((z) => [z.id, z.id === (params.get("zone") || "zone-b") ? 8 : 4]))) as Record<string, number>,
+    sumpId: ds?.water.sumpId || sump?.id || "",
+    dutyPumpId: ds?.water.dutyPumpId || duty?.id || "",
+    backupPumpId: ds ? ds.water.backupPumpId || "" : backup?.id || "",
+    failAt: ds?.water.failAtMinutes ?? 0,
+    backupStart: (ds?.water.backupStartMinutes == null ? "" : String(ds.water.backupStartMinutes)) as string,
+    inflow: ds?.water.inflowM3h == null ? "" : String(ds.water.inflowM3h),
+    initial: ds?.water.initialVolumeM3 == null ? "" : String(ds.water.initialVolumeM3),
+    blockedTunnel: ds?.blockedTunnels[0]?.tunnelId || model.tunnels[0]?.id || "",
+    blockedAt: ds?.blockedTunnels[0]?.atMinutes ?? 0,
+    order: ds?.evacuationOrderMinutes ?? 95,
+    preMin: ds?.preMovementMinutes.min ?? 0,
+    preMax: ds?.preMovementMinutes.max ?? 2,
+    speedMean: ds?.speed.mean ?? 1.0,
+    speedSd: ds?.speed.sd ?? 0.15,
+    horizon: ds?.horizonMinutes ?? 120,
+    seed: ds?.seed ?? 11,
+    rescuer: ds ? (ds.endurance.selfRescuerRatedMinutes == null ? "" : String(ds.endurance.selfRescuerRatedMinutes)) : "30",
+    consumption: ds?.endurance.refugeConsumptionM3PerPersonHour == null ? "" : String(ds.endurance.refugeConsumptionM3PerPersonHour),
   });
   const [checking, setChecking] = useState<{ ok: boolean; problems: string[]; people: number } | null>(null);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
@@ -154,8 +161,8 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
     horizonMinutes: Number(f.horizon),
     seed: Number(f.seed),
     endurance: { selfRescuerRatedMinutes: f.rescuer === "" ? null : Number(f.rescuer), refugeConsumptionM3PerPersonHour: f.consumption === "" ? null : Number(f.consumption) },
-    sourceConcernId: params.get("concern"),
-    sourceReportId: params.get("report"),
+    sourceConcernId: params.get("concern") || ((draft?.data.scenario as { sourceConcernId?: string | null } | undefined)?.sourceConcernId ?? null),
+    sourceReportId: params.get("report") || ((draft?.data.scenario as { sourceReportId?: string | null } | undefined)?.sourceReportId ?? null),
   });
   const run = async (submit: boolean) => {
     setBusy(true);
@@ -179,6 +186,12 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
   return (
     <section className="fs-panel fs-builder" aria-label="Scenario builder">
       <h3>Build a scenario</h3>
+      {draft && (
+        <p className="fs-note" role="status">
+          Opened from a draft saved by {String(draft.data.via)}. Nothing in it has been run. Check every value, then run it.
+          {(draft.data.problems as string[]).length > 0 && <> Blocking problems when it was saved: {(draft.data.problems as string[]).join(" ")}</>}
+        </p>
+      )}
       <p className="fs-help">Mine model revision {revision} ({model.meta.fictional ? "fictional training mine" : model.meta.name}). Times are minutes after the scenario starts.</p>
       <Field label="Name">
         <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -418,6 +431,7 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
       </section>
       <section className="fs-panel fs-results" aria-label="Results">
         <h3>Results</h3>
+        <RunExplain runId={run.id} data={data} post={post} />
         <p className="fs-accounting">
           {totals.simulated} simulated = {totals["reached-exit"]} reached an exit + {totals["reached-refuge"]} at a refuge + <strong>{totals["cut-off"]} cut off</strong> + {totals["still-walking"]} still walking {r.escape.totals.balanced ? "✓ balanced" : "✗ NOT BALANCED"}
         </p>

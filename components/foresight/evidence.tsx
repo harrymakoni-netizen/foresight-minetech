@@ -24,7 +24,18 @@ import {
   fromLocal,
   type ViewProps,
   type Row,
+  type WorkspaceData,
 } from "./shared";
+/** Builder link pre-filled from a report: zone and equipment from its accepted facts, else its reported zone. */
+export function reportScenarioLink(report: Row, data: WorkspaceData) {
+  const facts = data.entities.filter((e) => e.kind === "observation" && e.data.reportId === report.id);
+  const zone = String(facts.find((f) => f.data.zoneId)?.data.zoneId || report.data.zoneId || "");
+  const pump = String(facts.map((f) => f.data.assetId).find((a) => typeof a === "string" && a) || "");
+  const q = new URLSearchParams({ report: report.id, name: `${String(report.data.text).slice(0, 50)} (from report)` });
+  if (zone) q.set("zone", zone);
+  if (pump) q.set("pump", pump);
+  return "#scenarios?" + q.toString();
+}
 export function Evidence(props: ViewProps) {
   const { data, zone, post, refresh, notify } = props;
   const [tab, setTab] = useState("reports"),
@@ -754,6 +765,11 @@ export function Evidence(props: ViewProps) {
           >
             {selected.data.reviewStatus}
           </Tag>
+          <p>
+            <a className="fs-button secondary" href={reportScenarioLink(selected, data)}>
+              Run scenario from this report
+            </a>
+          </p>
           <blockquote>
             {selected.data.text}
             <footer>

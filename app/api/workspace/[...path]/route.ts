@@ -18,6 +18,7 @@ import {
 } from "@/lib/server/repository";
 import { mutate, extract, explain, newAssessment } from "@/lib/server/workflows";
 import { cagePreflight, startCageRun } from "@/lib/server/cage";
+import { explainRuns, runAssistant } from "@/lib/server/ai-tools";
 import { issueAdvisory, withdrawAdvisory, recordPreEntryCheck, preEntrySchema, pollWeatherFor, recordSensorReading } from "@/lib/server/concerns";
 import {
   cancelRun,
@@ -559,6 +560,14 @@ export async function POST(request: Request, route: RouteContext) {
           .strict()
           .parse(body);
         return await bindChannel(ctx, b.provider, b.channelKey);
+      }
+      if (path[0] === "assistant" && path[1] === "chat") {
+        const b = z.object({ message: z.string().trim().min(3).max(2000), allowRuns: z.boolean().default(false) }).strict().parse(body);
+        return await runAssistant(ctx, b);
+      }
+      if (path[0] === "assistant" && path[1] === "explain") {
+        const b = z.object({ runIds: z.array(z.string().min(1).max(80)).min(1).max(2), question: z.string().max(500).optional(), mode: z.enum(["deterministic", "ai"]) }).strict().parse(body);
+        return await explainRuns(ctx, b);
       }
       if (path[0] === "concerns" && path[1] === "advisory" && !path[2]) return await issueAdvisory(ctx, body);
       if (path[0] === "concerns" && path[1] === "advisory" && path[3] === "withdraw")

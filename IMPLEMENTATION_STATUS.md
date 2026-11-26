@@ -166,6 +166,20 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Phase 8 — report trigger and AI tools (2026-11-27)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Run scenario from a report | **Implemented and verified** | Report review dialog → builder pre-filled with the report's zone and equipment, run records `sourceReportId`; `tests/browser/assistant.spec.ts` (real worker) |
+| Narrow, server-authorised AI tools (the nine in spec §12) | **Implemented and tested with a mocked model** | `tests/ai-tools.test.ts` (17): tool set has nothing that sends, declares, changes status or accepts evidence; drafts run nothing and leave endurance "not entered"; a run needs request-level permission and a supervisor role; an unknown tool such as `send_message` executes nothing; phone numbers and e-mail addresses in a request are masked before they reach the model; names withheld unless the workspace policy allows them |
+| Grounded explanations | **Implemented and verified** | Metric catalogue with ids (`lib/domain/run-metrics.ts`). The deterministic explanation needs no AI and cites run and metric for every figure, states assumptions and lists unavailable metrics. An AI explanation is accepted only if every citation names a real run and metric and every number is a value of the metrics it cites (tests reject an invented number, an unknown run, an unknown metric, no citation, and a figure for an unavailable metric); assumptions and gaps are taken from the run, not the model |
+| Compare runs | **Implemented and tested** | Metric-by-metric deltas, availability changes, whether the inputs or model revision differ |
+| AI data policy | **Implemented** | `aiDataPolicy` in `lib/server/privacy.ts`: nothing personal by default; phone numbers and miners' messages never sent |
+| UI | **Implemented and verified** | Scenarios: collapsible assistant (says it is off when no provider is set), "Explain these results" (no AI) and "Explain with AI" (disabled with a reason when no provider) on escape and cage runs, drafts open in the builder |
+| **Not verified** | | **No live AI provider was reached.** The models in every test are mocks; the Gemini credential supplied to this sandbox did not authenticate from here. Check the assistant and AI explanation with your real provider key before relying on them. "Explain with AI" is not shown as working until then; the deterministic explanation is |
+
+Not done: comparing two runs in the UI with the AI wording (the compare tool and deterministic comparison exist on the server), a policy screen for `allowNames`.
+
 ## Phase 7 — cage and hoist evacuation (2026-11-27)
 
 | Item | Status | Evidence |

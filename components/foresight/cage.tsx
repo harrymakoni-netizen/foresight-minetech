@@ -9,6 +9,7 @@ import type { MineModel } from "@/lib/domain/mine-model";
 import { zoneColour } from "./mine";
 import type { Playback } from "./tunnels-3d";
 import { ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
+import { RunExplain } from "./assistant";
 
 const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
 const sec = (s: number | null | undefined) => (s === null || s === undefined ? "not reached" : s >= 60 ? `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, "0")} s` : `${Math.round(s)} s`);
@@ -71,7 +72,7 @@ export function CageScenarios({ data, post, refresh, notify }: ViewProps) {
         <div className="fs-scenario-grid">
           <Builder data={data} model={model} post={post} onStarted={async (r) => (setSelectedId(r.id), await refresh(), notify("Cage scenario submitted to the simulation worker."))} />
           <div className="fs-scenario-main">
-            {selected ? <RunView key={selected.id + String(selected.data.status)} run={selected} model={model} /> : <section className="fs-panel"><p>No cage runs yet. Build a scenario on the left.</p></section>}
+            {selected ? <RunView key={selected.id + String(selected.data.status)} run={selected} model={model} data={data} post={post} /> : <section className="fs-panel"><p>No cage runs yet. Build a scenario on the left.</p></section>}
             <section className="fs-panel">
               <h3>Saved cage runs</h3>
               <ul className="fs-runs">
@@ -303,7 +304,7 @@ function stateAt(run: Row, r: Result, t: number, station: { x: number; y: number
   return { fraction, aboard, failed: Boolean(outage), people, waiting, inCage, surfaced, climbing };
 }
 
-function RunView({ run, model }: { run: Row; model: MineModel }) {
+function RunView({ run, model, data, post }: { run: Row; model: MineModel; data: ViewProps["data"]; post: ViewProps["post"] }) {
   const r = run.data.result as Result | null;
   const status = String(run.data.status);
   const colour = useMemo(() => zoneColour(model), [model]);
@@ -366,6 +367,7 @@ function RunView({ run, model }: { run: Row; model: MineModel }) {
       </section>
       <section className="fs-panel fs-results" aria-label="Cage results">
         <h3>Results</h3>
+        <RunExplain runId={run.id} data={data} post={post} />
         <p className="fs-accounting">
           {r.totals.people} people = {r.totals.byCage} by cage + {r.totals.byLadder} by the ladderway + <strong>{r.totals.notReached} not reached</strong> {r.totals.balanced ? "✓ balanced" : "✗ NOT BALANCED"}
         </p>

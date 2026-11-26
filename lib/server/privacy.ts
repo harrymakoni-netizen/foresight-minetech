@@ -24,3 +24,15 @@ export async function permittedModelText(ctx: Context, text: string) {
   }
   return { text: permitted, redactions };
 }
+
+/**
+ * Workspace AI data policy (spec §12). Defaults send nothing personal to a
+ * provider. Phone numbers and message bodies from miners are never sent in this
+ * version whatever the policy says; the only thing a policy can allow is
+ * showing people's names to the assistant's tools.
+ */
+export type AiDataPolicy = { allowNames: boolean; neverSent: readonly ["phone numbers", "message bodies from miners"] };
+export async function aiDataPolicy(ctx: Context): Promise<AiDataPolicy> {
+  const stored = (await list(ctx, "ai-policy"))[0];
+  return { allowNames: stored?.data.allowNames === true, neverSent: ["phone numbers", "message bodies from miners"] };
+}
