@@ -166,6 +166,19 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Phase 7 — cage and hoist evacuation (2026-11-27)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| SimPy cage model (`services/simulator/cage.py`, engine `cage-simpy-1.0.0`) | **Implemented and verified** | `services/simulator/test_cage.py` (15 tests). Expected times are worked out by hand from the cycle rule (down + load + up + unload): 10 people, capacity 4 → 180/360/540 s; failure at 100 s → all 10 up the ladder at 700 s (+160 s); failure at 200 s → 4 up at 180 s, 6 at 800 s; two levels served oldest-waiting first → 140 s and 400 s; temporary outage; arrival during an outage; horizon cut-off; invalid input refused. Deterministic: identical input gives identical output |
+| Inputs | **Implemented** | People waiting per level from declared check-ins (placed at the station level, stated), a completed escape run (people it brought to that shaft, at the times it calculated) or manual counts; cage capacity, loading time, trip times and ladder climb time from the mine model; hoist availability as outage windows |
+| Outputs | **Implemented and verified** | Last person at the surface or **not reached**, queue length over time per level, cage trips, per-person route, and the effect of the failure against a no-failure baseline; people-accounting that balances |
+| Honest gaps stated in the result | | Unloading time defaults to the loading time (no separate field in the model) and says so; ladder climb time not entered = ladder users reported **not reached**, never guessed; ladderway assumed to take any number of climbers at once; a cage failing in transit is treated as everyone climbing from their level (rescue of a stuck cage is not modelled). Hoist values have no provenance records yet |
+| Worker and API | **Verified** | Worker job round-trip test; `cage/preflight`, `cage/runs` routes; `tests/cage.test.ts` (4) for how input is built from the model and people source and that an unreachable worker is recorded, not faked |
+| UI | **Implemented and verified** | Scenarios → Cage and hoist: builder with preflight, results with accounting, queue chart, trips, assumptions; **3D playback**: cage rides the shaft (turns red while the hoist is out of service), waiting people at the station, climbers in the shaft column. `tests/browser/cage.spec.ts` runs in `npm run test:demo` through the real worker and checks the hand-calculated 9 min 00 s baseline, 20 min 00 s with the failure and +11 min 00 s |
+
+Not done: multi-cage or skip-and-cage shafts, variable loading times, ladder capacity limits (no data supplied), concern-to-cage-scenario link.
+
 ## Phase 6 — rain and pre-entry checks (2026-11-27)
 
 | Item | Status | Evidence |

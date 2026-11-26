@@ -17,6 +17,7 @@ import {
   knownZones,
 } from "@/lib/server/repository";
 import { mutate, extract, explain, newAssessment } from "@/lib/server/workflows";
+import { cagePreflight, startCageRun } from "@/lib/server/cage";
 import { issueAdvisory, withdrawAdvisory, recordPreEntryCheck, preEntrySchema, pollWeatherFor, recordSensorReading } from "@/lib/server/concerns";
 import {
   cancelRun,
@@ -205,6 +206,8 @@ export async function GET(request: Request, route: RouteContext) {
     }
     if (path[0] === "escape" && path[1] === "runs" && path[2])
       return Response.json(await pollEscape(ctx, path[2], "escape-run"), { headers: { "Cache-Control": "no-store" } });
+    if (path[0] === "cage" && path[1] === "runs" && path[2])
+      return Response.json(await pollEscape(ctx, path[2], "cage-run"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "escape" && path[1] === "time-to-act" && path[2])
       return Response.json(await pollEscape(ctx, path[2], "time-to-act-study"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "escape" && path[1] === "trajectories" && path[2])
@@ -363,6 +366,7 @@ export async function POST(request: Request, route: RouteContext) {
         "roll",
         "mine-model",
         "escape",
+        "cage",
         "assessments",
         "scenarios",
         "snapshots",
@@ -485,6 +489,8 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
       if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "cage" && path[1] === "preflight") return await cagePreflight(ctx, body);
+      if (path[0] === "cage" && path[1] === "runs" && !path[2]) return await startCageRun(ctx, body);
       if (path[0] === "escape" && path[1] === "preflight") return await scenarioPreflight(ctx, body);
       if (path[0] === "escape" && path[1] === "runs" && !path[2]) return await startEscapeRun(ctx, body);
       if (path[0] === "escape" && path[1] === "runs" && path[3] === "escalate") return await escalateRun(ctx, path[2], body);

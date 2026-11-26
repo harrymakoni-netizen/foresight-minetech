@@ -14,7 +14,10 @@ import type { MineModel } from "@/lib/domain/mine-model";
 type View = "perspective" | "top" | "section";
 /** Scenario state at one moment, applied without rebuilding the scene. */
 export type Playback = {
-  people: { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string }[];
+  /** `shaft` places a person in a shaft column instead of in a tunnel: fraction 0 = station, 1 = surface. */
+  people: { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string; shaft?: { exitId: string; fraction: number } }[];
+  /** Cage position in a shaft (0 = station, 1 = surface) with the number aboard. */
+  cage?: { exitId: string; fraction: number; aboard: number; failed: boolean };
   closed: Set<string>;
   sumps?: Record<string, { levelM: number; dangerLevelM: number | null }>;
   clock?: string;
@@ -104,6 +107,8 @@ export default function Tunnels3D({
     const pickable: THREE.Object3D[] = [];
     const tunnelMeshes = new Map<string, { mesh: THREE.Mesh; base: THREE.Color }>();
     const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number }>();
+    const shaftColumns = new Map<string, { top: THREE.Vector3; bottom: THREE.Vector3 }>();
+    const cages = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>();
     const disposables: { dispose: () => void }[] = [];
     const mat = (o: THREE.MeshStandardMaterialParameters) => {
       const m = new THREE.MeshStandardMaterial(o);
@@ -231,6 +236,20 @@ export default function Tunnels3D({
         sheave.userData.spin = true;
         world.add(sheave);
         label(text, new THREE.Vector3(top.x, top.y + hf + 10, top.z), "exit");
+        shaftColumns.set(e.id, { top: top.clone(), bottom: bottom.clone() });
+        if (e.hoist) {
+          const cageMesh = new THREE.Mesh(new THREE.BoxGeometry(5, 7, 5), mat({ color: 0xa76a2b, emissive: new THREE.Color(0x5a3611), metalness: 0.4, roughness: 0.4 }));
+          disposables.push(cageMesh.geometry);
+          cageMesh.position.copy(top);
+          const cageDiv = document.createElement("div");
+          cageDiv.className = "fs-3d-label person cage";
+          const cageTag = new CSS2DObject(cageDiv);
+          cageTag.userData.label = true;
+          cageTag.visible = false;
+          cageMesh.add(cageTag);
+          world.add(cageMesh);
+          cages.set(e.id, { mesh: cageMesh, tag: cageTag });
+        }
         shaft.userData.pick = {
           title: e.name,
           rows: [
@@ -442,6 +461,16 @@ export default function Tunnels3D({
         mesh.position.y = floor + h / 2;
         (mesh.material as THREE.MeshStandardMaterial).color.set(ratio >= 1 ? 0xd9534f : 0x2f7fd0);
       }
+      for (const [id, c] of cages) {
+        const col = shaftColumns.get(id);
+        if (!col) continue;
+        const state = pb?.cage?.exitId === id ? pb.cage : null;
+        c.mesh.position.lerpVectors(col.bottom, col.top, state ? state.fraction : 1);
+        (c.mesh.material as THREE.MeshStandardMaterial).color.set(state?.failed ? 0xd92d20 : 0xa76a2b);
+        c.tag.visible = Boolean(state) && layersRef.current.labels;
+        (c.tag.element as HTMLElement).textContent = state ? `Cage · ${state.aboard} aboard${state.failed ? " · hoist failed" : ""}` : "";
+        c.tag.position.set(0, 7, 0);
+      }
       const seen = new Set<string>();
       for (const p of pb?.people || []) {
         seen.add(p.id);
@@ -459,7 +488,14 @@ export default function Tunnels3D({
         }
         entry.mesh.material = toneMat[p.tone];
         entry.mesh.userData.tone = p.tone;
-        entry.mesh.position.copy(P(p.x, p.y, elevationAt(p.x, p.y))).add(new THREE.Vector3(0, lift, 0));
+        const col = p.shaft ? shaftColumns.get(p.shaft.exitId) : undefined;
+        if (col && p.shaft) {
+          // In the shaft column, spread around the cage path so people do not overlap.
+          const k = [...seen].length;
+          const angle = k * 2.399963;
+          const r = 6 + (k % 5) * 0.8;
+          entry.mesh.position.lerpVectors(col.bottom, col.top, p.shaft.fraction).add(new THREE.Vector3(Math.cos(angle) * r, lift, Math.sin(angle) * r));
+        } else entry.mesh.position.copy(P(p.x, p.y, elevationAt(p.x, p.y))).add(new THREE.Vector3(0, lift, 0));
         // Name tags only for people cut off, and only while few enough to read;
         // otherwise one group tag is shown.
         const cutCount = (pb?.people || []).filter((q) => q.tone === "cut-off").length;

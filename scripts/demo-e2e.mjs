@@ -49,7 +49,7 @@ for (let i = 0; i < 60; i++) {
   } catch {}
   await new Promise((r) => setTimeout(r, 500));
 }
-const test = spawn("npx", ["playwright", "test", "tests/browser/demo.spec.ts", "tests/browser/rain.spec.ts", "--trace", "off", "--reporter=list"], { env, stdio: "inherit" });
+const test = spawn("npx", ["playwright", "test", "tests/browser/demo.spec.ts", "tests/browser/rain.spec.ts", "tests/browser/cage.spec.ts", "--trace", "off", "--reporter=list"], { env, stdio: "inherit" });
 const code = await new Promise((r) => test.on("exit", r));
 for (const p of procs) p.kill();
 process.exit(code ?? 1);

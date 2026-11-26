@@ -1131,3 +1131,8 @@
   margin-top: 14px;
   padding-top: 4px;
 }
+.fs-app .fs-3d-label.cage {
+  background: #a76a2b;
+  border-color: #e2b07a;
+  font-size: 12px;
+}

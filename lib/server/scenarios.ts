@@ -42,7 +42,7 @@ export const escapeScenarioSchema = z
   })
   .strict();
 export type EscapeScenario = z.infer<typeof escapeScenarioSchema>;
-const requireRunner = (ctx: Context) => {
+export const requireRunner = (ctx: Context) => {
   if (ctx.role !== "supervisor" && ctx.role !== "administrator")
     throw new DomainError(403, "ROLE_REQUIRED", "A supervisor or administrator role is required to run scenarios.");
 };
@@ -162,7 +162,7 @@ export async function startEscapeRun(ctx: Context, input: unknown) {
   );
   return await dispatch(ctx, run, "escape-chain", input2);
 }
-async function dispatch(ctx: Context, run: Awaited<ReturnType<typeof insert>>, kind: string, payload: unknown) {
+export async function dispatch(ctx: Context, run: Awaited<ReturnType<typeof insert>>, kind: string, payload: unknown) {
   try {
     await worker(ctx, "/jobs", { id: run.data.jobId, kind, workspaceId: ctx.workspaceId, input: payload });
     return await update(ctx, run, run.revision, { ...run.data, status: "running" });
@@ -171,7 +171,7 @@ async function dispatch(ctx: Context, run: Awaited<ReturnType<typeof insert>>, k
   }
 }
 /** Poll the worker; on completion store the result. Trajectories become their own source record. */
-export async function pollEscape(ctx: Context, id: string, kind: "escape-run" | "time-to-act-study") {
+export async function pollEscape(ctx: Context, id: string, kind: "escape-run" | "time-to-act-study" | "cage-run") {
   const run = await get(ctx, id, kind);
   if (!["running", "queued"].includes(String(run.data.status))) return run;
   let job: { status: string; result?: Record<string, unknown> | null; error?: string; progress?: number };

@@ -41,8 +41,14 @@ def _chain_validate(data):
 def _tta_validate(data):
     if not 0<=float(data['fromSeconds'])<=float(data['toSeconds']) or float(data['stepSeconds'])<=0:raise ValueError('Invalid search interval')
     _chain_validate(data['chain'])
-EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta}
-VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate}
+def _cage(data,cancelled):
+    from .cage import run
+    return run(data,cancelled)
+def _cage_validate(data):
+    from .cage import validate as v
+    v(data)
+EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta,'cage':_cage}
+VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate,'cage':_cage_validate}
 def extended_available():
     try:
         import jupedsim,shapely,networkx  # noqa: F401
@@ -75,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
         # Unauthenticated liveness for hosting platforms (Render). Reveals nothing.
         if self.path=='/healthz':return self.send(200,{'status':'ok'})
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
-        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])})
+        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0','cage-simpy-1.0.0'] if extended_available() else [])})
         job_id=self.path.removeprefix('/jobs/')
         with db() as c:row=c.execute('SELECT * FROM jobs WHERE id=? AND workspace_id=?',(job_id,self.headers.get('X-Workspace-Id',''))).fetchone()
         if not row:return self.send(404,{'error':'Job not found'})

@@ -102,3 +102,13 @@ Same session, role, same-origin and `Idempotency-Key` rules as above. Supervisor
 | POST `/api/workspace/messaging/config` | Now also accepts `weather:{latitude,longitude,heavyRainMmPerHour,heavyRainMm24h}\|null` and `preEntry:{questions:[{key,text}]}`; omitted fields keep their saved values |
 
 Assessments created from now on record `policyVersion: "development-controls-2"`; older assessments keep `development-controls-1`. Each concern lists the `rules` that fired, `peopleAtRisk`, and `evidence` records (forecast, pre-entry checks, subsidence marks). A concern with `priority: "advisory"` (heavy rain alone) never opens a response by itself.
+
+## Phase 7 additions: cage and hoist evacuation
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/cage/preflight` | Cage scenario → `{ok,problems,warnings,people,revision}` |
+| POST `/api/workspace/cage/runs` | `{name,shaftExitId,source:"declared"\|"escape-run"\|"manual",escapeRunId,manual:[{level,count,arriveMinutes}],assemblyMinutes,outages:[{fromMinutes,toMinutes\|null}],unloadSeconds,horizonMinutes}` → run (202-style: `status` queued/running/worker-unavailable); supervisor or administrator |
+| GET `/api/workspace/cage/runs/:id` | Polls the worker and stores the result (`totals`, `lastSurfaceSeconds` or null = not reached, `queueSeries`, `cycles`, `people`, `effect` vs. a no-failure baseline, `assumptions`) |
+
+Cage and hoist values come from the published mine model (`exits[].hoist`, `ladderClimbSeconds`). Worker job kind `cage` (engine `cage-simpy-1.0.0`).
