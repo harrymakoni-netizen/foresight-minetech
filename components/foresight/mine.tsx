@@ -199,7 +199,6 @@ export function Mine(props: ViewProps) {
     <>
       <div className="fs-page-heading">
         <div>
-          <div className="fs-eyebrow">MINE / TUNNEL NETWORK / REVISION {String(published.data.number)}</div>
           <h1>Mine</h1>
           <p>
             {model.meta.name}: {model.junctions.length} junctions, {model.tunnels.length} tunnels, {model.exits.length} exits. A schematic of entered values; provenance is recorded for every value.

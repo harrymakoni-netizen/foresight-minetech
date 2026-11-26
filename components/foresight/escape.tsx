@@ -176,7 +176,7 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
   );
   return (
     <section className="fs-panel fs-builder" aria-label="Scenario builder">
-      <h3>Scenario builder</h3>
+      <h3>Build a scenario</h3>
       <p className="fs-help">Mine model revision {revision} ({model.meta.fictional ? "fictional training mine" : model.meta.name}). Times are minutes after the scenario starts.</p>
       <Field label="Name">
         <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -210,8 +210,6 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
           </select>
         </Field>
         {n("backupStart", "Backup starts at (min, blank = never)")}
-        {n("inflow", `Inflow override (m³/h, blank = model ${sump?.inflowM3h ?? "not entered"}, ${prov(`${sump?.id}.inflowM3h`)})`)}
-        {n("initial", `Starting volume override (m³, blank = model ${sump?.initialVolumeM3 ?? "not entered"})`)}
       </fieldset>
       {f.template === "blocked-tunnel" && (
         <fieldset className="fs-group">
@@ -244,6 +242,16 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
           ))}
         <p className="fs-help">Start positions: spread along each person's declared zone (seeded). Assumed, not live locations.</p>
         {n("order", "Evacuation ordered at (min)")}
+      </fieldset>
+      <details className="fs-advanced">
+        <summary>Advanced assumptions (the defaults are fine for a first run)</summary>
+      <fieldset className="fs-group">
+        <legend>Water</legend>
+        {n("inflow", `Inflow override (m³/h, blank = model ${sump?.inflowM3h ?? "not entered"}, ${prov(`${sump?.id}.inflowM3h`)})`)}
+        {n("initial", `Starting volume override (m³, blank = model ${sump?.initialVolumeM3 ?? "not entered"})`)}
+      </fieldset>
+      <fieldset className="fs-group">
+        <legend>Movement</legend>
         {n("preMin", "Pre-movement from (min)")}
         {n("preMax", "Pre-movement to (min)")}
         {n("speedMean", "Walking speed mean (m/s, assumed)")}
@@ -256,6 +264,7 @@ function Builder({ data, model, revision, post, onStarted }: { data: ViewProps["
         {n("rescuer", "Self-rescuer rated duration (min, blank = not entered)")}
         {n("consumption", "Refuge air use per person (m³/h, blank = not entered)")}
       </fieldset>
+      </details>
       {checking && (
         <div className={"fs-note " + (checking.ok ? "" : "fs-tone-red")} role="status">
           {checking.ok ? `Preflight passed: ${checking.people} people.` : <>Preflight blocks this run:<ul>{checking.problems.map((p) => <li key={p}>{p}</li>)}</ul></>}
@@ -622,7 +631,6 @@ export function Scenarios(props: ViewProps) {
       {tab === "escape" && (
         <div className="fs-page-heading">
           <div>
-            <div className="fs-eyebrow">SCENARIOS / FLOODING, ESCAPE AND TIME TO ACT</div>
             <h1>Scenarios</h1>
             <p>What happens if a pump fails: who could be cut off from their assumed start, and the latest tested backup start. Planning calculations, never a safety certification.</p>
           </div>

@@ -140,21 +140,12 @@ export function Evidence(props: ViewProps) {
     <>
       <div className="fs-page-heading">
         <div>
-          <div className="fs-eyebrow">SOURCES / REVIEW / ASSESSMENT</div>
-          <h2 className="fs-embedded-title">Evidence and inspections</h2>
+          <h2 className="fs-embedded-title">Reports and inspections</h2>
           <p>
-            Keep the original account. Review the interpretation. Preserve what
-            changed.
+            Write down what was seen, as it was said. A supervisor then checks
+            the facts; only checked facts can raise a concern.
           </p>
         </div>
-        <Tag>
-          {
-            rows(data, "report", zone).filter(
-              (r) => r.data.reviewStatus === "pending",
-            ).length
-          }{" "}
-          awaiting review
-        </Tag>
       </div>
       <div className="fs-tabs" role="tablist" aria-label="Evidence type">
         {[

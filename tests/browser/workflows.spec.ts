@@ -23,7 +23,8 @@ test("report → unavailable extraction → manual review → fresh assessment �
   await expect(
     page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Submit evidence" }).click();
+  await page.getByRole("link", { name: "Concerns", exact: true }).click();
+  await page.getByRole("button", { name: "New report" }).click();
   await page.getByLabel("Original report", { exact: true }).fill(text);
   await page.getByRole("button", { name: "Save report and sync" }).click();
   await expect(page.locator(".fs-report-item")).toHaveCount(1);
@@ -58,22 +59,20 @@ test("report → unavailable extraction → manual review → fresh assessment �
     .getByRole("button", { name: "Accept reviewed facts and assess" })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("link", { name: "Underground now", exact: true }).click();
+  await page.getByRole("tab", { name: /^Concerns:/ }).click();
   await expect(
     page.getByRole("heading", { name: "Drainage control needs review" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Review", exact: true }).click();
+  await page.getByRole("button", { name: "Assign owner" }).click();
   await expect(page.getByRole("dialog")).toContainText(
     "Observation time unknown",
   );
   await page.getByRole("button", { name: "Open linked response case" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Manage case");
+  await expect(page.getByRole("dialog")).toContainText("Manage response");
   await page.getByRole("button", { name: "Close detail panel" }).click();
   await shot(page, "command-concern");
-  await page.getByRole("link", { name: "Records", exact: true }).click();
-  await page.getByRole("tab", { name: "People and musters" }).click();
-  await page.getByRole("tab", { name: "Cases and actions" }).click();
-  await page.locator(".fs-case-row").click();
+  await page.getByRole("tab", { name: /^Responses:/ }).click();
+  await page.locator(".fs-case-open").first().click();
   await page
     .getByLabel("Decision / reopening / correction reason")
     .fill("Supervisor acknowledges the reported drainage issue.");
@@ -88,6 +87,8 @@ test("report → unavailable extraction → manual review → fresh assessment �
   await expect(page.getByRole("dialog")).toContainText("Backup pump inspected");
   await shot(page, "response-case");
   await page.getByRole("button", { name: "Close detail panel" }).click();
+  await page.getByRole("link", { name: "Records", exact: true }).click();
+  await page.getByRole("tab", { name: "People and musters" }).click();
   await page.getByRole("tab", { name: "Human muster" }).click();
   await page.getByRole("button", { name: "Start human muster" }).click();
   await expect(
@@ -209,11 +210,11 @@ test("cross-workspace access, duplicate submissions, offline queue restart and o
   expect(duplicate[0].id).toEqual(duplicate[1].id);
   await a.goto("/#workers");
   await expect(
-    a.getByRole("heading", { name: "People, responses and musters", exact: true }),
+    a.getByRole("heading", { name: "Crew, shifts and musters", exact: true }),
   ).toBeVisible();
   await a.goto("/#evidence");
   await expect(
-    a.getByRole("heading", { name: "Evidence and inspections", exact: true }),
+    a.getByRole("heading", { name: "Reports and inspections", exact: true }),
   ).toBeVisible();
   await a.waitForFunction(() => !!navigator.serviceWorker?.controller);
   await a.waitForTimeout(1000);
@@ -250,9 +251,10 @@ test("narrow mobile and tablet navigation stays within viewport", async ({
     page.getByRole("heading", { name: "Underground now", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("link", { name: "Records", exact: true }).click();
+  await page.getByRole("link", { name: "Concerns", exact: true }).click();
+  await page.getByRole("button", { name: "New report" }).click();
   await expect(
-    page.getByRole("heading", { name: "Evidence and inspections", exact: true }),
+    page.getByRole("heading", { name: "Reports and inspections", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(

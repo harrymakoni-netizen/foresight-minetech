@@ -68,7 +68,8 @@ test("demo story: WhatsApp check-in → report → scenario → time to act → 
   }
 
   // 2. A report "Pump P1 stopped at East development" is accepted; a concern appears; one click opens a pre-filled scenario.
-  await page.getByRole("link", { name: "Submit evidence" }).click();
+  await page.getByRole("link", { name: "Concerns", exact: true }).click();
+  await page.getByRole("button", { name: "New report" }).click();
   await page.getByLabel("Original report", { exact: true }).fill("Pump P1 stopped at East development.");
   await page.getByLabel("Reported zone").selectOption("zone-b");
   await page.getByRole("button", { name: "Save report and sync" }).click();
@@ -79,7 +80,7 @@ test("demo story: WhatsApp check-in → report → scenario → time to act → 
   await page.getByLabel("Serious standalone condition", { exact: false }).check();
   await page.getByRole("button", { name: "Accept reviewed facts and assess" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("link", { name: "Underground now", exact: true }).click();
+  await page.getByRole("tab", { name: /^Concerns:/ }).click();
   const concern = page.locator(".fs-concern").first();
   await expect(concern).toContainText("4 declared underground in this zone now");
   await concern.getByRole("link", { name: "Run scenario" }).click();
@@ -89,6 +90,7 @@ test("demo story: WhatsApp check-in → report → scenario → time to act → 
 
   // 3. The scenario plays; named people show as cut off from assumed starts; totals balance.
   await page.getByLabel("Evacuation ordered at (min)").fill("100");
+  await page.getByText("Advanced assumptions").click();
   await page.getByLabel("Pre-movement to (min)").fill("0");
   await page.getByRole("button", { name: "Run scenario" }).click();
   const results = page.locator(".fs-results");

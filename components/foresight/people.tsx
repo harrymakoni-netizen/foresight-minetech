@@ -15,11 +15,22 @@ import {
   type ViewProps,
   type Row,
 } from "./shared";
-export function People({ data, zone, post, refresh, notify }: ViewProps) {
+// mode "records": crew and musters only (responses live under Concerns).
+// mode "case": only the update dialog for one response, opened from Concerns.
+export function People({
+  data,
+  zone,
+  post,
+  refresh,
+  notify,
+  mode = "full",
+  caseRow,
+  onClose,
+}: ViewProps & { mode?: "full" | "records" | "case"; caseRow?: Row; onClose?: () => void }) {
   const [tab, setTab] = useState("crew"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [selected, setSelected] = useState<Row | null>(null),
+    [selected, setSelectedRaw] = useState<Row | null>(caseRow || null),
     [name, setName] = useState(""),
     [target, setTarget] = useState(zone === "all" ? "zone-b" : zone),
     [starts, setStarts] = useState(localInput()),
@@ -30,6 +41,10 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
     [reason, setReason] = useState(""),
     [verification, setVerification] = useState(""),
     [caseId, setCaseId] = useState("");
+  const setSelected = (row: Row | null) => {
+    setSelectedRaw(row);
+    if (!row) onClose?.();
+  };
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -49,13 +64,12 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
     : null;
   return (
     <>
+      {mode !== "case" && (<>
       <div className="fs-page-heading">
         <div>
-          <div className="fs-eyebrow">WORKERSAFE / DOCUMENTED RESPONSE</div>
-          <h2 className="fs-embedded-title">People, responses and musters</h2>
+          <h2 className="fs-embedded-title">Crew, shifts and musters</h2>
           <p>
-            Assignments, response ownership and human confirmations in one
-            timeline.
+            Who is assigned where, and human headcount confirmations.
           </p>
         </div>
         <a
@@ -74,7 +88,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
           ["crew", "Crew and shifts", Users],
           ["cases", "Cases and actions", ClipboardList],
           ["muster", "Human muster", ShieldCheck],
-        ].map(([id, label, Icon]) => {
+        ].filter(([id]) => !(mode === "records" && id === "cases")).map(([id, label, Icon]) => {
           const I = Icon as typeof Users;
           return (
             <button
@@ -231,7 +245,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
         <section className="fs-panel">
           <div className="fs-section-heading">
             <h2>Response register</h2>
-            <a className="fs-inline-link" href="#overview">
+            <a className="fs-inline-link" href="#concerns?tab=queue">
               Open a case from a concern
             </a>
           </div>
@@ -267,7 +281,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
           ))}
           {!cases.length && (
             <Empty title="No response cases">
-              Review a concern in Underground now and assign an owner. A
+              Review a concern under Concerns and assign an owner. A
               completed action still needs verification before case closure.
             </Empty>
           )}
@@ -397,6 +411,7 @@ export function People({ data, zone, post, refresh, notify }: ViewProps) {
           )}
         </>
       )}
+      </>)}
       {current && (
         <Dialog title={current.data.title} onClose={() => setSelected(null)}>
           <Tag tone="amber">{current.data.status}</Tag>

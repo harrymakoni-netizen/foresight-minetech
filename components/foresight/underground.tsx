@@ -106,13 +106,11 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
           <strong>{current.length}</strong>
           <small>from check-ins, not live locations</small>
         </div>
-        {shafts.map((s) => (
-          <div role="listitem" key={s.id} className="fs-count">
-            <span>{s.name}</span>
-            <strong>{current.filter((c) => c.data.shaftId === s.id).length}</strong>
-            <small>declared</small>
-          </div>
-        ))}
+        <div role="listitem" className="fs-count">
+          <span>Shafts with people down</span>
+          <strong>{shafts.filter((s) => current.some((c) => c.data.shaftId === s.id)).length}<small> of {shafts.length}</small></strong>
+          <small>per-shaft roll below</small>
+        </div>
         <div role="listitem" className={"fs-count " + (overdue.length ? "danger" : "")}>
           <span>Return overdue</span>
           <strong>{overdue.length}</strong>

@@ -80,9 +80,10 @@ test("fictional failure → changed route over traversal → comparison → link
   await expect(outcome).toContainText("78.00 m³");
   await page.getByLabel("Compare with completed run").selectOption(early.id);
   await expect(outcome).toContainText("compared with 6.00 m³");
-  await page.getByRole("link", { name: "Records", exact: true }).click();
+  await page.getByRole("link", { name: "Concerns", exact: true }).click();
+  await page.getByRole("button", { name: "New report" }).click();
   await expect(
-    page.getByRole("heading", { name: "Evidence and inspections", exact: true }),
+    page.getByRole("heading", { name: "Reports and inspections", exact: true }),
   ).toBeVisible();
   // PPE vision is frozen behind FORESIGHT_FEATURE_VISION (spec §4.2).
   await expect(page.getByRole("tab", { name: /Vision/ })).toHaveCount(0);

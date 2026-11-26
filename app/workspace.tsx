@@ -6,6 +6,7 @@ import {
   Map,
   FileText,
   FlaskConical,
+  ShieldCheck,
   Menu,
   Settings,
   RefreshCw,
@@ -17,6 +18,11 @@ import {
 import { authClient } from "@/lib/client/auth";
 import { cache, cached, clearCache, queued, sync } from "@/lib/client/queue";
 import { CommandCentre } from "@/components/foresight/command";
+import { concernCounts } from "@/components/foresight/concerns";
+const Concerns = dynamic(
+  () => import("@/components/foresight/concerns").then((m) => m.Concerns),
+  { loading: () => <p role="status">Loading workspace view…</p> },
+);
 const Records = dynamic(
   () => import("@/components/foresight/records").then((m) => m.Records),
   { loading: () => <p role="status">Loading workspace view…</p> },
@@ -39,37 +45,40 @@ import {
 import "./upgrade.css";
 import "./v2.css";
 import "./theme.css";
-// Four sections in the order a supervisor uses them (spec §4.1).
+// Five sections, each with one job, in the order a supervisor uses them:
+// people underground → concerns from reports → what-if scenarios → the mine
+// model → the archive.
 const nav = [
   ["underground", "Underground now", Activity],
-  ["mine", "Mine", Map],
+  ["concerns", "Concerns", ShieldCheck],
   ["scenarios", "Scenarios", FlaskConical],
+  ["mine", "Mine", Map],
   ["records", "Records", FileText],
 ] as const;
-// Old bookmarks keep resolving: five-destination and legacy WorkSafe hashes.
-const aliases: Record<string, string> = {
-  overview: "underground",
-  lite: "underground",
-  map: "mine",
-  zones: "mine",
-  simulator: "scenarios",
-  evidence: "records",
-  people: "records",
-  workers: "records",
-  incidents: "records",
-  inspections: "records",
-  assistant: "records",
-  audit: "records",
-  checkins: "records",
-  messages: "records",
+const subtitles: Record<string, string> = {
+  underground: "People declared underground",
+  concerns: "Reports, concerns, responses",
+  scenarios: "What-if planning calculations",
+  mine: "Tunnels, exits and pumps",
+  records: "Register, history and exports",
 };
-const recordTabFor: Record<string, string> = {
-  people: "people",
-  workers: "people",
-  incidents: "incidents",
-  audit: "exports",
-  checkins: "checkins",
-  messages: "messages",
+// Old bookmarks keep resolving: earlier hashes map to a section and a tab.
+const aliases: Record<string, [string, string?]> = {
+  overview: ["underground"],
+  lite: ["underground"],
+  map: ["mine"],
+  zones: ["mine"],
+  simulator: ["scenarios"],
+  evidence: ["concerns", "reports"],
+  inspections: ["concerns", "reports"],
+  assistant: ["concerns", "reports"],
+  incidents: ["concerns", "responses"],
+  responses: ["concerns", "responses"],
+  people: ["records", "people"],
+  workers: ["records", "people"],
+  audit: ["records", "exports"],
+  checkins: ["records", "checkins"],
+  messages: ["records", "messages"],
 };
 let sessionStarting: Promise<void> | undefined;
 async function ensureSession() {
@@ -91,7 +100,7 @@ async function ensureSession() {
 export default function Workspace() {
   const [data, setData] = useState<WorkspaceData | null>(null),
     [page, setPage] = useState("underground"),
-    [recordTab, setRecordTab] = useState("evidence"),
+    [subTab, setSubTab] = useState<string | undefined>(undefined),
     [hashKey, setHashKey] = useState(""),
     [zone, setZone] = useState("all"),
     [error, setError] = useState(""),
@@ -153,14 +162,14 @@ export default function Workspace() {
   useEffect(() => {
     void refresh();
     const navigate = () => {
-      const hash = location.hash.slice(1).split("?")[0];
+      const [hash, query] = location.hash.slice(1).split("?");
       setHashKey(location.hash);
-      setPage(
-        aliases[hash] ||
-          (nav.some((n) => n[0] === hash) ? hash : "underground"),
-      );
-      if (aliases[hash] === "records" || hash === "records")
-        setRecordTab(recordTabFor[hash] || "evidence");
+      const [target, tab] = aliases[hash] ||
+        (nav.some((n) => n[0] === hash) ? [hash] : ["underground"]);
+      setPage(target);
+      setSubTab(new URLSearchParams(query || "").get("tab") || tab);
+      setMenu(false);
+      window.scrollTo(0, 0);
     };
     navigate();
     window.addEventListener("hashchange", navigate);
@@ -251,9 +260,8 @@ export default function Workspace() {
   const runningRuns = (data?.entities || []).filter(
     (e) => e.kind === "escape-run" && ["queued", "running"].includes(String(e.data.status)),
   ).length;
-  const openIncidents = (data?.entities || []).filter(
-    (e) => e.kind === "case" && e.data.status !== "closed",
-  ).length;
+  const cc = data ? concernCounts(data, "all") : null;
+  const needsReview = cc ? cc.concerns + cc.reports : 0;
   const alertCount = overdue + emergencies;
   const badges: Record<string, { count?: number; alert?: number; title: string }> = {
     underground: {
@@ -263,8 +271,11 @@ export default function Workspace() {
         ? `${alertCount} overdue, missing or emergency`
         : `${live.length} declared underground`,
     },
+    concerns: {
+      count: needsReview,
+      title: `${needsReview} concern(s) or report(s) waiting for review`,
+    },
     scenarios: { count: runningRuns, title: `${runningRuns} scenario run(s) calculating` },
-    records: { count: openIncidents, title: `${openIncidents} open incident(s) and responses` },
   };
   const m = data?.messaging;
   const gateway = m?.gateways?.[0];
@@ -327,7 +338,10 @@ export default function Workspace() {
                 onClick={() => setMenu(false)}
               >
                 <Icon size={19} />
-                <span>{label}</span>
+                <span className="fs-nav-label">
+                  {label}
+                  <small>{subtitles[id]}</small>
+                </span>
                 {badge?.alert ? (
                   <b className="fs-nav-badge alert" title={badge.title}>
                     {badge.alert}
@@ -353,7 +367,7 @@ export default function Workspace() {
         </div>
         <div className="fs-sidebar-bottom">
           <button onClick={() => setSettings(true)}>
-            <Settings size={17} /> Workspace and records
+            <Settings size={17} /> Settings and exports
           </button>
           <div className="fs-user">
             <span className="fs-avatar" aria-hidden="true">
@@ -384,13 +398,10 @@ export default function Workspace() {
           </button>
           <div className="fs-title">
             <span className="fs-breadcrumb">
-              {nav.find((n) => n[0] === page)?.[1]}
+              {data?.site.name || "Mavambo training mine"}
             </span>
             <small>
-              {data?.site.name || "Mavambo training mine"} ·{" "}
-              {data
-                ? `synced ${date(data.latestSyncedAt)}`
-                : "connecting…"}
+              {data ? `Updated ${date(data.latestSyncedAt)}` : "Connecting…"}
             </small>
           </div>
           <div className="fs-top-actions">
@@ -410,7 +421,7 @@ export default function Workspace() {
               </select>
             </label>
             <Tag tone={offline ? "amber" : "teal"}>
-              {offline ? "Offline · cached" : "Records connected"}
+              {offline ? "Offline · showing saved copy" : "Online"}
             </Tag>
             <a
               className={"fs-bell " + (alertCount ? "alert" : "")}
@@ -474,10 +485,13 @@ export default function Workspace() {
           ) : (
             <>
               {page === "underground" && <CommandCentre {...props} />}
-              {page === "mine" && <MineMap {...props} />}
+              {page === "concerns" && (
+                <Concerns key={subTab} {...props} initialTab={subTab} />
+              )}
               {page === "scenarios" && <Simulator key={hashKey} {...props} />}
+              {page === "mine" && <MineMap {...props} />}
               {page === "records" && (
-                <Records key={recordTab} {...props} initialTab={recordTab} />
+                <Records key={subTab} {...props} initialTab={subTab} />
               )}
             </>
           )}
@@ -491,7 +505,7 @@ export default function Workspace() {
       </div>
       {settings && (
         <Dialog
-          title="Workspace and records"
+          title="Settings and exports"
           onClose={() => setSettings(false)}
         >
           <Tag tone="teal">{data?.workspace.mode || "Development"}</Tag>

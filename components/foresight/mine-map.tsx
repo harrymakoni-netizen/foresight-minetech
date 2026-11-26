@@ -448,7 +448,7 @@ export function MineMap({ data, zone, refresh, notify }: ViewProps) {
           {!observations.length && (
             <p className="fs-muted">No accepted evidence in this zone.</p>
           )}
-          <a href="#evidence" className="fs-inline-link">
+          <a href="#concerns?tab=reports" className="fs-inline-link">
             Review evidence <ArrowRight size={15} />
           </a>
           <h3>Routes at selected time</h3>

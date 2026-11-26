@@ -166,6 +166,18 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Navigation audit (2026-11-26)
+
+Problem: Underground now mixed the live headcount with concerns, the review queue, laboratory runs and pending decisions; responses were split between Records → Incidents and Records → People → Cases; per-shaft counts were shown twice.
+
+- **Five sections, one job each:** Underground now (people declared underground, overdue alerts, emergency/check-in/muster actions) · **Concerns** (new: 1 Reports and inspections → 2 Concerns → 3 Responses, as numbered steps with live counts) · Scenarios · Mine · Records (people register, check-ins, messages, exports only).
+- Underground now links to Concerns only when something there needs attention ("1 concern to review →"). Duplicate per-shaft headcount cards replaced by "Shafts with people down".
+- Responses have one home: Concerns → Responses (register, filters, PDF); clicking a response opens the action/decision/verification dialog that used to sit under Records → People → Cases and actions.
+- Sidebar items carry a one-line purpose; jargon eyebrows ("UNDERGROUND NOW / CONCERNS / RESPONSES", "WORKERSAFE / DOCUMENTED RESPONSE", "Latest laboratory runs", "Records connected") removed or reworded. Top bar shows the mine name instead of repeating the page title.
+- Scenarios: water overrides, movement and run/endurance inputs folded into "Advanced assumptions" (defaults unchanged).
+- Old bookmarks still resolve: `#evidence`/`#inspections` → Concerns step 1, `#incidents` → Concerns step 3, `#people`/`#checkins`/`#messages`/`#audit` → Records tabs; `#concerns?tab=queue|reports|responses` selects a step.
+- Verified: typecheck, production build, 10/10 browser specs (updated for the new layout) and the demo acceptance story pass; no horizontal scroll at 390 px.
+
 ## Hosting: Render engine service (2026-11-26)
 
 - `render.yaml` + `deploy/render.Dockerfile` + `deploy/render-start.sh`: one Render web service running the simulator worker (escape, escape-chain, time-to-act, lumped water) and the messaging service. Guide: `docs/RENDER_SETUP.md`.

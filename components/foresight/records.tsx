@@ -24,9 +24,6 @@ import {
   type Row,
   type ViewProps,
 } from "./shared";
-const Evidence = dynamic(() => import("./evidence").then((m) => m.Evidence), {
-  loading: () => <p role="status">Loading evidence…</p>,
-});
 const People = dynamic(() => import("./people").then((m) => m.People), {
   loading: () => <p role="status">Loading people and muster…</p>,
 });
@@ -59,22 +56,22 @@ const statusLabel: Record<string, string> = {
   reopened: "Reopened",
 };
 const tabs = [
-  ["evidence", "Evidence and inspections", FileText],
-  ["incidents", "Incidents and responses", ShieldAlert],
   ["people", "People and musters", Users],
   ["checkins", "Check-ins", LogIn],
   ["messages", "Messages", MessageSquare],
   ["exports", "Exports and audit", ClipboardList],
 ] as const;
 export function Records(props: ViewProps & { initialTab?: string }) {
-  const [tab, setTab] = useState(props.initialTab || "evidence");
+  const [tab, setTab] = useState(props.initialTab || "people");
   return (
     <>
       <div className="fs-page-heading">
         <div>
-          <div className="fs-eyebrow">RECORDS / TRACEABILITY</div>
           <h1>Records</h1>
-          <p>What was reported, decided and done, with the full audit trail.</p>
+          <p>
+            The people register and the history of every check-in, muster and
+            message, with exports for audits.
+          </p>
         </div>
       </div>
       <div className="fs-tabs" role="tablist" aria-label="Record type">
@@ -90,12 +87,10 @@ export function Records(props: ViewProps & { initialTab?: string }) {
           </button>
         ))}
       </div>
-      {tab === "evidence" && <Evidence {...props} />}
-      {tab === "incidents" && <IncidentRegister {...props} />}
       {tab === "people" && (
         <>
           <PeopleRegister {...props} />
-          <People {...props} />
+          <People {...props} mode="records" />
         </>
       )}
       {tab === "checkins" && <CheckInLog {...props} />}
@@ -104,7 +99,7 @@ export function Records(props: ViewProps & { initialTab?: string }) {
     </>
   );
 }
-function IncidentRegister({ data, zone, post, refresh, notify }: ViewProps) {
+export function IncidentRegister({ data, zone, post, refresh, notify, onOpen }: ViewProps & { onOpen?: (row: Row) => void }) {
   const [creating, setCreating] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -159,7 +154,7 @@ function IncidentRegister({ data, zone, post, refresh, notify }: ViewProps) {
     <section className="fs-panel">
       <div className="fs-section-heading">
         <div>
-          <h2>Incidents and responses</h2>
+          <h2>Responses and incidents</h2>
           <p>
             One register for real incidents, overdue escalations, declared
             emergencies, concerns and planning responses. Planning responses
@@ -212,7 +207,13 @@ function IncidentRegister({ data, zone, post, refresh, notify }: ViewProps) {
               {cases.map((c: Row) => (
                 <tr key={c.id}>
                   <td>
-                    <strong>{String(c.data.title)}</strong>
+                    {onOpen ? (
+                      <button className="fs-inline-link fs-case-open" onClick={() => onOpen(c)}>
+                        {String(c.data.title)}
+                      </button>
+                    ) : (
+                      <strong>{String(c.data.title)}</strong>
+                    )}
                     {c.data.planning ? (
                       <>
                         {" "}
@@ -369,7 +370,7 @@ function Exports({ data }: ViewProps) {
       <div className="fs-button-row">
         {[
           ["check-in", "Check-ins"],
-          ["case", "Incidents and responses"],
+          ["case", "Responses and incidents"],
           ["message", "Messages"],
           ["muster", "Musters"],
           ["person", "People"],
@@ -381,7 +382,7 @@ function Exports({ data }: ViewProps) {
       </div>
       <p className="fs-help">
         {data.entities.length} records in this workspace. Each incident has a
-        PDF report (Incidents and responses tab). Phone numbers in CSV are
+        PDF report (Concerns → Responses). Phone numbers in CSV are
         masked; viewers and reporters do not receive them.
       </p>
     </section>
