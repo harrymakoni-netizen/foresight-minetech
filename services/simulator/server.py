@@ -72,6 +72,8 @@ class Handler(BaseHTTPRequestHandler):
         body=json.dumps(data,allow_nan=False).encode();self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(body)
     def authorized(self):return hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+TOKEN)
     def do_GET(self):
+        # Unauthenticated liveness for hosting platforms (Render). Reveals nothing.
+        if self.path=='/healthz':return self.send(200,{'status':'ok'})
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
         if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])})
         job_id=self.path.removeprefix('/jobs/')

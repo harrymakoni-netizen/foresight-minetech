@@ -1,0 +1,14 @@
+# Simulation engines for the Render service. jupedsim itself is installed
+# separately with --no-deps: its declared PySide6 and VTK dependencies (about
+# 1.2 GB) are only for its desktop visualiser and are never imported by
+# Foresight. Tested on Python 3.13 / Linux x86_64.
+shapely==2.2.0
+numpy==2.5.5
+networkx==3.7
+deprecated==1.2.18
+simpy==4.1.2
+pedpy==1.5.1
+pandas==3.1.1
+scipy==1.18.1
+matplotlib==3.11.2
+h5py==3.16.0

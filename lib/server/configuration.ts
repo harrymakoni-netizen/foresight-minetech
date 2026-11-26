@@ -10,7 +10,12 @@ export function workspaceConfiguration() {
     !process.env.POSTGRES_URL
   )
     missing.push("DATABASE_URL");
-  if (process.env.NODE_ENV === "production" && !process.env.BETTER_AUTH_SECRET)
+  // The messaging service never signs sessions, so it does not need the secret.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.BETTER_AUTH_SECRET &&
+    process.env.FORESIGHT_PROCESS !== "messaging-service"
+  )
     missing.push("BETTER_AUTH_SECRET");
   return missing;
 }
