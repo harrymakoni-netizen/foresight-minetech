@@ -889,3 +889,181 @@
   align-self: flex-start;
   width: auto;
 }
+
+/* ---- 3D mine view -------------------------------------------------------- */
+.fs-app .fs-3d-frame {
+  position: relative;
+}
+.fs-app .fs-3d-frame.full {
+  background: #0d1b27;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.fs-app .fs-3d-frame.full .fs-3d {
+  flex: 1;
+  height: auto;
+}
+.fs-app .fs-3d-frame.full .fs-help {
+  color: #9fb2c2;
+}
+.fs-app .fs-3d {
+  position: relative;
+  height: min(70vh, 620px);
+  min-height: 380px;
+  background: #0d1b27;
+  border-radius: 10px;
+}
+.fs-app .fs-3d-labels {
+  position: absolute;
+  inset: 0;
+}
+.fs-app .fs-3d-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: rgb(13 27 39 / 78%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.fs-app .fs-3d-label.exit {
+  background: #a76a2b;
+  border-color: #e2b07a;
+  font-size: 12.5px;
+}
+.fs-app .fs-3d-label.refuge {
+  background: #2f6b22;
+}
+.fs-app .fs-3d-label.water {
+  background: #1f5f9f;
+}
+.fs-app .fs-3d-label.zone {
+  background: transparent;
+  border-width: 0 0 0 3px;
+  border-radius: 0;
+  font-size: 13px;
+  text-shadow: 0 1px 3px #000;
+}
+.fs-app .fs-3d-label.minor {
+  font-weight: 500;
+  font-size: 11px;
+  color: #cfd9e2;
+}
+.fs-app .fs-3d-label.tick {
+  background: none;
+  border: 0;
+  color: #c9b48a;
+  font-size: 11px;
+  font-weight: 500;
+}
+.fs-app .fs-3d-label.surface {
+  background: rgb(140 122 91 / 55%);
+  font-weight: 500;
+  font-size: 11px;
+}
+.fs-app .fs-3d-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+}
+.fs-app .fs-3d-frame.full .fs-3d-toolbar {
+  color: #dbe5ee;
+}
+.fs-app .fs-seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fs-app .fs-seg button {
+  border: 0;
+  background: var(--surface);
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.fs-app .fs-seg button + button {
+  border-left: 1px solid var(--line);
+}
+.fs-app .fs-seg button[aria-pressed="true"] {
+  background: var(--brand);
+  color: #fff;
+}
+.fs-app .fs-3d-select select {
+  margin-left: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.fs-app .fs-3d-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.fs-app .fs-3d-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--ink);
+}
+.fs-app .fs-3d-info {
+  position: absolute;
+  right: 14px;
+  top: 58px;
+  width: min(300px, calc(100% - 28px));
+  background: rgb(255 255 255 / 96%);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+  font-size: 13px;
+  z-index: 2;
+}
+.fs-app .fs-3d-info > button {
+  position: absolute;
+  right: 8px;
+  top: 4px;
+  border: 0;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.fs-app .fs-3d-info dl {
+  margin: 8px 0 0;
+}
+.fs-app .fs-3d-info dl div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px;
+  padding: 3px 0;
+  border-top: 1px solid var(--line);
+}
+.fs-app .fs-3d-info dt {
+  color: var(--muted);
+}
+.fs-app .fs-3d-info dd {
+  margin: 0;
+}
+.fs-app .fs-3d-select {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.fs-app .fs-3d-select select {
+  width: auto;
+  min-height: 0;
+}

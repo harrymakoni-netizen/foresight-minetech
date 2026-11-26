@@ -226,7 +226,7 @@ export function Mine(props: ViewProps) {
       )}
       {tab === "3d" && (
         <section className="fs-panel">
-          <Tunnels3D model={model} colour={zoneColour(model)} />
+          <Tunnels3D model={model} colour={zoneColour(model)} counts={counts} />
         </section>
       )}
       {tab === "table" && <ModelTable model={model} />}

@@ -166,6 +166,14 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## 3D mine view upgrade and roadmap change (2026-11-27)
+
+- **Roadmap:** the owner removed Phase 11 (Shona/Ndebele templates and polish) for now. Remaining: Phase 6 rain and pre-entry checks, 7 cage and hoist evacuation, 8 report trigger and AI tools, 9 surveyor features, 10 ventilation, gas and re-entry.
+- **3D view (Mine → 3D):** dark underground scene; tunnels extruded with their entered arched/box cross-section and coloured by zone; translucent surface reference plane at datum 0 m with grid; faint rock volume with depth scale; shaft with headframe and turning sheave; portal markers for adit/incline; refuge bay, sump with water and pump IDs, spinning fan, door (open/closed); labels for exits with live declared headcount, zones and named junctions.
+- Controls: 3D / From above / Side section camera presets with smooth transitions, depth exaggeration ×1–×5, layer toggles (surface, rock and depth, labels), auto-rotate, reset, full screen; click any tunnel, exit or feature for its entered values.
+- Honesty labels kept: depth exaggeration and enlarged cross-sections are stated under the view; surface is a flat reference plane, not surveyed terrain; tunnels without entered size stay faded. The scene rebuilds only when the model, headcount or settings change.
+- Verified: typecheck, production build, browser suite, click-to-inspect checked in a headless browser.
+
 ## Navigation audit (2026-11-26)
 
 Problem: Underground now mixed the live headcount with concerns, the review queue, laboratory runs and pending decisions; responses were split between Records → Incidents and Records → People → Cases; per-shaft counts were shown twice.
