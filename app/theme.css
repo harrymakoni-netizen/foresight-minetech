@@ -1,0 +1,712 @@
+/* Foresight design system (Nov 2026 redesign).
+   Direction: a calm mine-safety operations console. Brand colours come from
+   the logo (deep navy, steel blue, bronze). Bronze is the single action
+   colour. Safety status colours are separate from the brand and always carry
+   a text label. Loaded after upgrade.css and v2.css, so it restyles every page. */
+.fs-app {
+  --navy: #0e1f2e;
+  --navy-2: #16304a;
+  --navy-3: #22425f;
+  --steel: #2f5b78;
+  --brand: #a76a2b;
+  --brand-strong: #8a5520;
+  --brand-soft: #f7efe4;
+  --ink: #142231;
+  --muted: #576776;
+  --line: #e1e6eb;
+  --canvas: #f2f4f7;
+  --surface: #ffffff;
+  --ok: #067647;
+  --ok-soft: #ecfdf3;
+  --warn: #9a4b05;
+  --warn-soft: #fff6e8;
+  --bad: #b42318;
+  --bad-soft: #fef1f0;
+  --info: #2f5b78;
+  --info-soft: #eef4f8;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgb(14 31 46 / 6%), 0 1px 3px rgb(14 31 46 / 4%);
+  --teal: var(--brand); /* legacy token used by older components */
+  background: var(--canvas);
+  color: var(--ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.fs-app :focus-visible {
+  outline: 3px solid #3b82c4;
+  outline-offset: 2px;
+}
+.fs-app h1 {
+  font-size: 30px;
+  letter-spacing: -0.6px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.fs-app h2 {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+}
+.fs-app h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* ---- sidebar ------------------------------------------------------------ */
+.fs-app .fs-sidebar {
+  width: 264px;
+  background: linear-gradient(180deg, var(--navy) 0%, #0b1926 100%);
+  color: #c9d6e0;
+  padding: 22px 16px 18px;
+  overflow-y: auto;
+  border-right: 1px solid #0a1621;
+}
+.fs-app .fs-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 6px 20px;
+  color: #fff !important;
+}
+.fs-app .fs-brand-logo {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  flex: none;
+}
+.fs-app .fs-brand-name {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+}
+.fs-app .fs-brand-name small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #d4a46b;
+}
+.fs-app .fs-mine-card {
+  border: 1px solid #23405a;
+  background: #13293d;
+  border-radius: 10px;
+  padding: 10px 12px 12px;
+  margin-bottom: 18px;
+}
+.fs-app .fs-mine-card small,
+.fs-app .fs-system > small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #7f97aa;
+  font-weight: 600;
+}
+.fs-app .fs-mine-card strong {
+  display: block;
+  color: #fff;
+  font-size: 14px;
+  margin: 2px 0 8px;
+}
+.fs-app .fs-mine-card .fs-training-notice {
+  display: inline-block;
+  background: #3a2a16;
+  color: #f0c58e;
+  border: 1px solid #5c4222;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.fs-app .fs-sidebar nav {
+  gap: 4px;
+}
+.fs-app .fs-sidebar nav a {
+  font-size: 14px;
+  font-weight: 550;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #c9d6e0;
+}
+.fs-app .fs-sidebar nav a:hover {
+  background: #17324a;
+  color: #fff;
+}
+.fs-app .fs-sidebar nav a.active {
+  background: #1d3b57;
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.fs-app .fs-sidebar nav a.active svg {
+  color: #e2b07a;
+}
+.fs-app .fs-nav-badge {
+  margin-left: auto;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: #23405a;
+  color: #dbe6ee;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+}
+.fs-app .fs-nav-badge.alert {
+  background: var(--bad);
+  color: #fff;
+}
+.fs-app .fs-system {
+  margin-top: 22px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0f2335;
+  border: 1px solid #1d3650;
+}
+.fs-app .fs-system-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.fs-app .fs-system-row i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8aa0b2;
+  flex: none;
+}
+.fs-app .fs-system-row.ok i {
+  background: #32d583;
+}
+.fs-app .fs-system-row.warn i {
+  background: #fdb022;
+}
+.fs-app .fs-system-row.bad i {
+  background: #f97066;
+}
+.fs-app .fs-system-row em {
+  margin-left: auto;
+  font-style: normal;
+  color: #fff;
+  font-weight: 600;
+}
+.fs-app .fs-sidebar-bottom {
+  padding-top: 16px;
+}
+.fs-app .fs-sidebar-bottom button {
+  font-size: 13px;
+  color: #c9d6e0;
+  border-radius: 8px;
+}
+.fs-app .fs-sidebar-bottom button:hover {
+  background: #17324a;
+}
+.fs-app .fs-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid #1d3650;
+  margin-top: 8px;
+}
+.fs-app .fs-user strong {
+  display: block;
+  color: #fff;
+  font-size: 13px;
+}
+.fs-app .fs-user small {
+  display: block;
+  color: #8aa0b2;
+  font-size: 12px;
+}
+.fs-app .fs-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+  background: var(--brand);
+  border: 0;
+  color: #fff;
+  flex: none;
+}
+.fs-app .fs-scrim {
+  display: none;
+}
+
+/* ---- top bar ------------------------------------------------------------ */
+.fs-app .fs-content {
+  margin-left: 264px;
+}
+.fs-app .fs-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 68px;
+  padding: 0 32px;
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+}
+.fs-app .fs-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-right: auto;
+}
+.fs-app .fs-breadcrumb {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.fs-app .fs-breadcrumb > span {
+  display: none;
+}
+.fs-app .fs-title small {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fs-app .fs-top-actions {
+  gap: 10px;
+}
+.fs-app .fs-zone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fs-app .fs-zone select {
+  width: auto;
+  min-height: 36px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 28px 4px 10px;
+  background-color: #fff;
+}
+.fs-app .fs-top-actions > button,
+.fs-app .fs-bell {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  position: relative;
+}
+.fs-app .fs-top-actions > button:hover,
+.fs-app .fs-bell:hover {
+  background: #eef2f5;
+}
+.fs-app .fs-bell b {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+}
+.fs-app .fs-bell.alert {
+  color: var(--bad);
+}
+.fs-app .fs-emergency-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--bad);
+  color: #fff !important;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgb(180 35 24 / 30%);
+}
+.fs-app .fs-emergency-link:hover {
+  background: #912018;
+}
+
+/* ---- main area ---------------------------------------------------------- */
+.fs-app .fs-content main {
+  padding: 0 32px 28px;
+  max-width: 1600px;
+}
+.fs-app .fs-page-heading {
+  padding: 28px 0 22px;
+}
+.fs-app .fs-page-heading p {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 8px;
+  max-width: 70ch;
+}
+.fs-app .fs-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: var(--brand);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.fs-app .fs-embedded-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+.fs-app .fs-footer {
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ---- surfaces ----------------------------------------------------------- */
+.fs-app .fs-panel,
+.fs-app .fs-metric,
+.fs-app .fs-count {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.fs-app .fs-panel {
+  padding: 22px;
+}
+.fs-app .fs-section-heading p,
+.fs-app .fs-section-heading > span:not(.fs-tag) {
+  font-size: 13px;
+}
+.fs-app .fs-metric > div {
+  font-size: 13px;
+  color: var(--muted);
+}
+.fs-app .fs-metric > strong {
+  font-size: 32px;
+  font-weight: 700;
+}
+.fs-app .fs-metric > small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fs-app .fs-note {
+  border-left-color: var(--brand);
+  background: var(--brand-soft);
+  font-size: 13px;
+  border-radius: 0 8px 8px 0;
+}
+.fs-app .fs-help,
+.fs-app .fs-block {
+  font-size: 13px;
+}
+
+/* ---- buttons, tags, tabs ------------------------------------------------ */
+.fs-app .fs-button {
+  border-radius: 9px;
+  min-height: 42px;
+  padding: 9px 16px;
+  font-size: 14px !important;
+  font-weight: 650;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.fs-app .fs-button:hover {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+  filter: none;
+}
+.fs-app .fs-button.secondary {
+  background: #fff;
+  border-color: #cfd8df;
+  color: var(--ink) !important;
+}
+.fs-app .fs-button.secondary:hover {
+  background: #f4f6f8;
+}
+.fs-app .fs-button.danger {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff !important;
+}
+.fs-app .fs-button.danger:hover {
+  background: #912018;
+}
+.fs-app .fs-inline-link {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.fs-app .fs-tag {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 10px;
+  gap: 5px;
+  align-items: center;
+}
+.fs-app .fs-tag.teal {
+  background: var(--ok-soft);
+  border-color: #abefc6;
+  color: var(--ok);
+}
+.fs-app .fs-tag.amber {
+  background: var(--warn-soft);
+  border-color: #fedf89;
+  color: var(--warn);
+}
+.fs-app .fs-tag.red {
+  background: var(--bad-soft);
+  border-color: #fecdca;
+  color: var(--bad);
+}
+.fs-app .fs-tag.muted {
+  background: #f2f4f7;
+  border-color: #e4e7ec;
+  color: #475467;
+}
+.fs-app .fs-tabs {
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.fs-app .fs-tabs button {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 12px;
+  color: var(--muted);
+}
+.fs-app .fs-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--brand);
+}
+.fs-app .fs-tabs button[aria-selected="true"] svg {
+  color: var(--brand);
+}
+
+/* ---- forms and dialogs -------------------------------------------------- */
+.fs-app .fs-field label,
+.fs-app .fs-prov legend,
+.fs-app .fs-group legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: #344054;
+}
+.fs-app .fs-field small {
+  font-size: 12px;
+}
+.fs-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.fs-app select,
+.fs-app textarea {
+  font-size: 14px;
+  border-radius: 8px;
+  border-color: #cfd8df;
+}
+.fs-app .fs-dialog {
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgb(14 31 46 / 22%);
+  font-size: 14px;
+}
+
+/* ---- tables ------------------------------------------------------------- */
+.fs-app .fs-table-wrap {
+  border-radius: 10px;
+}
+.fs-app .fs-register {
+  font-size: 14px;
+}
+.fs-app .fs-register th {
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  background: #f7f9fb;
+}
+.fs-app .fs-register tbody tr:hover {
+  background: #fafbfc;
+}
+
+/* ---- Underground now ---------------------------------------------------- */
+.fs-app .fs-headcount {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+.fs-app .fs-count {
+  padding: 16px 18px;
+}
+.fs-app .fs-count:first-child {
+  background: linear-gradient(160deg, var(--navy-2), var(--navy));
+  border-color: var(--navy);
+  color: #fff;
+}
+.fs-app .fs-count:first-child span,
+.fs-app .fs-count:first-child small {
+  color: #b7c7d4;
+}
+.fs-app .fs-count span {
+  font-size: 13px;
+  font-weight: 600;
+}
+.fs-app .fs-count strong {
+  font-size: 36px;
+  font-weight: 750;
+  letter-spacing: -1px;
+}
+.fs-app .fs-count small {
+  font-size: 12px;
+}
+.fs-app .fs-count.danger {
+  background: var(--bad-soft);
+  border-color: #fecdca;
+}
+.fs-app .fs-roll li {
+  padding: 12px 0 12px 12px;
+}
+.fs-app .fs-roll li.overdue {
+  box-shadow: inset 4px 0 0 var(--bad);
+  background: #fffbfa;
+}
+.fs-app .fs-shaft-card h3 {
+  font-size: 16px;
+}
+.fs-app .fs-emergency {
+  border: 2px solid var(--bad);
+  background: #fffafa;
+  box-shadow: 0 0 0 4px rgb(180 35 24 / 8%);
+}
+.fs-app .fs-concern {
+  border-radius: 10px;
+}
+.fs-app .fs-alert-card {
+  font-size: 14px;
+}
+.fs-app .fs-accounting {
+  font-size: 15px;
+  background: var(--info-soft);
+  border-radius: 10px;
+}
+.fs-app .fs-tta-result {
+  font-size: 16px;
+  color: var(--ink);
+}
+
+/* ---- responsive --------------------------------------------------------- */
+@media (max-width: 1100px) {
+  .fs-app .fs-zone span,
+  .fs-app .fs-top-actions .fs-tag {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .fs-app .fs-sidebar {
+    width: 280px;
+    box-shadow: 10px 0 50px rgb(0 0 0 / 35%);
+  }
+  .fs-app .fs-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgb(14 31 46 / 45%);
+    border: 0;
+    z-index: 25;
+  }
+  .fs-app .fs-sidebar {
+    z-index: 30;
+  }
+  .fs-app .fs-content {
+    margin-left: 0;
+  }
+  .fs-app .fs-topbar {
+    height: 60px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .fs-app .fs-mobile-toggle {
+    background: transparent;
+    flex: none;
+  }
+  .fs-app .fs-title small {
+    display: none;
+  }
+  .fs-app .fs-breadcrumb {
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fs-app .fs-zone {
+    display: none;
+  }
+  .fs-app .fs-top-actions {
+    gap: 2px;
+  }
+  .fs-app .fs-top-actions > button {
+    width: 36px;
+  }
+  .fs-app .fs-emergency-link {
+    padding: 0 10px;
+  }
+  .fs-app .fs-emergency-link span {
+    display: none;
+  }
+  .fs-app .fs-content main {
+    padding: 0 14px 24px;
+  }
+  .fs-app h1 {
+    font-size: 26px;
+  }
+  .fs-app .fs-page-heading {
+    padding: 20px 0 16px;
+    flex-wrap: wrap;
+  }
+  .fs-app .fs-headcount {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .fs-app .fs-count {
+    padding: 12px 14px;
+  }
+  .fs-app .fs-count strong {
+    font-size: 28px;
+  }
+  .fs-app .fs-count:first-child {
+    grid-column: 1 / -1;
+  }
+  .fs-app .fs-panel {
+    padding: 16px;
+  }
+}
+.fs-app .fs-service-row .fs-tag {
+  white-space: normal;
+  line-height: 1.35;
+  border-radius: 10px;
+}
+/* Map labels stay readable over tunnel lines. */
+.fs-app .fs-plan text {
+  paint-order: stroke;
+  stroke: #fbfcfc;
+  stroke-width: 0.28em;
+  stroke-linejoin: round;
+  font-weight: 600;
+}

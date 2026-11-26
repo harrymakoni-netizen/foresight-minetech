@@ -74,6 +74,18 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
   const supervisor = ["supervisor", "administrator"].includes(data.workspace.role);
   const [dialog, setDialog] = useState<null | "checkin" | "muster" | "emergency" | { row: Row; to: string }>(null);
   const emergencies = rows(data, "emergency").filter((e) => e.data.status === "active");
+  // The top bar's Emergency shortcut links here with ?declare=1.
+  useEffect(() => {
+    const open = () => {
+      if (supervisor && location.hash.includes("declare=1")) {
+        setDialog("emergency");
+        history.replaceState(null, "", "#underground");
+      }
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, [supervisor]);
   const [pending, setPending] = useState<Queued[]>([]);
   useEffect(() => {
     void queued(data.workspace.id)
