@@ -48,7 +48,7 @@ First build takes several minutes (JuPedSim, PedPy, SciPy). When it is live:
 
 ## 4. Connect Vercel
 
-Set `FORESIGHT_SIMULATOR_URL=https://<service>.onrender.com` on the Vercel
+Set `FORESIGHT_SIMULATOR_URL` to the exact URL shown on the Render service page (Render may add a suffix, e.g. `https://foresight-engine-xxxx.onrender.com`) on the Vercel
 project (Production and Preview) and redeploy. Then in the app:
 
 - **Scenarios → Run scenario** completes and shows balanced totals.

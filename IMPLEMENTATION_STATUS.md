@@ -185,7 +185,7 @@ Problem: Underground now mixed the live headcount with concerns, the review queu
 - Messaging service no longer requires `BETTER_AUTH_SECRET` in production (`FORESIGHT_PROCESS=messaging-service`); it does not serve sign-in.
 - Rehearsed locally in production mode against a fresh PostgreSQL database: healthz ok, auth enforced, heartbeats written, escape-chain job completed in 2.5 s (balanced), Time to act 14.9 s. Regression: `npm test` 60/60, Python suites OK.
 - First Render build failed. Rebuilt locally with Docker: better-sqlite3 fell back to compiling from source and the slim Node image has no compilers. The install stage now uses `node:22-bookworm`. The rebuilt image runs: healthz ok, auth enforced, all four engines listed, heartbeats written to PostgreSQL.
-- **Not yet verified:** the Render build itself and the live Vercel ↔ Render connection. Escape and Time to act show "worker unavailable" on the live site until `FORESIGHT_SIMULATOR_URL` is set.
+- Render build succeeded after the fix. Vercel `FORESIGHT_SIMULATOR_URL` points at the Render service (Render appended a suffix to the service name; use the exact URL from the service page). Owner confirmed on the live site (2026-11-26): scenario runs complete and the sidebar shows the alert scheduler **Running** (messaging-service heartbeat reaching Neon). Messaging remains dry-run.
 
 # Historical status (codex/atu-foresight-upgrade, October 2026)
 
