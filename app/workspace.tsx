@@ -295,7 +295,7 @@ export default function Workspace() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="fs-brand-logo"
-            src="/brand/foresight-mark-reverse-192.png"
+            src="/brand/foresight-mark-192.png"
             alt=""
             width={40}
             height={40}

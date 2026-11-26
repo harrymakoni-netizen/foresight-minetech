@@ -73,11 +73,11 @@
   color: #fff !important;
 }
 .fs-app .fs-brand-logo {
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
+  width: 42px;
+  height: 42px;
+  background: #fff;
+  padding: 3px;
+  border-radius: 10px;
   flex: none;
 }
 .fs-app .fs-brand-name {
