@@ -63,8 +63,8 @@ project (Production and Preview) and redeploy. Then in the app:
   ~1.2 GB) are not used by the engines.
 - Job records live in `/tmp` inside the container and are lost on restart; run
   results the app needs are stored in PostgreSQL by the web app.
-- The combined start script, lean dependency set and production settings were
-  rehearsed against a fresh PostgreSQL database (escape-chain job 2.5 s,
-  Time to act 14.9 s, heartbeats written). The Docker image itself had not been
-  built at the time of writing, because no Docker daemon was available; the first
-  Render build is that check.
+- The image was built and run locally against a fresh PostgreSQL database:
+  `/healthz` ok, `/health` 401 without the token and lists all four engines with
+  it, and both the messaging-service and gateway heartbeats were written.
+- If a build fails, open the service → **Events/Logs** in Render and look at the
+  last red lines of the build log.

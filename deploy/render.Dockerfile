@@ -1,7 +1,9 @@
 # Foresight engine service for Render: simulation engines + messaging service.
 # Node dependencies are installed on the same Debian release (bookworm) as the
 # Python runtime so native modules (better-sqlite3) match.
-FROM node:22-bookworm-slim AS node
+# Full (non-slim) image: includes python3/make/g++ in case better-sqlite3 has
+# no prebuilt binary to download and must compile.
+FROM node:22-bookworm AS node
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts=false
