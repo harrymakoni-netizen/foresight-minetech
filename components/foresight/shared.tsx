@@ -49,7 +49,10 @@ export type MessagingState = {
     secondIntervalMinutes: number;
     maxShiftHours: number;
     unconfirmedAfterMinutes: number;
+    weather?: { latitude: number; longitude: number; heavyRainMmPerHour: number; heavyRainMm24h: number } | null;
+    preEntry?: { questions: { key: string; text: string }[] };
   };
+  weatherError?: { at: string; detail: string } | null;
   personalDataKey: string;
   scheduler: { running: boolean; lastBeatAt: string | null; message: string };
   gateways: {

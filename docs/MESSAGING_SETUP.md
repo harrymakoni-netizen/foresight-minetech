@@ -54,3 +54,13 @@ Phone numbers are sealed with AES-256-GCM (`FORESIGHT_PERSONAL_DATA_KEY`) and lo
 1. Add yourself in Records → People and musters with your number; record consent (or reply YES).
 2. Set `MESSAGING_MODE=allow-list` and `MESSAGING_TEST_NUMBERS=<your numbers>`; restart web and messaging service.
 3. Send `IN` (WhatsApp) or `IN 1 1430 <buddy>` (SMS). Watch Underground now and Records → Messages.
+
+## Rain forecast, pre-entry checks and advisories (phase 6)
+
+**Rain forecast.** In Concerns → Rain forecast → *Set location*, a supervisor enters the mine's latitude and longitude and the heavy-rain thresholds. The messaging service then requests `hourly=precipitation` from Open-Meteo every `WEATHER_POLL_MINUTES` (default 180) and stores each forecast with its source, retrieval time and request URL. Open-Meteo's free tier is for non-commercial use only: a paid deployment must set `OPEN_METEO_BASE_URL` to a commercial or self-hosted endpoint. The default thresholds (10 mm/h, 50 mm in 24 h) are development defaults, not validated site values. A forecast older than 12 hours is not used and the concern says so. The Open-Meteo request and response format follow its public documentation; this build could not reach the live service, so the code is tested against a response constructed in the documented shape, not against live weather. Check the first real forecast in the Rain forecast card.
+
+**Pre-entry check.** A registered shift boss, supervisor or administrator sends `CHECK <shaft number>` (e.g. `CHECK 2`) by WhatsApp or SMS and answers the mine's yes/no questions (default five: supports, loose rock, water level, ladders, hoist). Anything other than YES or NO is asked again. Nothing is stored until the last answer. The record is evidence (`pre-entry-check`). A "no" raises a concern for that shaft; the same "no" more than once in seven days raises it to urgent. A supervisor can also record a check on someone's behalf in Concerns → Pre-entry checks → *Record a check*.
+
+**Do-not-enter advisory.** Never automatic. From a rain or pre-entry concern, a supervisor or administrator edits the wording, picks shafts and a duration, confirms they are authorised, and sends. The advisory is then (a) added as a message to everyone who checks in at those shafts while it is in force and (b) sent to people already declared there. Both follow the messaging mode (dry-run sends nothing). It can be withdrawn.
+
+**External sensor readings** are accepted as evidence with source and time (`POST /api/workspace/sensor-readings`, administrator only). No hardware is read and no alarm threshold is applied.

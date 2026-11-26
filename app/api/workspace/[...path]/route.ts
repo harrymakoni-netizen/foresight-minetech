@@ -16,7 +16,8 @@ import {
   DomainError,
   knownZones,
 } from "@/lib/server/repository";
-import { mutate, extract, explain } from "@/lib/server/workflows";
+import { mutate, extract, explain, newAssessment } from "@/lib/server/workflows";
+import { issueAdvisory, withdrawAdvisory, recordPreEntryCheck, preEntrySchema, pollWeatherFor, recordSensorReading } from "@/lib/server/concerns";
 import {
   cancelRun,
   serverlessSimulator,
@@ -368,6 +369,10 @@ export async function POST(request: Request, route: RouteContext) {
         "runs",
         "assets",
         "vision",
+        "concerns",
+        "pre-entry",
+        "forecast",
+        "sensor-readings",
       ].includes(path[0]) || path[2] === "review";
     const ctx = await context(request, review ? "review" : "submit");
     if (path[0] === "assets") return await assetsPost(ctx, request);
@@ -549,6 +554,19 @@ export async function POST(request: Request, route: RouteContext) {
           .parse(body);
         return await bindChannel(ctx, b.provider, b.channelKey);
       }
+      if (path[0] === "concerns" && path[1] === "advisory" && !path[2]) return await issueAdvisory(ctx, body);
+      if (path[0] === "concerns" && path[1] === "advisory" && path[3] === "withdraw")
+        return await withdrawAdvisory(ctx, path[2], z.object({ reason: z.string().min(3).max(300) }).strict().parse(body).reason);
+      if (path[0] === "concerns" && path[1] === "reassess") return await newAssessment(ctx);
+      if (path[0] === "pre-entry" && !path[1]) {
+        const b = preEntrySchema.parse(body);
+        return await recordPreEntryCheck(ctx, { shaftId: b.shaftId, by: `${ctx.actor} (web)`, personId: null, answers: b.answers });
+      }
+      if (path[0] === "forecast" && path[1] === "refresh") {
+        if (!["supervisor", "administrator"].includes(ctx.role)) throw new DomainError(403, "ROLE_REQUIRED", "A supervisor or administrator role is required.");
+        return await pollWeatherFor(ctx, new Date(), undefined, true);
+      }
+      if (path[0] === "sensor-readings" && !path[1]) return await recordSensorReading(ctx, body);
       if (path[0] === "muster" && path[1] === "shaft") {
         const b = z
           .object({ shaftId: z.string().min(1).max(64), reason: z.string().min(3).max(300) })

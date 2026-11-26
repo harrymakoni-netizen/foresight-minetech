@@ -24,6 +24,7 @@ import {
   type Row,
 } from "./shared";
 import type { Concern, Assessment } from "@/lib/domain/contracts";
+import { AdvisoryAction, ConcernEvidence, PreEntryCard, RainCard, SensorRow } from "./rain-checks";
 const Evidence = dynamic(() => import("./evidence").then((m) => m.Evidence), {
   loading: () => <p role="status">Loading reports…</p>,
 });
@@ -40,7 +41,7 @@ export function concernCounts(data: ViewProps["data"], zone: string) {
       (r) => r.data.reviewStatus !== "accepted",
     ).length,
     concerns: (current?.concerns || []).filter(
-      (c) => zone === "all" || c.zoneId === zone,
+      (c) => zone === "all" || c.zoneId === zone || c.zoneId === "all",
     ).length,
     responses: rows(data, "case", zone).filter(
       (c) => c.data.status !== "closed",
@@ -162,11 +163,12 @@ function ConcernQueue({
               .find((s) => s.id === x.data.shaftId)
               ?.zoneIds[0] === zoneId)),
     ).length;
-  const scenarioLink = (c: { id: string; zoneId: string; title: string; observationIds: string[] }) => {
+  const scenarioLink = (c: { id: string; zoneId: string; title: string; observationIds: string[]; shaftId?: string }) => {
     const asset = c.observationIds
       .map((id) => data.entities.find((e) => e.id === id)?.data.assetId)
       .find((a) => typeof a === "string" && a);
     const q = new URLSearchParams({ zone: c.zoneId, concern: c.id, name: `${c.title} (from concern)` });
+    if ((c as Concern).shaftId) q.set("shaft", String((c as Concern).shaftId));
     if (asset) q.set("pump", String(asset));
     return "#scenarios?" + q.toString();
   };
@@ -174,7 +176,7 @@ function ConcernQueue({
     current = assessment?.data as Assessment | undefined,
     previous = rows(data, "assessment")[1];
   const concerns = (current?.concerns || []).filter(
-      (c) => zone === "all" || c.zoneId === zone,
+      (c) => zone === "all" || c.zoneId === zone || c.zoneId === "all",
     ),
     workers = rows(data, "worker", zone).filter(
       (w) => w.data.status !== "checked-out",
@@ -183,6 +185,7 @@ function ConcernQueue({
     pendingReports = rows(data, "report", zone).filter(
       (r) => r.data.reviewStatus !== "accepted",
     ).length;
+  const zoneName = (id: string) => (id === "all" ? "All zones" : data.site.zones.find((z) => z.id === id)?.name || id);
   const [selected, setSelected] = useState<Concern | null>(null),
     [error, setError] = useState(""),
     [explanation, setExplanation] = useState<any>(null),
@@ -275,16 +278,16 @@ function ConcernQueue({
                       >
                         {c.priority === "urgent-review"
                           ? "Urgent review"
-                          : "Review required"}
+                          : c.priority === "advisory"
+                            ? "Advisory"
+                            : "Review required"}
                       </Tag>
-                      <small>
-                        {data.site.zones.find((z) => z.id === c.zoneId)?.name}
-                      </small>
+                      <small>{zoneName(c.zoneId)}</small>
                     </div>
                     <h3>{c.title}</h3>
                     <p>{c.reason}</p>
                     <div className="fs-concern-meta">
-                      <span>{c.observationIds.length} source(s)</span>
+                      <span>{c.observationIds.length + (c.evidence?.length || 0)} source(s)</span>
                       <span>
                         {response
                           ? `Owner: ${response.data.owner}`
@@ -308,9 +311,11 @@ function ConcernQueue({
                     >
                       {response ? "View" : "Assign owner"} <ArrowRight size={15} />
                     </button>
-                    <a className="fs-button" href={scenarioLink(c)}>
-                      Run scenario
-                    </a>
+                    {c.priority !== "advisory" && (
+                      <a className="fs-button" href={scenarioLink(c)}>
+                        Run scenario
+                      </a>
+                    )}
                   </div>
                 </article>
               );
@@ -358,6 +363,13 @@ function ConcernQueue({
             value="Declared at check-in, not tracked"
             status="declared"
           />
+          <SensorRow data={data} />
+          {data.messaging && (
+            <>
+              <RainCard data={data} post={post} refresh={refresh} notify={notify} />
+              <PreEntryCard data={data} post={post} refresh={refresh} notify={notify} />
+            </>
+          )}
           <div className="fs-note">
             <strong>Gaps stay visible</strong>
             <p>
@@ -369,13 +381,11 @@ function ConcernQueue({
       </div>
       {selected && (
         <Dialog title={selected.title} onClose={() => setSelected(null)}>
-          <Tag tone="amber">{selected.priority === "urgent-review" ? "Urgent review" : "Review required"}</Tag>
+          <Tag tone="amber">{selected.priority === "urgent-review" ? "Urgent review" : selected.priority === "advisory" ? "Advisory" : "Review required"}</Tag>
           <p>{selected.reason}</p>
           <dl className="fs-meta">
             <dt>Zone</dt>
-            <dd>
-              {data.site.zones.find((z) => z.id === selected.zoneId)?.name}
-            </dd>
+            <dd>{zoneName(selected.zoneId)}</dd>
             <dt>Assessment</dt>
             <dd>
               {assessment?.id} · {date(assessment?.createdAt)}
@@ -396,7 +406,8 @@ function ConcernQueue({
                 .join(", ") || "None recorded; location remains unknown"}
             </dd>
           </dl>
-          <h3>Supporting evidence</h3>
+          <ConcernEvidence concern={selected} />
+          {selected.observationIds.length > 0 && <h3>Supporting evidence</h3>}
           {selected.observationIds.map((id) => {
             const o = data.entities.find((e) => e.id === id);
             return (
@@ -436,6 +447,9 @@ function ConcernQueue({
             </section>
           )}
           <ErrorText message={error} />
+          {data.messaging && (selected.rules?.includes("rain-forecast") || selected.rules?.some((r) => r.startsWith("pre-entry"))) && (
+            <AdvisoryAction data={data} concern={selected} post={post} refresh={refresh} notify={notify} />
+          )}
           <h3>Response</h3>
           {cases
             .filter((c) => c.data.concernId === selected.id)

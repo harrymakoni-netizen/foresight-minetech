@@ -2,6 +2,8 @@
 // clock. A check-in is a *declaration*; nothing here represents a location.
 import { z } from "zod";
 import { instant, zoneId } from "./contracts.ts";
+import { preEntryConfigSchema, defaultPreEntry } from "./precheck.ts";
+import { weatherConfigSchema } from "./weather.ts";
 
 // ---- statuses (spec §6.4) -------------------------------------------------
 export const realStatuses = [
@@ -76,6 +78,9 @@ export const messagingConfigSchema = z
     maxShiftHours: z.number().min(1).max(24),
     unconfirmedAfterMinutes: z.number().int().min(1).max(240),
     language: z.enum(["en"]).default("en"),
+    /** Mine location and rain thresholds; null = no forecast polling. */
+    weather: weatherConfigSchema.nullable().default(null),
+    preEntry: preEntryConfigSchema.default(defaultPreEntry),
     liveEnabled: z
       .object({ by: z.string(), at: instant })
       .strict()
@@ -96,6 +101,8 @@ export const trainingConfig: MessagingConfig = {
   maxShiftHours: 14,
   unconfirmedAfterMinutes: 15,
   language: "en",
+  weather: null,
+  preEntry: defaultPreEntry,
   liveEnabled: null,
 };
 

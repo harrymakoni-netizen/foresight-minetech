@@ -6,10 +6,13 @@
 import { dispatchDue, messagingMode, sweepUnconfirmed } from "../../lib/server/messaging.ts";
 import { runDueSteps } from "../../lib/server/checkins.ts";
 import { heartbeat, pollGateways } from "../../lib/server/gateway.ts";
+import { maintainConcerns } from "../../lib/server/concerns.ts";
 
 const tickMs = Number(process.env.MESSAGING_TICK_MS || 5000);
 const gatewayMs = Number(process.env.SMSGATE_HEALTH_INTERVAL_MS || 60000);
+const concernsMs = Number(process.env.CONCERNS_MAINTAIN_INTERVAL_MS || 300000);
 let lastGatewayPoll = 0;
+let lastConcerns = 0;
 let stopping = false;
 
 export async function tick(now = new Date()) {
@@ -21,8 +24,13 @@ export async function tick(now = new Date()) {
     lastGatewayPoll = now.getTime();
     gateways = await pollGateways(now);
   }
+  let concerns: Awaited<ReturnType<typeof maintainConcerns>> | null = null;
+  if (now.getTime() - lastConcerns >= concernsMs) {
+    lastConcerns = now.getTime();
+    concerns = await maintainConcerns(now);
+  }
   await heartbeat("messaging-service", { mode: messagingMode().mode, steps: steps.length, sent: sent.length, unconfirmed, pid: process.pid }, now);
-  return { steps, sent, unconfirmed, gateways };
+  return { steps, sent, unconfirmed, gateways, concerns };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

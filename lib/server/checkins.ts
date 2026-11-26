@@ -40,6 +40,8 @@ import {
 } from "./messaging.ts";
 import type { TemplateKey } from "../messaging/templates.ts";
 import { phoneHash, sealedPhone, unseal, canSeePersonal } from "./personal.ts";
+import { activeAdvisories, recordPreEntryCheck } from "./concerns.ts";
+import { parseYesNo, type PreEntryAnswer } from "../domain/precheck.ts";
 
 // ---- people -----------------------------------------------------------------------
 export async function createPerson(ctx: Context, input: unknown) {
@@ -417,7 +419,7 @@ export async function openShaftMuster(ctx: Context, shaftId: string, reason: str
 }
 
 // ---- inbound conversation ------------------------------------------------------------------
-type Conversation = { step: "idle" | "awaiting-consent" | "ask-shaft" | "ask-return" | "ask-buddy" | "ask-buddy-number"; shaftId?: string; expectedReturn?: string; consentAsked?: boolean };
+type Conversation = { step: "idle" | "awaiting-consent" | "ask-shaft" | "ask-return" | "ask-buddy" | "ask-buddy-number" | "precheck"; shaftId?: string; expectedReturn?: string; consentAsked?: boolean; index?: number; answers?: PreEntryAnswer[] };
 async function loadConversation(ctx: Context, hash: string, channel: Channel): Promise<Conversation> {
   const {
     rows: [row],
@@ -496,6 +498,8 @@ export async function handleInbound(input: Inbound, now = new Date()) {
       const c = await createCheckIn(ctx, { personId: person.id, shaftId, zoneId: (person.data.zoneId as string) && config.shafts.find((s) => s.id === shaftId)?.zoneIds.includes(String(person.data.zoneId)) ? String(person.data.zoneId) : null, expectedReturn, buddyPersonId: buddyId, method: input.channel, declaredBy: `${person.data.name} via ${input.channel}` }, now);
       await saveConversation(ctx, hash, input.channel, { step: "idle" });
       await reply("checkin.registered", { shaft: String(c.data.shaftName), time: clock(String(c.data.expectedReturn), config), buddy: String(c.data.buddyName || "none"), ref: String(c.data.reference) });
+      // An advisory in force for this shaft is shown to everyone who checks in (spec §10).
+      for (const a of await activeAdvisories(ctx, shaftId, now)) await reply("advisory.checkin", { shaft: String(c.data.shaftName), text: String(a.data.text) });
       return { handled: true, outcome: "checked-in", checkInId: c.id };
     } catch (e) {
       if (e instanceof DomainError && e.code === "ALREADY_DECLARED") {
@@ -526,6 +530,42 @@ export async function handleInbound(input: Inbound, now = new Date()) {
     if (saved) return saved.id;
     return matches.length === 1 ? matches[0].id : null;
   };
+  // Pre-entry checklist (spec §10): CHECK <shaft>, then strict YES/NO answers.
+  const questions = config.preEntry.questions;
+  const ask = (i: number) => `${i + 1}/${questions.length} ${questions[i].text}`;
+  if (state.step === "precheck" && state.shaftId && (cmd.kind === "consent-yes" || cmd.kind === "answer")) {
+    const index = state.index ?? 0;
+    const yn = parseYesNo(input.text);
+    if (!yn) {
+      await reply("precheck.again", { question: ask(index) });
+      return { handled: true, outcome: "precheck-invalid-answer" };
+    }
+    const answers = [...(state.answers || []), { key: questions[index].key, text: questions[index].text, answer: yn }];
+    if (index + 1 < questions.length) {
+      await saveConversation(ctx, hash, input.channel, { step: "precheck", shaftId: state.shaftId, index: index + 1, answers });
+      await reply("precheck.next", { question: ask(index + 1) });
+      return { handled: true, outcome: "precheck-next" };
+    }
+    const check = await recordPreEntryCheck(ctx, { shaftId: state.shaftId, by: String(person.data.name), personId: person.id, answers, at: now.toISOString() });
+    await saveConversation(ctx, hash, input.channel, { step: "idle" });
+    const noCount = answers.filter((a) => a.answer === "no").length;
+    await reply("precheck.done", { shaft: config.shafts.find((s) => s.id === state.shaftId)?.name || state.shaftId, noCount, ref: check.id.slice(0, 8), followUp: noCount ? " It is shown to your supervisor as a concern." : "" });
+    return { handled: true, outcome: "precheck-recorded", checkId: check.id, noCount };
+  }
+  if (cmd.kind === "check") {
+    if (!["shift-boss", "supervisor", "administrator"].includes(String(person.data.role))) {
+      await reply("team.not-authorised");
+      return { handled: true, outcome: "precheck-refused" };
+    }
+    const shaft = config.shafts.find((s) => s.number === cmd.shaft);
+    if (!shaft) {
+      await reply("precheck.unknown-shaft", { shafts: shaftList });
+      return { handled: true, outcome: "precheck-invalid-shaft" };
+    }
+    await saveConversation(ctx, hash, input.channel, { step: "precheck", shaftId: shaft.id, index: 0, answers: [] });
+    await reply("precheck.start", { shaft: shaft.name, question: ask(0) });
+    return { handled: true, outcome: "precheck-started" };
+  }
   if (cmd.kind === "out") {
     const done = await checkOut(ctx, person.id, now);
     await saveConversation(ctx, hash, input.channel, { step: "idle" });
@@ -633,8 +673,10 @@ export async function handleInbound(input: Inbound, now = new Date()) {
 export async function saveMessagingConfig(ctx: Context, input: unknown) {
   if (ctx.role !== "administrator" && ctx.role !== "supervisor")
     throw new DomainError(403, "ROLE_REQUIRED", "A supervisor or administrator role is required.");
-  const body = messagingConfigSchema.omit({ liveEnabled: true }).parse(input);
   const { entity, config } = await messagingConfig(ctx);
+  // Fields the caller leaves out keep their saved values (weather, pre-entry checklist).
+  const { liveEnabled: _live, ...saved } = config;
+  const body = messagingConfigSchema.omit({ liveEnabled: true }).parse({ ...saved, ...(input as object) });
   const data = { ...body, liveEnabled: config.liveEnabled };
   return entity ? await update(ctx, entity, entity.revision, data) : await insert(ctx, "messaging-config", data);
 }

@@ -40,6 +40,15 @@ const en = {
     "Foresight: {name} is overdue at {shaft} (expected {time}). Buddy {buddy} was alerted {buddyAt}. A muster is open for {shaft}.",
   "unknown.supervisor": "Foresight: an unregistered number messaged the check-in line at {at}.",
   "gateway.offline": "Foresight: SMS gateway {gateway} is offline ({reason}). Overdue alerts by SMS may not be sent.",
+  "advisory.notice":
+    "Foresight advisory from your supervisor ({shaft}): {text}",
+  "advisory.checkin": "ADVISORY for {shaft}: {text} Follow your supervisor's instructions.",
+  "precheck.start": "Pre-entry check for {shaft}. Answer YES or NO to each question. {question}",
+  "precheck.next": "{question}",
+  "precheck.again": "Please reply YES or NO. {question}",
+  "precheck.unknown-shaft": "Shaft not found. {shafts}",
+  "precheck.done":
+    "Pre-entry check recorded for {shaft} ({noCount} no). Ref {ref}.{followUp}",
   "emergency.buddy":
     "Foresight: an emergency ({type}) was declared at {shaft}. {name} was declared underground there. Rescue teams have the roll. Do not go underground.",
   "emergency.kin":

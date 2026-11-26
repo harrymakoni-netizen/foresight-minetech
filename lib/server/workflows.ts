@@ -19,7 +19,7 @@ import {
   type Fact,
   type Assessment,
 } from "../domain/contracts.ts";
-import { assess, validTransition, can } from "../domain/assessment.ts";
+import { validTransition, can } from "../domain/assessment.ts";
 import {
   sequential,
   atomic,
@@ -32,22 +32,10 @@ import {
   type Context,
 } from "./repository.ts";
 import { extractReport, explainAssessment } from "./ai.ts";
-export async function newAssessment(ctx: Context) {
-  const prior = (await list(ctx, "assessment"))[0];
-  const cutoffAt = new Date().toISOString();
-  const data = assess(
-    await list(ctx, "observation"),
-    cutoffAt,
-    prior?.id || null,
-  );
-  return await insert(
-    ctx,
-    "assessment",
-    data,
-    null,
-    data.observationIds.map((id) => ({ id, relation: "input" })),
-  );
-}
+// Assessments now live in concerns.ts (development-controls-2) so check-ins and
+// the messaging service can create them; re-exported for existing callers.
+export { newAssessment } from "./concerns.ts";
+import { newAssessment } from "./concerns.ts";
 export async function reviewReport(ctx: Context, id: string, input: unknown) {
   const body = reviewSchema.parse(input),
     report = await get(ctx, id, "report");

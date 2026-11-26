@@ -88,3 +88,17 @@ Same session, role, same-origin and `Idempotency-Key` rules as above. Supervisor
 | POST `/api/emergencies/:id/close` | `{reason}` |
 | GET `/api/workspace/incidents/:id/pdf` | Incident report PDF (supervisor/administrator) |
 | GET `/api/workspace/export?format=csv&kind=check-in\|case\|message\|muster\|person` | CSV records |
+
+## Phase 6 additions: concerns, forecast, pre-entry checks
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/concerns/reassess` | New assessment under `development-controls-2` |
+| POST `/api/workspace/concerns/advisory` | `{concernId,shaftIds,text,hours,confirm:true}` → active do-not-enter advisory; supervisor or administrator; messages follow the messaging mode |
+| POST `/api/workspace/concerns/advisory/:id/withdraw` | `{reason}` |
+| POST `/api/workspace/pre-entry` | `{shaftId,answers:[{key,text,answer:"yes"\|"no"}]}` → pre-entry check recorded as evidence |
+| POST `/api/workspace/forecast/refresh` | Fetch a forecast now (supervisor/administrator); `{outcome,detail}` |
+| POST `/api/workspace/sensor-readings` | `{source,sensorId,zoneId,quantity,value,unit,readAt,note}`; administrator only; evidence only |
+| POST `/api/workspace/messaging/config` | Now also accepts `weather:{latitude,longitude,heavyRainMmPerHour,heavyRainMm24h}\|null` and `preEntry:{questions:[{key,text}]}`; omitted fields keep their saved values |
+
+Assessments created from now on record `policyVersion: "development-controls-2"`; older assessments keep `development-controls-1`. Each concern lists the `rules` that fired, `peopleAtRisk`, and `evidence` records (forecast, pre-entry checks, subsidence marks). A concern with `priority: "advisory"` (heavy rain alone) never opens a response by itself.

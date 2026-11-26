@@ -245,7 +245,12 @@ export type Concern = {
   reason: string;
   observationIds: string[];
   controlState: string;
-  priority: "review" | "urgent-review";
+  priority: "review" | "urgent-review" | "advisory";
+  /** development-controls-2: the rule(s) that fired, shaft, people at risk and non-observation evidence. */
+  rules?: string[];
+  shaftId?: string;
+  peopleAtRisk?: number;
+  evidence?: { id: string; kind: string; summary: string }[];
 };
 export type Assessment = {
   cutoffAt: string;

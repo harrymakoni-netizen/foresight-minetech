@@ -108,7 +108,9 @@ export async function messagingHealth(now = new Date()) {
   const gateways = Object.entries(beats)
     .filter(([k]) => k.startsWith("gateway:"))
     .map(([, v]) => v.detail as GatewayState);
+  const weatherError = beats["weather-error"]?.detail as { at: string; detail: string } | undefined;
   return {
+    weatherError: weatherError || null,
     scheduler: {
       running: schedulerOk,
       lastBeatAt: scheduler?.beatAt || null,

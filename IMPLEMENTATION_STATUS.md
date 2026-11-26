@@ -166,6 +166,20 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Phase 6 — rain and pre-entry checks (2026-11-27)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| `development-controls-2` (new policy version; v1 kept for existing assessments) | **Implemented and verified** | `tests/concerns.test.ts` (18 tests): people at risk raises priority at 3 declared in the zone (development default); heavy rain alone = advisory; heavy rain + overdue support/shaft inspection = urgent compound; pre-entry no = shaft concern, repeated no = urgent; new subsidence mark = review; stale/missing forecast not used and stated |
+| Open-Meteo polling from the messaging service | **Implemented; live API not verified** | Parsing, 24-hour window arithmetic, thresholds, poll interval, failure recording and reassessment tested with an injected fetcher and a response built in the documented shape. This sandbox could not reach api.open-meteo.com, so the first real forecast must be checked in the Rain forecast card. Free tier is non-commercial; `OPEN_METEO_BASE_URL` for paid use |
+| Pre-entry checklist (`CHECK <shaft>`) | **Implemented and verified** | Conversation tests (strict YES/NO, nothing stored until the last answer, role limited, unknown shaft); stored as evidence |
+| One-click scenario and response from concerns | **Kept** | Existing links; pre-entry concerns carry the shaft |
+| Do-not-enter advisory | **Implemented and verified** | Supervisor only, explicit confirmation, shown to anyone checking in at the shaft, sent to people declared there under the messaging mode, withdrawable; never automatic (tests + browser spec) |
+| Sensor reading slot | **Implemented (slot only)** | Administrator-only evidence with source and time; no thresholds, no hardware |
+| UI | **Implemented and verified** | Concerns page: Rain forecast and Pre-entry cards, rule-that-fired and evidence in the concern dialog, advisory form; `tests/browser/rain.spec.ts` runs in `npm run test:demo` against a mock forecast endpoint (documented shape, not real weather) |
+
+Not done: heavy-rain and people-at-risk thresholds are development defaults, not validated site values; no site data was supplied.
+
 ## Scenario playback in 3D (2026-11-27)
 
 - Scenario results now play in the 3D mine by default (toggle to the plan). People move along their recorded escape paths (plan positions from the engine; elevation taken from the nearest tunnel), coloured white walking, amber not yet moving, red pulsing cut off. Tunnels turn red at their recorded closure time. The sump water rises with the recorded flooding series and turns red at the danger level. A clock overlay shows time, sump level against danger level and closed tunnels.

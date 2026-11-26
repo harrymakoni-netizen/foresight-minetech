@@ -209,7 +209,8 @@ export const defaultProviders = (): Providers => ({
 // ---- configuration -------------------------------------------------------------
 export async function messagingConfig(ctx: Context): Promise<{ entity: Entity | null; config: MessagingConfig }> {
   const entity = (await list(ctx, "messaging-config"))[0] || null;
-  return { entity, config: (entity?.data as MessagingConfig) || trainingConfig };
+  // Older saved configurations lack the phase 6 fields; fill their defaults.
+  return { entity, config: entity ? ({ ...trainingConfig, ...(entity.data as MessagingConfig) } as MessagingConfig) : trainingConfig };
 }
 
 // ---- queue ------------------------------------------------------------------------
