@@ -360,7 +360,7 @@ function ModelTable({ model }: { model: MineModel }) {
           <li key={p.id}>{p.name} ({p.role}) on {p.sumpId}: {v(p.capacityM3h, "m³/h")} effective ({prov(`${p.id}.capacityM3h`)})</li>
         ))}
         {model.fans.map((f) => (
-          <li key={f.id}>{f.name} on {f.tunnelId}: duty {v(f.fixedDutyM3s, "m³/s")}</li>
+          <li key={f.id}>{f.name} on {f.tunnelId}: duty {v(f.fixedDutyM3s, "m³/s")}{f.curve ? `; curve of ${f.curve.length} points` : ""}</li>
         ))}
         {model.doors.map((d) => (
           <li key={d.id}>{d.name} on {d.tunnelId}: {d.open ? "open" : "closed"}</li>
@@ -504,6 +504,34 @@ function Editor({ draft, post, refresh, notify, counts }: { draft: Row; post: Vi
               {numField("Width", `${tunnel.id}.width`, tunnel.width, (m, v) => (m.tunnels.find((t) => t.id === tunnel.id)!.width = v), "m")}
               {numField("Height", `${tunnel.id}.height`, tunnel.height, (m, v) => (m.tunnels.find((t) => t.id === tunnel.id)!.height = v), "m")}
               {numField("Length (blank = from geometry)", `${tunnel.id}.length`, tunnel.length, (m, v) => (m.tunnels.find((t) => t.id === tunnel.id)!.length = v), "m")}
+              {numField("Airway resistance R (N·s²/m⁸)", `${tunnel.id}.resistance`, tunnel.resistance, (m, v) => (m.tunnels.find((t) => t.id === tunnel.id)!.resistance = v), "ventilation")}
+              {model.fans.filter((f) => f.tunnelId === tunnel.id).map((fan) => (
+                <div key={fan.id} className="fs-group">
+                  <h4>Fan {fan.name}</h4>
+                  {numField("Fixed duty", `${fan.id}.fixedDutyM3s`, fan.fixedDutyM3s, (m, v) => (m.fans.find((f) => f.id === fan.id)!.fixedDutyM3s = v), "m³/s")}
+                  <Field label="Pressure–quantity curve (one 'flow m³/s, pressure Pa' pair per line; blank = none)">
+                    <textarea
+                      rows={4}
+                      defaultValue={(fan.curve || []).map((pt) => `${pt.q}, ${pt.p}`).join("\n")}
+                      key={fan.id + JSON.stringify(fan.curve)}
+                      onBlur={(e) => {
+                        const lines = e.target.value.split("\n").map((l) => l.trim()).filter(Boolean);
+                        const pts = lines.map((l) => l.split(/[ ,;\t]+/).map(Number));
+                        const bad = pts.some((x) => x.length !== 2 || x.some((n) => !Number.isFinite(n)));
+                        change((m) => {
+                          const f = m.fans.find((x) => x.id === fan.id)!;
+                          f.curve = !lines.length || bad ? null : pts.map(([q, p]) => ({ q: q!, p: p! }));
+                          if (f.curve) stamp(m, `${fan.id}.curve`, "assumed", "Entered in editor");
+                          else delete m.provenance[`${fan.id}.curve`];
+                        });
+                        if (bad) setError("Each curve line must be two numbers: flow then pressure.");
+                      }}
+                    />
+                  </Field>
+                  <p className="fs-help">Take the points from the fan maker&apos;s published curve. The curve is used instead of the fixed duty. Preflight blocks flows that do not increase.</p>
+                </div>
+              ))}
+              {model.doors.filter((d) => d.tunnelId === tunnel.id).map((door) => numField(`Door ${door.name} resistance when closed`, `${door.id}.resistance`, door.resistance, (m, v) => (m.doors.find((d) => d.id === door.id)!.resistance = v), "N·s²/m⁸"))}
               <label className="fs-confirm">
                 <input type="checkbox" checked={tunnel.walkable} onChange={(e) => change((m) => (m.tunnels.find((t) => t.id === tunnel.id)!.walkable = e.target.checked))} /> Walkable
               </label>

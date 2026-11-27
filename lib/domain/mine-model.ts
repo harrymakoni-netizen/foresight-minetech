@@ -84,7 +84,7 @@ export const mineModelSchema = z
       )
       .max(50),
     pumps: z.array(z.object({ id, sumpId: id, name: z.string().max(60), capacityM3h: num(0, 1e5), role: z.enum(["duty", "backup"]) }).strict()).max(100),
-    fans: z.array(z.object({ id, tunnelId: id, name: z.string().max(60), fixedDutyM3s: num(0, 1e4), pressurePa: num(0, 1e5) }).strict()).max(50),
+    fans: z.array(z.object({ id, tunnelId: id, name: z.string().max(60), fixedDutyM3s: num(0, 1e4), pressurePa: num(0, 1e5), curve: z.array(z.object({ q: z.number().min(0).max(1e4), p: z.number().min(0).max(1e5) }).strict()).min(2).max(20).nullable().default(null) }).strict()).max(50),
     doors: z.array(z.object({ id, tunnelId: id, name: z.string().max(60), open: z.boolean(), resistance: num(0, 1e6) }).strict()).max(200),
     zones: z.array(z.object({ id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/), name: z.string().min(1).max(60), tunnelIds: z.array(id).max(500), shaftIds: z.array(z.string().max(64)).max(20) }).strict()).max(100),
     storageLinks: z
@@ -212,6 +212,11 @@ export function preflight(m: MineModel): Issue[] {
   if (m.sumps.length > 1 && !m.storageLinks.reviewed)
     add("warning", "STORAGE_UNREVIEWED", "More than one sump, but storage links are not reviewed: flooding is shown for single sumps only.", [], undefined);
   for (const f of m.fans) if (!tIds.has(f.tunnelId)) add("error", "FAN_AIRWAY", `Fan ${f.name} is not on a known airway.`, ["ventilation"], f.id);
+  for (const f of m.fans) {
+    if (!f.curve) continue;
+    if (f.curve.some((pt, i) => i > 0 && pt.q <= f.curve![i - 1]!.q)) add("error", "FAN_CURVE_ORDER", `Fan ${f.name} curve flows must increase strictly from one point to the next.`, ["ventilation"], f.id);
+    if (f.fixedDutyM3s !== null) add("warning", "FAN_CURVE_AND_DUTY", `Fan ${f.name} has both a curve and a fixed duty; the curve is used unless a scenario overrides the duty.`, ["ventilation"], f.id);
+  }
   for (const d of m.doors) if (!tIds.has(d.tunnelId)) add("error", "DOOR_AIRWAY", `Door ${d.name} is not on a known airway.`, ["ventilation"], d.id);
   for (const e of m.exits)
     if (e.kind === "shaft" && e.usableForEscape && !e.hoist && e.ladderClimbSeconds === null)
@@ -230,7 +235,7 @@ export function valuePaths(m: MineModel) {
   for (const s of m.sumps) for (const f of ["dangerLevelM", "inflowM3h", "initialVolumeM3"] as const) if (s[f] !== null) out.push(`${s.id}.${f}`);
   for (const s of m.sumps) if (s.levelVolume.length) out.push(`${s.id}.levelVolume`);
   for (const r of m.refuges) for (const f of ["capacity", "airSupplyM3"] as const) if (r[f] !== null) out.push(`${r.id}.${f}`);
-  for (const f of m.fans) if (f.fixedDutyM3s !== null) out.push(`${f.id}.fixedDutyM3s`);
+  for (const f of m.fans) { if (f.fixedDutyM3s !== null) out.push(`${f.id}.fixedDutyM3s`); if (f.curve) out.push(`${f.id}.curve`); }
   for (const d of m.doors) if (d.resistance !== null) out.push(`${d.id}.resistance`);
   return out;
 }
@@ -280,7 +285,7 @@ export function trainingMineModel(author = "Foresight template", at = "2026-11-1
       { id: "P1", sumpId: "S1", name: "P1 duty pump", capacityM3h: 24, role: "duty" },
       { id: "P2", sumpId: "S1", name: "P2 backup pump", capacityM3h: 24, role: "backup" },
     ],
-    fans: [{ id: "F1", tunnelId: "T13", name: "North adit fan", fixedDutyM3s: null, pressurePa: null }],
+    fans: [{ id: "F1", tunnelId: "T13", name: "North adit fan", fixedDutyM3s: null, pressurePa: null, curve: null }],
     doors: [{ id: "D1", tunnelId: "T11", name: "South return door", open: true, resistance: null }],
     zones: [
       { id: "zone-a", name: "North working", tunnelIds: ["T12", "T13"], shaftIds: ["main-shaft", "north-adit"] },

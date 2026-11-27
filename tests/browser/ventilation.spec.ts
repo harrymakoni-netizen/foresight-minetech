@@ -32,3 +32,21 @@ test("fan failure stops the airflow; gas and re-entry are screening estimates; u
   await expect(results).toContainText("does not clear");
   await expect(results).toContainText("full mixing");
 });
+
+test("natural ventilation: the helper works out a pressure from the user's own readings and the run reports it", async ({ page }) => {
+  await page.goto("/#scenarios");
+  await page.getByRole("tab", { name: "Ventilation" }).click();
+  const builder = page.getByLabel("Ventilation scenario builder");
+  await builder.getByText(/Natural ventilation pressure/).click();
+  await builder.getByLabel("Vertical height (m)").fill("100");
+  await builder.getByLabel("Cold column temperature (°C)").fill("10");
+  await builder.getByLabel("Warm column temperature (°C)").fill("30");
+  await builder.getByLabel("Surface air pressure (Pa)").fill("101325");
+  await expect(builder).toContainText("≈ 80.7 Pa");
+  await builder.getByRole("button", { name: "Add natural pressure" }).click();
+  await builder.getByLabel("Pressure (Pa)", { exact: true }).fill("80.7");
+  await builder.getByRole("button", { name: "Run ventilation scenario" }).click();
+  const results = page.getByLabel("Ventilation results");
+  await expect(results).toContainText("✓ converged", { timeout: 60_000 });
+  await expect(results).toContainText("natural pressure 80.7 Pa");
+});

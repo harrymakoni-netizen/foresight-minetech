@@ -8,8 +8,9 @@ Junction continuity holds from the initial flow estimate (built along a
 spanning tree) and is preserved by every loop correction. The convergence
 tolerance and iteration limit are inputs and are reported with the result.
 
-What it is NOT: not CFD, not natural ventilation, not heat or density effects,
-not a fan-curve model (a fan is a fixed duty). A textbook match verifies the
+What it is NOT: not CFD, not heat or density effects,
+not a fan-selection tool (a fan is a fixed duty, or a tabulated curve you enter; natural
+ventilation is a pressure you enter, not computed from the mine's heat). A textbook match verifies the
 solver, not a real mine.
 
 Airflow direction convention: positive flow runs from an airway's `from` node to
@@ -33,6 +34,35 @@ def _finite(x: Any, name: str, lo: float, hi: float) -> float:
     return float(x)
 
 
+def _curve(points: list[dict] | None):
+    """Piecewise-linear fan characteristic: (q, p) points, q strictly increasing. Returns (rise(q), slope(q), (qmin, qmax))."""
+    if not points:
+        return None
+    qs = [float(x["q"]) for x in points]
+    ps = [float(x["p"]) for x in points]
+
+    def rise(q: float) -> float:
+        if q <= qs[0]:
+            return ps[0]  # no extrapolation: below the first point the first pressure is used
+        if q >= qs[-1]:
+            return ps[-1]
+        for i in range(len(qs) - 1):
+            if qs[i] <= q <= qs[i + 1]:
+                k = (q - qs[i]) / (qs[i + 1] - qs[i])
+                return ps[i] + (ps[i + 1] - ps[i]) * k
+        return ps[-1]
+
+    def slope(q: float) -> float:
+        if q < qs[0] or q > qs[-1]:
+            return 0.0
+        for i in range(len(qs) - 1):
+            if qs[i] <= q <= qs[i + 1]:
+                return (ps[i + 1] - ps[i]) / (qs[i + 1] - qs[i])
+        return 0.0
+
+    return rise, slope, (qs[0], qs[-1])
+
+
 def validate(data: dict) -> None:
     nodes = data.get("nodes")
     airways = data.get("airways")
@@ -52,6 +82,21 @@ def validate(data: dict) -> None:
             _finite(a.get("resistance"), f"resistance of {a['id']}", 0, 1e9)
         else:
             _finite(a["fixed"], f"fixed flow of {a['id']}", -1e5, 1e5)
+        if a.get("pressureSourcePa") is not None:
+            _finite(a["pressureSourcePa"], f"pressure source of {a['id']}", -1e5, 1e5)
+        if a.get("fanCurve") is not None:
+            pts = a["fanCurve"]
+            if a.get("fixed") is not None:
+                raise ValueError(f"{a['id']} cannot have both a fixed flow and a fan curve")
+            if not isinstance(pts, list) or not 2 <= len(pts) <= 20:
+                raise ValueError(f"fan curve of {a['id']} needs 2 to 20 points")
+            last = -1.0
+            for pt in pts:
+                qv = _finite(pt.get("q"), "curve flow", 0, 1e5)
+                _finite(pt.get("p"), "curve pressure", 0, 1e6)
+                if qv <= last:
+                    raise ValueError(f"fan curve of {a['id']} must have strictly increasing flows")
+                last = qv
     for s in data.get("slack") or []:
         if s not in known:
             raise ValueError(f"slack node {s} is not a node")
@@ -71,6 +116,21 @@ def solve_network(data: dict) -> dict:
     tol = float(data.get("tolerance", DEFAULT_TOLERANCE))
     max_iter = int(data.get("maxIterations", DEFAULT_MAX_ITERATIONS))
     by_id = {a["id"]: a for a in airways}
+    curves = {a["id"]: _curve(a.get("fanCurve")) for a in airways}
+
+    def rise(a: dict, qv: float) -> float:
+        """Pressure the airway adds in its drawn direction: a natural-ventilation source plus a fan curve."""
+        r = float(a.get("pressureSourcePa") or 0.0)
+        c = curves[a["id"]]
+        return r + (c[0](qv) if c else 0.0)
+
+    def rise_slope(a: dict, qv: float) -> float:
+        c = curves[a["id"]]
+        return c[1](qv) if c else 0.0
+
+    def head_loss(a: dict, qv: float) -> float:
+        return float(a["resistance"]) * qv * abs(qv) - rise(a, qv)
+
     free = [a for a in airways if a.get("fixed") is None]
     fixed = [a for a in airways if a.get("fixed") is not None]
 
@@ -96,6 +156,7 @@ def solve_network(data: dict) -> dict:
     max_correction = 0.0
     converged = True
     loops_total = 0
+    loop_unbalanced: set[tuple[str, ...]] = set()
     for start in nodes:
         if start in seen:
             continue
@@ -112,8 +173,11 @@ def solve_network(data: dict) -> dict:
         edges_in = sorted({i for n in comp for _, i in adj[n]})
         total = sum(demand[n] for n in comp)
         slack_here = next((n for n in comp if n in slack), None)
-        has_driver = any(abs(demand[n]) > 0 for n in comp)
-        section = {"nodes": comp, "airways": [free[i]["id"] for i in edges_in], "hasSurface": slack_here is not None, "drivers": sum(1 for n in comp if abs(demand[n]) > 0)}
+        # A section is driven by a fixed-duty fan, a fan curve or a natural-ventilation pressure.
+        has_driver = any(abs(demand[n]) > 0 for n in comp) or any(
+            abs(float(free[i].get("pressureSourcePa") or 0.0)) > 0 or (curves[free[i]["id"]] is not None and any(float(pt["p"]) > 0 for pt in free[i]["fanCurve"])) for i in edges_in
+        )
+        section = {"nodes": comp, "airways": [free[i]["id"] for i in edges_in], "hasSurface": slack_here is not None, "drivers": sum(1 for n in comp if abs(demand[n]) > 0) + sum(1 for i in edges_in if free[i].get("pressureSourcePa") or free[i].get("fanCurve"))}
         if not edges_in:
             section.update(status="isolated", note="No airway is connected here.")
             if abs(total) > 1e-12:
@@ -125,7 +189,7 @@ def solve_network(data: dict) -> dict:
             sections.append(section)
             continue
         if not has_driver:
-            section.update(status="no-driver", note="Nothing drives air through this section (natural ventilation is not modelled); flows are zero.")
+            section.update(status="no-driver", note="Nothing drives air through this section (no fan, fan curve or natural-ventilation pressure); flows are zero.")
             sections.append(section)
             for n in comp:
                 node_pressure[n] = 0.0
@@ -180,6 +244,12 @@ def solve_network(data: dict) -> dict:
                     y = py
             # a -> b through this airway, then b up to the meeting node, then down to a.
             loops.append([(i, +1)] + up_b + [(e, -sg) for e, sg in reversed(up_a)])
+        if not loops and all(abs(d[n]) < 1e-12 for n in comp):
+            section.update(status="no-driver", note="The pressure source in this section is not part of any closed circuit (it has no way for air to return), so no air flows.")
+            sections.append(section)
+            for n in comp:
+                node_pressure[n] = 0.0
+            continue
         loops_total += len(loops)
         comp_iter = 0
         comp_conv = True
@@ -187,13 +257,20 @@ def solve_network(data: dict) -> dict:
         for comp_iter in range(1, max_iter + 1):
             biggest = 0.0
             for loop in loops:
-                num = sum(s * float(free[i]["resistance"]) * q[i] * abs(q[i]) for i, s in loop)
-                den = sum(2.0 * float(free[i]["resistance"]) * abs(q[i]) for i, _ in loop)
-                if den <= 0.0:
-                    continue
-                dq = -num / den
-                for i, s in loop:
-                    q[i] += s * dq
+                num = sum(sg * head_loss(free[i], q[i]) for i, sg in loop)
+                den = sum(float(free[i]["resistance"]) * 2.0 * abs(q[i]) - rise_slope(free[i], q[i]) for i, _ in loop)
+                if den > 1e-9:
+                    dq = -num / den
+                else:
+                    # No slope yet (a loop at rest with a pressure source): step to where friction balances the source.
+                    total_r = sum(float(free[i]["resistance"]) for i, _ in loop)
+                    if abs(num) <= 1e-12 or total_r <= 0.0:
+                        if abs(num) > 1e-9:
+                            loop_unbalanced.add(tuple(sorted(free[i]["id"] for i, _ in loop)))
+                        continue
+                    dq = -math.copysign(math.sqrt(abs(num) / total_r), num)
+                for i, sg in loop:
+                    q[i] += sg * dq
                 biggest = max(biggest, abs(dq))
             last = biggest
             if biggest < tol:
@@ -212,7 +289,7 @@ def solve_network(data: dict) -> dict:
         for n in order[1:]:
             p, i = parent[n]
             a = free[i]
-            drop = float(a["resistance"]) * q[i] * abs(q[i])  # pressure lost going from -> to
+            drop = head_loss(a, q[i])  # pressure lost going from -> to (friction minus any fan or natural pressure)
             node_pressure[n] = node_pressure[p] - (drop if a["from"] == p else -drop)
         section.update(status="solved", loops=len(loops), iterations=comp_iter, finalMaxCorrection=last, converged=comp_conv)
         if slack_here is not None:
@@ -243,6 +320,14 @@ def solve_network(data: dict) -> dict:
         if not is_fixed:
             item["resistance"] = float(a["resistance"])
             item["pressureDropPa"] = float(a["resistance"]) * qv * abs(qv)
+            if a.get("pressureSourcePa") or curves[a["id"]]:
+                item["pressureRisePa"] = rise(a, qv)
+            c = curves[a["id"]]
+            if c:
+                lo, hi = c[2]
+                item["fanCurve"] = {"flowM3s": qv, "pressureRisePa": rise(a, qv), "rangeM3s": [lo, hi], "inRange": lo <= qv <= hi, "reverseFlow": qv < -1e-12}
+            if a.get("pressureSourcePa"):
+                item["naturalPressurePa"] = float(a["pressureSourcePa"])
         else:
             pa, pb = node_pressure.get(a["from"]), node_pressure.get(a["to"])
             item["fanPressureRisePa"] = None if pa is None or pb is None else pb - pa
@@ -256,11 +341,11 @@ def solve_network(data: dict) -> dict:
         pa, pb = node_pressure.get(a["from"]), node_pressure.get(a["to"])
         if pa is None or pb is None:
             continue
-        loop_residual = max(loop_residual, abs((pa - pb) - float(a["resistance"]) * flow[a["id"]] * abs(flow[a["id"]])))
+        loop_residual = max(loop_residual, abs((pa - pb) - head_loss(a, flow[a["id"]])))
     return {
         "status": "completed",
         "engine": ENGINE,
-        "method": "Hardy Cross, Atkinson square law (dP = R Q |Q|); loop correction dQ = -sum(R Q|Q|) / sum(2 R |Q|)",
+        "method": "Hardy Cross, Atkinson square law (dP = R Q |Q|), fan curves and natural pressure as pressure sources; loop correction dQ = -sum(h) / sum(dh/dQ) with h = R Q|Q| - P(Q)",
         "tolerance": tol,
         "maxIterations": max_iter,
         "iterations": iterations,
@@ -273,6 +358,12 @@ def solve_network(data: dict) -> dict:
         "sections": sections,
         "nodePressuresPa": {n: p for n, p in node_pressure.items() if p is not None},
         "reversals": [a["id"] for a in out_airways if a["reversedFromDrawn"]],
+        "fanWarnings": [
+            {"id": a["id"], "problem": "operating outside its tabulated curve" if not a["fanCurve"]["inRange"] and not a["fanCurve"]["reverseFlow"] else "air flows backwards through the fan, where the curve does not apply"}
+            for a in out_airways
+            if a.get("fanCurve") and (not a["fanCurve"]["inRange"] or a["fanCurve"]["reverseFlow"])
+        ],
+        "unbalancedLoops": [list(x) for x in sorted(loop_unbalanced)],
     }
 
 
@@ -380,6 +471,15 @@ def reference_checks() -> list[dict]:
         got = [a["flowM3s"] for a in res["airways"] if a["id"].startswith("P")]
         worst = max(abs(g - e) for g, e in zip(got, expected))
         checks.append({"name": name, "kind": "closed-form", "expected": expected, "got": got, "maxAbsError": worst, "tolerance": 1e-6, "passed": worst <= 1e-6})
+    # Natural pressure P in a loop of R1 + R2: q = sqrt(P / (R1 + R2)); P=100, R=4+1 -> sqrt(20).
+    nat = solve_network({"nodes": ["A", "B"], "airways": [{"id": "X", "from": "A", "to": "B", "resistance": 4.0, "pressureSourcePa": 100.0}, {"id": "Y", "from": "B", "to": "A", "resistance": 1.0}], "slack": [], "tolerance": 1e-12})
+    got = nat["airways"][0]["flowM3s"]
+    checks.append({"name": "natural pressure 100 Pa in a loop of R = 4 + 1", "kind": "closed-form", "expected": [math.sqrt(20)], "got": [got], "maxAbsError": abs(got - math.sqrt(20)), "tolerance": 1e-6, "passed": abs(got - math.sqrt(20)) <= 1e-6})
+    # Linear fan curve p = 300 - 10 q into R = 5: 5 q^2 + 10 q - 300 = 0 -> q = (-10 + sqrt(6100)) / 10.
+    fan = solve_network({"nodes": ["A", "B"], "airways": [{"id": "X", "from": "A", "to": "B", "resistance": 4.0, "fanCurve": [{"q": 0, "p": 300}, {"q": 30, "p": 0}]}, {"id": "Y", "from": "B", "to": "A", "resistance": 1.0}], "slack": [], "tolerance": 1e-12})
+    want = (-10 + math.sqrt(6100)) / 10
+    got = fan["airways"][0]["flowM3s"]
+    checks.append({"name": "linear fan curve 300 - 10 Q into R = 5", "kind": "closed-form", "expected": [want], "got": [got], "maxAbsError": abs(got - want), "tolerance": 1e-6, "passed": abs(got - want) <= 1e-6})
     return checks
 
 

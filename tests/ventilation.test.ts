@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { spawn, type ChildProcess } from "node:child_process";
-import { buildVentilationInput, crossSectionArea, ventilationScenarioSchema } from "../lib/domain/ventilation.ts";
+import { buildVentilationInput, crossSectionArea, naturalVentilationPressure, ventilationScenarioSchema } from "../lib/domain/ventilation.ts";
 import { trainingMineModel } from "../lib/domain/mine-model.ts";
 
 const base = { name: "North adit fan failure", fanFailures: ["F1"] };
@@ -35,7 +35,7 @@ test("baseline and scenario states: fan in service, failed fan stops driving, ev
   assert.deepEqual(fixed(b.input.states.baseline).map((a: any) => [a.id, a.fixed]), [["T13", 30]]);
   assert.equal(fixed(b.input.states.scenario).length, 0);
   assert.equal(b.input.states.baseline.airways.filter((a: any) => a.id.startsWith("SURF-")).length, 3);
-  assert.ok(b.warnings.some((w) => /No fan is in service/.test(w)));
+  assert.ok(b.warnings.some((w) => /No fan or natural ventilation pressure is in service/.test(w)));
   const T13 = b.input.states.scenario.airways.find((a: any) => a.id === "T13") as any;
   assert.ok(T13.resistance > 0, "a failed fan leaves its airway open");
 });
@@ -47,13 +47,30 @@ test("a closed door adds its resistance in series; blocked tunnels are removed; 
   const bad = buildVentilationInput(model, ventilationScenarioSchema.parse({ name: "Bad ids", fanFailures: ["F9"], blockedTunnels: ["T99"], doorChanges: [{ doorId: "D9", open: true }] }));
   assert.equal(bad.problems.length, 3);
 });
+test("fan curve: used unless a scenario overrides the duty; natural pressure is applied to both states", () => {
+  const m = structuredClone(model);
+  m.fans[0].curve = [{ q: 0, p: 300 }, { q: 40, p: 0 }];
+  const r = buildVentilationInput(m, ventilationScenarioSchema.parse({ name: "Natural pressure", naturalVentilation: [{ tunnelId: "T1", pressurePa: 25 }], fanDutyOverrides: [{ fanId: "F1", dutyM3s: 20 }] }));
+  assert.deepEqual(r.problems, []);
+  const t13 = (st: any) => st.airways.find((a: any) => a.id === "T13");
+  assert.deepEqual(t13(r.input.states.baseline).fanCurve, m.fans[0].curve);
+  assert.ok(t13(r.input.states.baseline).resistance > 0 && t13(r.input.states.baseline).fixed === undefined);
+  assert.equal(t13(r.input.states.scenario).fixed, 20, "an overridden duty replaces the curve");
+  for (const st of ["baseline", "scenario"]) assert.equal((r.input.states as any)[st].airways.find((a: any) => a.id === "T1").pressureSourcePa, 25);
+  assert.ok(buildVentilationInput(m, ventilationScenarioSchema.parse({ name: "Unknown tunnel", naturalVentilation: [{ tunnelId: "T99", pressurePa: 5 }] })).problems.some((p) => /T99/.test(p)));
+});
+test("natural ventilation pressure: hand-worked value (10 C vs 30 C over 100 m at 101325 Pa)", () => {
+  const dp = naturalVentilationPressure({ heightM: 100, coldC: 10, warmC: 30, surfacePressurePa: 101325 });
+  assert.ok(Math.abs(dp - 80.656) < 0.01, String(dp));
+  assert.equal(naturalVentilationPressure({ heightM: 100, coldC: 20, warmC: 20, surfacePressurePa: 101325 }), 0);
+});
 test("missing values block the run and are listed, never filled in", () => {
   const m = structuredClone(model);
   m.tunnels[2].resistance = null;
   m.fans[0].fixedDutyM3s = null;
   const r = buildVentilationInput(m, ventilationScenarioSchema.parse({ name: "Gaps", blockedTunnels: ["T1"] }));
   assert.ok(r.problems.some((p) => /Tunnel T3 airway resistance is not entered/.test(p)));
-  assert.ok(r.problems.some((p) => /Fan North adit fan has no duty entered/.test(p)));
+  assert.ok(r.problems.some((p) => /Fan North adit fan has no duty or curve entered/.test(p)));
   const noExit = structuredClone(model);
   noExit.exits = [];
   assert.ok(buildVentilationInput(noExit, ventilationScenarioSchema.parse(base)).problems.some((p) => /no exit/.test(p)));
@@ -124,7 +141,7 @@ test("a ventilation run: flows obey continuity at the surface, the failed fan st
   assert.ok(r.states.baseline.reentry.seconds > 0);
   assert.equal(r.verification.textbook.status, "not-added");
   assert.ok(r.verification.closedFormChecks.every((c: any) => c.passed));
-  assert.ok(done.data.warnings.some((w: string) => /No fan is in service/.test(w)) || true);
+  assert.ok(done.data.warnings.some((w: string) => /No fan or natural ventilation pressure is in service/.test(w)) || true);
 });
 test("a run needs a supervisor and a clean preflight", { skip: !haveWorker }, async () => {
   const ctx = await repo.workspaceFor(`vent-guard-${run}`);

@@ -49,7 +49,7 @@ test("preflight: isolated parts, plan crossings, inconsistent elevation, zone wi
   m.junctions.find((j) => j.id === "J5")!.z = 20;
   m.zones.push({ id: "zone-k", name: "Island", tunnelIds: ["TK"], shaftIds: [] });
   m.pumps.push({ id: "P9", sumpId: "nope", name: "Lost pump", capacityM3h: 10, role: "duty" });
-  m.fans.push({ id: "F9", tunnelId: "nope", name: "Lost fan", fixedDutyM3s: null, pressurePa: null });
+  m.fans.push({ id: "F9", tunnelId: "nope", name: "Lost fan", fixedDutyM3s: null, pressurePa: null, curve: null });
   const c = codes(m);
   for (const code of ["error:ISOLATED_PART", "error:PLAN_CROSSING", "error:ELEVATION_INCONSISTENT", "warning:ZONE_NO_ROUTE", "error:PUMP_SUMP", "error:FAN_AIRWAY"])
     assert.ok(c.includes(code), code + " in " + c.join(","));
@@ -121,4 +121,13 @@ test("demo reset publishes the training template as a new revision and deletes n
   assert.ok(after.length > before);
   assert.equal(after.filter((e) => e.kind === "report").length, 1);
   assert.equal((await mm.publishedModel(ctx))!.id, r.revisionId);
+});
+
+test("fan curve must have strictly increasing flows; a curve with a duty is warned about", () => {
+  const m = structuredClone(trainingMineModel());
+  m.fans[0]!.curve = [{ q: 0, p: 300 }, { q: 10, p: 200 }, { q: 10, p: 100 }];
+  assert.ok(codes(m).includes("error:FAN_CURVE_ORDER"));
+  m.fans[0]!.curve = [{ q: 0, p: 300 }, { q: 40, p: 0 }];
+  assert.ok(!codes(m).includes("error:FAN_CURVE_ORDER"));
+  assert.ok(codes(m).includes("warning:FAN_CURVE_AND_DUTY"));
 });

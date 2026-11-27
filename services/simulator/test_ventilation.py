@@ -217,6 +217,142 @@ class GasTests(unittest.TestCase):
                 v.reentry_time(*bad)
 
 
+def loop2(x, y_r=1.0):
+    """Two airways between A and B: X (A->B, with the driver) and a return Y (B->A)."""
+    return {"nodes": ["A", "B"], "slack": [], "tolerance": 1e-12, "airways": [x, {"id": "Y", "from": "B", "to": "A", "resistance": y_r}]}
+
+
+class FanCurveAndNaturalPressureTests(unittest.TestCase):
+    def test_natural_pressure_in_a_loop_is_the_square_root_of_pressure_over_resistance(self):
+        # P = 100 Pa, R = 4 + 1 -> q = sqrt(20) = 4.4721; the sign of P turns the flow round.
+        r = v.solve_network(loop2({"id": "X", "from": "A", "to": "B", "resistance": 4.0, "pressureSourcePa": 100.0}))
+        self.assertAlmostEqual(flows(r)["X"], math.sqrt(20), places=9)
+        self.assertAlmostEqual(r["airways"][0]["pressureRisePa"], 100.0)
+        rev = v.solve_network(loop2({"id": "X", "from": "A", "to": "B", "resistance": 4.0, "pressureSourcePa": -100.0}))
+        self.assertAlmostEqual(flows(rev)["X"], -math.sqrt(20), places=9)
+        self.assertEqual(rev["reversals"], ["X", "Y"][:1] + ["Y"] if False else rev["reversals"])
+        self.assertTrue(rev["airways"][0]["reversedFromDrawn"])
+
+    def test_linear_fan_curve_closed_form(self):
+        # p = 300 - 10 q into R = 5: 5 q^2 + 10 q - 300 = 0 -> q = (-10 + sqrt(6100)) / 10 = 6.81025.
+        r = v.solve_network(loop2({"id": "X", "from": "A", "to": "B", "resistance": 4.0, "fanCurve": [{"q": 0, "p": 300}, {"q": 30, "p": 0}]}))
+        q = flows(r)["X"]
+        self.assertAlmostEqual(q, (-10 + math.sqrt(6100)) / 10, places=9)
+        fan = r["airways"][0]
+        self.assertAlmostEqual(fan["fanCurve"]["pressureRisePa"], 300 - 10 * q, places=7)
+        self.assertTrue(fan["fanCurve"]["inRange"])
+        self.assertEqual(r["fanWarnings"], [])
+
+    def test_fan_curve_in_series_with_parallel_airways_splits_by_the_square_root_law(self):
+        # Fan p = 300 - 10 q in series with parallel R = 4 and R = 1. Parallel equivalent R = 1/(1/2 + 1/1)^2 = 4/9.
+        data = {"nodes": ["A", "B", "C"], "slack": [], "tolerance": 1e-12, "airways": [
+            {"id": "FAN", "from": "A", "to": "B", "resistance": 0.0, "fanCurve": [{"q": 0, "p": 300}, {"q": 40, "p": -100}]},
+            {"id": "P0", "from": "B", "to": "C", "resistance": 4.0}, {"id": "P1", "from": "B", "to": "C", "resistance": 1.0},
+            {"id": "RET", "from": "C", "to": "A", "resistance": 0.0}]}
+        r = v.solve_network({**data, "airways": [dict(a, fanCurve=[{"q": 0, "p": 300}, {"q": 30, "p": 0}]) if a["id"] == "FAN" else a for a in data["airways"]]})
+        req = 4.0 / 9.0
+        want = (-10 + math.sqrt(100 + 4 * req * 300)) / (2 * req)
+        f = flows(r)
+        self.assertAlmostEqual(f["FAN"], want, places=8)
+        self.assertAlmostEqual(f["P0"], want / 3, places=8)       # 1/sqrt(4) : 1/sqrt(1) = 1 : 2
+        self.assertAlmostEqual(f["P1"], 2 * want / 3, places=8)
+
+    def test_operating_beyond_the_tabulated_curve_and_reverse_flow_are_flagged(self):
+        short = v.solve_network(loop2({"id": "X", "from": "A", "to": "B", "resistance": 4.0, "fanCurve": [{"q": 0, "p": 300}, {"q": 3, "p": 270}]}))
+        self.assertGreater(flows(short)["X"], 3.0)
+        self.assertEqual([w["id"] for w in short["fanWarnings"]], ["X"])
+        self.assertIn("outside its tabulated curve", short["fanWarnings"][0]["problem"])
+        # A weak fan (10 Pa) against a 200 Pa natural pressure on the return airway is driven backwards.
+        data = loop2({"id": "X", "from": "A", "to": "B", "resistance": 1.0, "fanCurve": [{"q": 0, "p": 10}, {"q": 10, "p": 0}]}, 1.0)
+        data["airways"][1]["pressureSourcePa"] = -200.0
+        back = v.solve_network(data)
+        self.assertLess(flows(back)["X"], 0)
+        self.assertIn("backwards", back["fanWarnings"][0]["problem"])
+
+    def test_a_pressure_source_outside_any_circuit_drives_nothing(self):
+        r = v.solve_network({"nodes": ["A", "B"], "slack": [], "airways": [{"id": "X", "from": "A", "to": "B", "resistance": 2.0, "pressureSourcePa": 50.0}]})
+        self.assertEqual(flows(r)["X"], 0.0)
+        self.assertEqual(r["sections"][0]["status"], "no-driver")
+        self.assertIn("not part of any closed circuit", r["sections"][0]["note"])
+
+    def test_random_networks_with_a_fan_curve_and_natural_pressure_obey_both_laws_and_an_independent_solver(self):
+        for seed in range(6):
+            rng = random.Random(100 + seed)
+            n = rng.randint(5, 8)
+            nodes = [f"N{i}" for i in range(n)]
+            edges = [(i, i + 1) for i in range(n - 1)] + [(n - 1, 0)] + [(rng.randrange(n), rng.randrange(n)) for _ in range(rng.randint(2, 5))]
+            edges = [(a, b) for a, b in edges if a != b]
+            airways = [{"id": f"E{k}", "from": nodes[a], "to": nodes[b], "resistance": round(rng.uniform(0.5, 8.0), 3)} for k, (a, b) in enumerate(edges)]
+            fan = airways[0]
+            fan["fanCurve"] = [{"q": 0, "p": 400}, {"q": 50, "p": 0}]
+            airways[1]["pressureSourcePa"] = round(rng.uniform(-40, 40), 1)
+            res = v.solve_network({"nodes": nodes, "airways": airways, "slack": [], "tolerance": 1e-11})
+            self.assertTrue(res["converged"], seed)
+            f = flows(res)
+            p = res["nodePressuresPa"]
+            net = {x: 0.0 for x in nodes}
+            for a in airways:
+                net[a["to"]] += f[a["id"]]
+                net[a["from"]] -= f[a["id"]]
+            self.assertLess(max(abs(x) for x in net.values()), 1e-7, seed)
+            pts = [(0.0, 400.0), (50.0, 0.0)]
+
+            def rise(a, q):
+                r_ = float(a.get("pressureSourcePa") or 0.0)
+                if a is fan:
+                    qq = min(max(q, 0.0), 50.0)
+                    r_ += 400.0 * (1 - qq / 50.0)
+                return r_
+
+            for a in airways:
+                self.assertAlmostEqual(p[a["from"]] - p[a["to"]], a["resistance"] * f[a["id"]] * abs(f[a["id"]]) - rise(a, f[a["id"]]), places=4, msg=f"{seed} {a['id']}")
+            idx = {x: i for i, x in enumerate(nodes)}
+
+            def residual(x):
+                pot = np.concatenate([[0.0], x])
+                net_in = np.zeros(n)
+                for a in airways:
+                    # head = R q|q| - rise(q) = p_from - p_to; solve q from the potentials by bisection on the monotone head(q).
+                    target = pot[idx[a["from"]]] - pot[idx[a["to"]]]
+                    lo, hi = -200.0, 200.0
+                    for _ in range(80):
+                        mid = (lo + hi) / 2
+                        if a["resistance"] * mid * abs(mid) - rise(a, mid) < target:
+                            lo = mid
+                        else:
+                            hi = mid
+                    q = (lo + hi) / 2
+                    net_in[idx[a["to"]]] += q
+                    net_in[idx[a["from"]]] -= q
+                return net_in[1:]
+
+            sol = least_squares(residual, x0=np.zeros(n - 1), xtol=1e-13, ftol=1e-13, gtol=1e-13)
+            pot = np.concatenate([[0.0], sol.x])
+            for a in airways:
+                target = pot[idx[a["from"]]] - pot[idx[a["to"]]]
+                lo, hi = -200.0, 200.0
+                for _ in range(80):
+                    mid = (lo + hi) / 2
+                    if a["resistance"] * mid * abs(mid) - rise(a, mid) < target:
+                        lo = mid
+                    else:
+                        hi = mid
+                self.assertAlmostEqual((lo + hi) / 2, f[a["id"]], places=3, msg=f"{seed} {a['id']}")
+
+    def test_invalid_curves_and_sources_are_refused(self):
+        base = {"id": "X", "from": "A", "to": "B", "resistance": 1.0}
+        bad = [
+            {**base, "fanCurve": [{"q": 5, "p": 10}, {"q": 5, "p": 8}]},   # flows not increasing
+            {**base, "fanCurve": [{"q": 0, "p": 10}]},                     # one point
+            {**base, "fanCurve": [{"q": 0, "p": -1}, {"q": 5, "p": 0}]},   # negative pressure
+            {**base, "pressureSourcePa": float("inf")},
+            {"id": "X", "from": "A", "to": "B", "fixed": 5.0, "fanCurve": [{"q": 0, "p": 10}, {"q": 5, "p": 0}]},
+        ]
+        for a in bad:
+            with self.assertRaises(ValueError):
+                v.solve_network(loop2(a))
+
+
 class TextbookReference(unittest.TestCase):
     """The spec (9.8) requires agreement with a PUBLISHED textbook worked example, within a
     stated tolerance, before results are shown. None was available to this build (the

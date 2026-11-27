@@ -7,11 +7,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { MineModel } from "@/lib/domain/mine-model";
 import { zoneColour } from "./mine";
 import type { Playback } from "./tunnels-3d";
+import { naturalVentilationPressure } from "@/lib/domain/ventilation";
 import { ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
 
 const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
-type Airway = { id: string; from: string; to: string; flowM3s: number; fixed: boolean; reversedFromDrawn: boolean; velocityMs?: number; pressureDropPa?: number; fanPressureRisePa?: number | null; fanPowerW?: number | null };
-type Solution = { converged: boolean; tolerance: number; maxIterations: number; iterations: number; finalMaxCorrection: number; loops: number; continuityResidualM3s: number; pressureClosureResidualPa: number; airways: Airway[]; sections: { nodes: string[]; status: string; note?: string }[] };
+type Airway = { id: string; from: string; to: string; flowM3s: number; fixed: boolean; reversedFromDrawn: boolean; velocityMs?: number; pressureDropPa?: number; fanPressureRisePa?: number | null; fanPowerW?: number | null; fanCurve?: { flowM3s: number; pressureRisePa: number; rangeM3s: [number, number]; inRange: boolean; reverseFlow: boolean }; naturalPressurePa?: number };
+type Solution = { converged: boolean; tolerance: number; maxIterations: number; iterations: number; finalMaxCorrection: number; loops: number; continuityResidualM3s: number; pressureClosureResidualPa: number; airways: Airway[]; sections: { nodes: string[]; status: string; note?: string }[]; fanWarnings?: { id: string; problem: string }[] };
 type Gas = { airwayId: string; releaseM3s: number; concentration: Record<string, number>; stagnant: boolean; recirculation: boolean; notes: string[] };
 type Reentry = { seconds: number | null; volumeM3: number; flowM3s: number; startFraction: number; limitFraction: number; formula: string; note: string };
 type State = { solution: Solution; gas?: Gas; reentry?: Reentry };
@@ -89,6 +90,8 @@ function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; mo
   const [blocked, setBlocked] = useState<string[]>([]);
   const [gasOn, setGasOn] = useState(false);
   const [rel, setRel] = useState({ tunnel: model.tunnels[0]?.id || "", rate: "", limit: "" });
+  const [nat, setNat] = useState<{ tunnelId: string; pressure: string }[]>([]);
+  const [helper, setHelper] = useState({ height: "", cold: "", warm: "", pressure: "" });
   const [reOn, setReOn] = useState(false);
   const [re, setRe] = useState({ tunnels: [] as string[], feed: model.tunnels[0]?.id || "", start: "" });
   const [check, setCheck] = useState<{ ok: boolean; problems: string[]; warnings: string[] } | null>(null);
@@ -99,6 +102,7 @@ function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; mo
     fanFailures: failed,
     doorChanges: Object.entries(doors).filter(([, v]) => v).map(([doorId, v]) => ({ doorId, open: v === "open" })),
     blockedTunnels: blocked,
+    naturalVentilation: nat.filter((n) => n.pressure.trim() !== "").map((n) => ({ tunnelId: n.tunnelId, pressurePa: Number(n.pressure) })),
     gas: gasOn ? { releaseTunnelId: rel.tunnel, releaseM3s: Number(rel.rate), limitFraction: Number(rel.limit) / 100 } : null,
     reentry: gasOn && reOn ? { tunnelIds: re.tunnels, feedTunnelId: re.feed, startFraction: Number(re.start) / 100 } : null,
   });
@@ -155,6 +159,28 @@ function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; mo
             <input type="checkbox" checked={blocked.includes(t.id)} onChange={(e) => toggle(blocked, setBlocked, t.id, e.target.checked)} /> {t.id} {t.name}
           </label>
         ))}
+      </details>
+      <details className="fs-advanced">
+        <summary>Natural ventilation pressure ({nat.length})</summary>
+        <p className="fs-help">A pressure you enter, in pascals, added to an airway (positive pushes air from its first junction to its second). It applies to the baseline and the scenario alike. It only moves air where it has a closed circuit to go round. The helper below uses your own readings; nothing is assumed.</p>
+        {nat.map((n, i) => (
+          <div key={i} className="fs-button-row">
+            <select aria-label="Airway" value={n.tunnelId} onChange={(e) => setNat(nat.map((x, j) => (j === i ? { ...x, tunnelId: e.target.value } : x)))}>
+              {model.tunnels.map((t) => <option key={t.id} value={t.id}>{t.id} {t.name}</option>)}
+            </select>
+            <input aria-label="Pressure (Pa)" inputMode="decimal" placeholder="Pa" value={n.pressure} onChange={(e) => setNat(nat.map((x, j) => (j === i ? { ...x, pressure: e.target.value } : x)))} />
+            <button className="fs-button secondary" onClick={() => setNat(nat.filter((_, j) => j !== i))}>Remove</button>
+          </div>
+        ))}
+        <button className="fs-button secondary" onClick={() => setNat([...nat, { tunnelId: model.tunnels[0]?.id || "", pressure: "" }])}>Add natural pressure</button>
+        <p className="fs-help">Helper: pressure from a temperature difference over a height.</p>
+        <Field label="Vertical height (m)"><input inputMode="decimal" value={helper.height} onChange={(e) => setHelper({ ...helper, height: e.target.value })} /></Field>
+        <Field label="Cold column temperature (°C)"><input inputMode="decimal" value={helper.cold} onChange={(e) => setHelper({ ...helper, cold: e.target.value })} /></Field>
+        <Field label="Warm column temperature (°C)"><input inputMode="decimal" value={helper.warm} onChange={(e) => setHelper({ ...helper, warm: e.target.value })} /></Field>
+        <Field label="Surface air pressure (Pa)"><input inputMode="decimal" value={helper.pressure} onChange={(e) => setHelper({ ...helper, pressure: e.target.value })} /></Field>
+        {[helper.height, helper.cold, helper.warm, helper.pressure].every((x) => x.trim() !== "" && Number.isFinite(Number(x))) && (
+          <p role="status">≈ {naturalVentilationPressure({ heightM: Number(helper.height), coldC: Number(helper.cold), warmC: Number(helper.warm), surfacePressurePa: Number(helper.pressure) }).toFixed(1)} Pa. Type it into an airway above if it applies there.</p>
+        )}
       </details>
       <fieldset className="fs-group">
         <legend>Gas release and re-entry (screening)</legend>
@@ -279,6 +305,9 @@ function RunView({ run, model }: { run: Row; model: MineModel }) {
         <p className="fs-accounting">
           {st.solution.converged ? "✓ converged" : "✗ NOT CONVERGED"}: {st.solution.loops} loop(s), {st.solution.iterations} iteration(s), tolerance {st.solution.tolerance} m³/s (limit {st.solution.maxIterations} iterations), largest last correction {st.solution.finalMaxCorrection.toExponential(1)} m³/s; continuity residual {st.solution.continuityResidualM3s.toExponential(1)} m³/s, pressure closure {st.solution.pressureClosureResidualPa.toExponential(1)} Pa.
         </p>
+        {(st.solution.fanWarnings || []).map((w) => (
+          <p key={w.id} className="fs-tone-red">Fan on {w.id}: {w.problem}. Treat this airway&apos;s result with caution.</p>
+        ))}
         {st.solution.sections.filter((s) => s.status !== "solved").map((s, i) => (
           <p key={i} className={s.status === "infeasible" ? "fs-tone-red" : "fs-help"}>
             Section {s.nodes.slice(0, 4).join(", ")}{s.nodes.length > 4 ? "…" : ""}: {s.status}. {s.note}
@@ -322,9 +351,9 @@ function RunView({ run, model }: { run: Row; model: MineModel }) {
                       <td>{q(a.flowM3s)}</td>
                     )}
                     <td>{a.velocityMs === undefined ? "size not entered" : a.velocityMs.toFixed(2)}</td>
-                    <td>{a.fixed ? (a.fanPressureRisePa == null ? "—" : `fan rise ${a.fanPressureRisePa.toFixed(0)} · ${((a.fanPowerW || 0) / 1000).toFixed(1)} kW`) : (a.pressureDropPa ?? 0).toFixed(1)}</td>
+                    <td>{a.fanCurve ? `fan curve rise ${a.fanCurve.pressureRisePa.toFixed(0)}` : a.fixed ? (a.fanPressureRisePa == null ? "—" : `fan rise ${a.fanPressureRisePa.toFixed(0)} · ${((a.fanPowerW || 0) / 1000).toFixed(1)} kW`) : (a.pressureDropPa ?? 0).toFixed(1)}</td>
                     <td>
-                      {a.fixed && <Tag>fan</Tag>} {a.reversedFromDrawn && <Tag tone="amber">against drawn direction</Tag>} {c?.reversedVsBaseline && <Tag tone="red">reverses in the scenario</Tag>} {c?.stoppedVsBaseline && <Tag tone="red">stops in the scenario</Tag>}
+                      {(a.fixed || a.fanCurve) && <Tag>fan</Tag>} {a.naturalPressurePa ? <Tag>natural pressure {a.naturalPressurePa} Pa</Tag> : null} {a.reversedFromDrawn && <Tag tone="amber">against drawn direction</Tag>} {c?.reversedVsBaseline && <Tag tone="red">reverses in the scenario</Tag>} {c?.stoppedVsBaseline && <Tag tone="red">stops in the scenario</Tag>}
                     </td>
                   </tr>
                 );
