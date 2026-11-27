@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0",
+  "workspaceId": "fictional-test-workspace",
+  "baselineSnapshotId": "fictional-frozen-snapshot",
+  "modelId": "lumped-water-v1",
+  "modelVersion": "lumped-water-1.0.0",
+  "timeOrigin": "2026-10-18T08:00:00Z",
+  "horizonSeconds": 21600,
+  "outputIntervalSeconds": 60,
+  "maxStepSeconds": 10,
+  "seed": 42,
+  "units": {
+    "volume": "m3",
+    "level": "m",
+    "time": "s",
+    "flow": "m3/s"
+  },
+  "nodes": [
+    {
+      "id": "S1",
+      "zoneId": "zone-b",
+      "geometry": [
+        {
+          "volumeM3": 0,
+          "levelM": 0
+        },
+        {
+          "volumeM3": 150,
+          "levelM": 5
+        }
+      ],
+      "initialVolumeM3": 30,
+      "inflowM3s": 0.005
+    }
+  ],
+  "pumps": [
+    {
+      "id": "P1",
+      "nodeId": "S1",
+      "capacityM3s": 0.0033333333333333335,
+      "available": true,
+      "startLevelM": null,
+      "stopLevelM": null
+    },
+    {
+      "id": "P2",
+      "nodeId": "S1",
+      "capacityM3s": 0.006666666666666667,
+      "available": false,
+      "startLevelM": null,
+      "stopLevelM": null
+    }
+  ],
+  "transfers": [],
+  "events": [
+    {
+      "type": "pump_availability",
+      "atSeconds": 3600,
+      "pumpId": "P1",
+      "available": false
+    },
+    {
+      "type": "pump_availability",
+      "atSeconds": 14400,
+      "pumpId": "P2",
+      "available": true
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "east-route-water",
+      "nodeId": "S1",
+      "levelM": 2,
+      "edgeIds": [
+        "east-direct"
+      ],
+      "label": "Reviewed fictional direct-route limit: 2 m",
+      "source": "Reviewed for this fictional exercise only; not an operational water-depth limit"
+    }
+  ],
+  "routeGraph": {
+    "version": "conceptual-1",
+    "nodes": [
+      {
+        "id": "east",
+        "zoneId": "zone-b"
+      },
+      {
+        "id": "junction",
+        "zoneId": "zone-a"
+      },
+      {
+        "id": "south",
+        "zoneId": "zone-c"
+      },
+      {
+        "id": "muster",
+        "zoneId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "east-direct",
+        "from": "east",
+        "to": "junction",
+        "zoneId": "zone-b",
+        "lengthM": 300,
+        "speedMps": 1,
+        "delaySeconds": 0,
+        "availability": "available",
+        "bidirectional": true,
+        "source": "Manually drawn fictional training graph"
+      },
+      {
+        "id": "east-south",
+        "from": "east",
+        "to": "south",
+        "zoneId": "zone-b",
+        "lengthM": 500,
+        "speedMps": 1,
+        "delaySeconds": 0,
+        "availability": "available",
+        "bidirectional": true,
+        "source": "Manually drawn fictional training graph"
+      },
+      {
+        "id": "south-junction",
+        "from": "south",
+        "to": "junction",
+        "zoneId": "zone-c",
+        "lengthM": 350,
+        "speedMps": 1,
+        "delaySeconds": 0,
+        "availability": "available",
+        "bidirectional": true,
+        "source": "Manually drawn fictional training graph"
+      },
+      {
+        "id": "exit",
+        "from": "junction",
+        "to": "muster",
+        "zoneId": "zone-a",
+        "lengthM": 200,
+        "speedMps": 1,
+        "delaySeconds": 0,
+        "availability": "available",
+        "bidirectional": true,
+        "source": "Manually drawn fictional training graph"
+      }
+    ]
+  },
+  "movements": [
+    {
+      "id": "east-crew-assumption",
+      "startNodes": [
+        "east"
+      ],
+      "targetNode": "muster",
+      "departureSeconds": 8280,
+      "responseDelaySeconds": 0,
+      "assumption": "Assumed crew at east, departing at 2 h 18 min at 1 m/s with zero response delay; direct edge takes 5 min, alternative route 17 min 30 s. Calculated arrival is not human muster."
+    }
+  ],
+  "provenance": [
+    {
+      "id": "S1",
+      "source": "Fictional: initial 30 m³; inflow 18 m³/h; linear storage area 30 m²; capacity 150 m³",
+      "quality": "assumed",
+      "originalUnit": "m3/h",
+      "checkedAt": null
+    },
+    {
+      "id": "P1",
+      "source": "Fictional: primary 12 m³/h fails at exactly 1 h; failure time is not extracted from a report",
+      "quality": "assumed",
+      "originalUnit": "m3/h",
+      "checkedAt": null
+    },
+    {
+      "id": "P2",
+      "source": "Fictional: backup 24 m³/h activates at 4 h",
+      "quality": "assumed",
+      "originalUnit": "m3/h",
+      "checkedAt": null
+    }
+  ]
+}

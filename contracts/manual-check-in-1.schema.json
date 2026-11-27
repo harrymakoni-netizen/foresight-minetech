@@ -1,0 +1,61 @@
+{
+  "$ref": "#/definitions/manual-check-in-1",
+  "definitions": {
+    "manual-check-in-1": {
+      "type": "object",
+      "properties": {
+        "personId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "shaftId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "zoneId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expectedReturn": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "buddyPersonId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "personId",
+        "shaftId",
+        "expectedReturn",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

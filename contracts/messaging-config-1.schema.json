@@ -1,0 +1,114 @@
+{
+  "$ref": "#/definitions/messaging-config-1",
+  "definitions": {
+    "messaging-config-1": {
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "default": "Africa/Harare"
+        },
+        "shafts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+              },
+              "number": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              },
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 60
+              },
+              "zoneIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                },
+                "maxItems": 20
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "name",
+              "zoneIds"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "gracePeriodMinutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 240
+        },
+        "secondIntervalMinutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 480
+        },
+        "maxShiftHours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "unconfirmedAfterMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "en"
+          ],
+          "default": "en"
+        },
+        "liveEnabled": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "by": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "by",
+                "at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "shafts",
+        "gracePeriodMinutes",
+        "secondIntervalMinutes",
+        "maxShiftHours",
+        "unconfirmedAfterMinutes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

@@ -1,0 +1,29 @@
+{
+  "description": "Constructed 10-junction test network for proof test 2. Fictional; not a mine survey.",
+  "junctions": [
+    {"id": "J1", "x": 0, "y": 0}, {"id": "J2", "x": 60, "y": 0}, {"id": "J3", "x": 120, "y": 0},
+    {"id": "J4", "x": 180, "y": 0}, {"id": "J5", "x": 60, "y": -60}, {"id": "J6", "x": 120, "y": -60},
+    {"id": "J7", "x": 180, "y": -60}, {"id": "J8", "x": 240, "y": 0}, {"id": "J9", "x": 240, "y": -60},
+    {"id": "J10", "x": 120, "y": 60}
+  ],
+  "tunnels": [
+    {"id": "T1", "from": "J1", "to": "J2", "width": 3.5},
+    {"id": "T2", "from": "J2", "to": "J3", "width": 3.0},
+    {"id": "T3", "from": "J3", "to": "J4", "width": 3.0},
+    {"id": "T4", "from": "J4", "to": "J8", "width": 3.0},
+    {"id": "T5", "from": "J2", "to": "J5", "width": 2.5},
+    {"id": "T6", "from": "J5", "to": "J6", "width": 2.5},
+    {"id": "T7", "from": "J6", "to": "J7", "width": 2.5},
+    {"id": "T8", "from": "J7", "to": "J9", "width": 2.5},
+    {"id": "T9", "from": "J8", "to": "J9", "width": 2.5},
+    {"id": "T10", "from": "J3", "to": "J6", "width": 2.0},
+    {"id": "T11", "from": "J3", "to": "J10", "width": 2.5}
+  ],
+  "exits": [{"id": "X1", "junction": "J1", "kind": "adit", "usableForEscape": true}],
+  "refuges": [],
+  "zones": [
+    {"id": "east", "name": "East development", "tunnelIds": ["T4", "T9"]},
+    {"id": "north", "name": "North stope", "tunnelIds": ["T11"]},
+    {"id": "south", "name": "South drive", "tunnelIds": ["T7", "T8"]}
+  ]
+}

@@ -1,0 +1,2 @@
+# The water simulator uses only the Python standard library.
+# Vision inference remains a separate, explicitly configured model worker.

@@ -1,0 +1,85 @@
+{
+  "verifiedAt": "2026-10-17T23:00:53.999Z",
+  "baseURL": "http://localhost:3001",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "reportingColdJavascript": {
+    "gzipBytes": 164437,
+    "budgetBytes": 358400,
+    "passed": true,
+    "scripts": [
+      {
+        "path": "/_next/static/chunks/09lgyggnhjlha.js",
+        "bytes": 21753,
+        "gzipBytes": 7245
+      },
+      {
+        "path": "/_next/static/chunks/turbopack-0fryggzn27ce4.js",
+        "bytes": 9688,
+        "gzipBytes": 3835
+      },
+      {
+        "path": "/_next/static/chunks/3fntmmi971322.js",
+        "bytes": 14377,
+        "gzipBytes": 3661
+      },
+      {
+        "path": "/_next/static/chunks/3vc0yec22p6u1.js",
+        "bytes": 178147,
+        "gzipBytes": 47186
+      },
+      {
+        "path": "/_next/static/chunks/2ac5vnckk0l1c.js",
+        "bytes": 11695,
+        "gzipBytes": 4636
+      },
+      {
+        "path": "/_next/static/chunks/0mxz7walu8f-t.js",
+        "bytes": 56760,
+        "gzipBytes": 19469
+      },
+      {
+        "path": "/_next/static/chunks/1mh6a-0e61pyc.js",
+        "bytes": 229156,
+        "gzipBytes": 71628
+      },
+      {
+        "path": "/_next/static/chunks/1xhlf91pu-0h9.js",
+        "bytes": 22452,
+        "gzipBytes": 6777
+      }
+    ]
+  },
+  "accessibility": [
+    {
+      "view": "evidence",
+      "violations": [],
+      "incompleteChecks": []
+    },
+    {
+      "view": "people",
+      "violations": [],
+      "incompleteChecks": []
+    },
+    {
+      "view": "map",
+      "violations": [],
+      "incompleteChecks": [
+        "color-contrast"
+      ]
+    },
+    {
+      "view": "simulator",
+      "violations": [],
+      "incompleteChecks": []
+    },
+    {
+      "view": "overview",
+      "violations": [],
+      "incompleteChecks": []
+    }
+  ],
+  "limitation": "Automated browser/axe checks do not prove WCAG conformance. Screen-reader, manual touch and full private-account flows require human review."
+}

@@ -1,0 +1,421 @@
+/* MineTech v2 additions. Same tokens as upgrade.css (navy sidebar, light
+   working area, one teal accent, text label with every status colour). */
+.fs-app .fs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.fs-app .fs-block {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.fs-app .fs-help {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 14px;
+}
+.fs-app .fs-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.fs-app .fs-inline-select select {
+  width: auto;
+  min-height: 34px;
+}
+.fs-app .fs-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.fs-app .fs-register {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fs-app .fs-register th,
+.fs-app .fs-register td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f2;
+}
+.fs-app .fs-register th {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: #f8fafb;
+}
+.fs-app .fs-register tr.overdue td:first-child {
+  box-shadow: inset 3px 0 0 #b42318;
+}
+/* Brand mark from the supplied logo, on a light tile so its white details read. */
+.fs-app .fs-brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  background: #fff;
+  padding: 3px;
+  flex: none;
+}
+/* Single training-mine notice on the mine selector. */
+.fs-app .fs-training-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff5e6;
+  color: #7a4a0e;
+  border: 1px solid #f1d3a6;
+  font-size: 10px;
+  font-weight: 650;
+}
+.fs-app .fs-tone-red {
+  color: #b42318;
+}
+.fs-app .tag-red,
+.fs-app .fs-tag.red {
+  background: #fdecea;
+  color: #8f1d14;
+}
+.fs-app .fs-embedded-title {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+@media (max-width: 640px) {
+  .fs-app .fs-section-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+/* Underground now */
+.fs-app .fs-headcount {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.fs-app .fs-count {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.fs-app .fs-count span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.fs-app .fs-count strong {
+  font-size: 30px;
+  line-height: 1.2;
+}
+.fs-app .fs-count small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.fs-app .fs-count.danger {
+  border-color: #f0b4ad;
+  background: #fff6f5;
+}
+.fs-app .fs-count.danger strong,
+.fs-app .fs-count.danger small {
+  color: #b42318;
+}
+.fs-app .fs-service-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.fs-app .fs-service-row .fs-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.fs-app .fs-actions {
+  margin-bottom: 18px;
+}
+.fs-app .fs-shafts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.fs-app .fs-roll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fs-app .fs-roll li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0 10px 10px;
+  border-bottom: 1px solid #edf0f2;
+}
+.fs-app .fs-roll li.overdue {
+  box-shadow: inset 3px 0 0 #b42318;
+}
+.fs-app .fs-roll-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fs-app .fs-roll-actions .fs-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.fs-app .fs-button.danger {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+.fs-app .fs-alert-card {
+  border-top: 1px solid #edf0f2;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.fs-app .fs-alert-card ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.fs-app .fs-alert-card ul {
+  padding-left: 16px;
+  margin: 4px 0;
+}
+.fs-app .fs-tag.red {
+  background: #fdecea;
+  border-color: #f5c6c0;
+  color: #8f1d14;
+}
+.fs-app .fs-concerns-title {
+  margin: 8px 0 14px;
+}
+.fs-app .fs-message-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fs-app .fs-message-log > li {
+  border-bottom: 1px solid #edf0f2;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.fs-app .fs-message-log p {
+  margin: 6px 0;
+}
+.fs-app .fs-history {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.fs-app .fs-checks {
+  border: 0;
+  padding: 0;
+  margin: 10px 0;
+  display: flex;
+  gap: 16px;
+}
+.fs-app .fs-emergency {
+  border: 2px solid #b42318;
+  background: #fffafa;
+  margin-bottom: 18px;
+}
+.fs-app .fs-emergency h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8f1d14;
+  font-size: 18px;
+}
+.fs-app .fs-emergency h4 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+.fs-app .fs-emergency .fs-button-row {
+  margin-top: 14px;
+}
+.fs-app .fs-confirm {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 12px 0;
+  font-weight: 650;
+}
+.fs-app .fs-subhead { margin: 18px 0 8px; font-size: 13px; }
+/* Mine model */
+.fs-app .fs-plan {
+  width: 100%;
+  display: block;
+  background: #fbfcfc;
+  border-radius: 6px;
+}
+.fs-app .fs-3d {
+  width: 100%;
+  height: 420px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.fs-app .fs-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.fs-app .fs-legend span {
+  display: inline-block;
+  width: 18px;
+  height: 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.fs-app .fs-equipment {
+  font-size: 12px;
+  padding-left: 18px;
+}
+.fs-app .fs-editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.fs-app .fs-editor-tools .fs-button {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+.fs-app .fs-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+  .fs-app .fs-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.fs-app .fs-props h3 {
+  margin-bottom: 10px;
+}
+.fs-app .fs-prov {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 0 0 10px;
+  display: grid;
+  gap: 6px;
+}
+.fs-app .fs-prov legend {
+  font-size: 11px;
+  font-weight: 650;
+  padding: 0 4px;
+}
+.fs-app .fs-issues {
+  list-style: none;
+  padding: 0;
+  font-size: 12px;
+}
+.fs-app .fs-issues li {
+  padding: 5px 0;
+  border-bottom: 1px solid #edf0f2;
+}
+/* Scenarios */
+.fs-app .fs-scenario-grid {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .fs-app .fs-scenario-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.fs-app .fs-scenario-main > section {
+  margin-bottom: 16px;
+}
+.fs-app .fs-builder .fs-field {
+  margin-bottom: 8px;
+}
+.fs-app .fs-group {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+.fs-app .fs-group legend {
+  font-weight: 650;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.fs-app .fs-timeline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.fs-app .fs-timeline input[type="range"] {
+  flex: 1;
+}
+.fs-app .fs-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  font-size: 11px;
+}
+.fs-app .fs-accounting {
+  font-size: 13px;
+  background: #f4f8f8;
+  padding: 10px;
+  border-radius: 6px;
+}
+.fs-app .fs-tta-result {
+  font-weight: 650;
+  font-size: 14px;
+}
+.fs-app .fs-inline-fields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fs-app .fs-runs {
+  list-style: none;
+  padding: 0;
+  font-size: 12px;
+}
+.fs-app .fs-runs li {
+  padding: 4px 0;
+}
+.fs-app .fs-inline-link.active {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.fs-app .fs-pre {
+  white-space: pre-wrap;
+  font-size: 10px;
+  max-height: 300px;
+  overflow: auto;
+}
+.fs-app .fs-concern-actions { display: flex; flex-direction: column; gap: 6px; }

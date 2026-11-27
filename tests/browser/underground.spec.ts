@@ -1,0 +1,45 @@
+import { expect, test } from "@playwright/test";
+// Spec §16.1 browser rows: manual check-in, consent, server-first protection,
+// accounted for, dry-run message state, phone width.
+test("manual check-in needs consent, offline saves are 'not yet registered', accounted for stops the ladder", async ({ page, context }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Underground now", exact: true })).toBeVisible();
+  await expect(page.getByText("Messaging: dry run, nothing is sent")).toBeVisible();
+  await expect(page.getByText(/Escalation scheduler (stopped|has never reported)/)).toBeVisible();
+  await page.getByRole("button", { name: "Manual check-in" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Person").selectOption({ label: "Rudo C. (fictional)" });
+  await expect(dialog.getByText(/No consent recorded/)).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Register check-in" })).toBeDisabled();
+  await dialog.getByLabel("Consent note (how it was given)").fill("Signed paper form at the lamp room");
+  await dialog.getByRole("button", { name: "Record consent given in person" }).click();
+  await expect(dialog.getByRole("button", { name: "Register check-in" })).toBeEnabled();
+  await dialog.getByLabel("Shaft").selectOption({ label: "2. East incline" });
+  await dialog.getByLabel("Buddy").selectOption({ label: "Tendai M. (fictional)" });
+  // Save on device first: shown as not yet registered until the server stores it.
+  await dialog.getByRole("button", { name: "Save on this device (offline)" }).click();
+  await expect(page.getByText(/not yet registered/).first()).toBeVisible();
+  await expect(page.locator(".fs-count").first()).toContainText("0");
+  await page.getByRole("button", { name: "Sync now" }).click();
+  const card = page.getByRole("article", { name: /East incline: 1 declared underground/ });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("Rudo C. (fictional)");
+  await expect(card).toContainText("Declared underground");
+  await expect(card).toContainText("manual check-in");
+  await card.getByRole("button", { name: "Accounted for" }).click();
+  await page.getByRole("dialog").getByLabel(/Reason/).fill("Seen on surface by the shift boss");
+  await page.getByRole("dialog").getByRole("button", { name: "Accounted for" }).click();
+  await expect(page.getByRole("article", { name: /East incline: 0 declared underground/ })).toBeVisible();
+  await page.goto("/#checkins");
+  await expect(page.getByRole("heading", { name: "Check-ins", exact: true })).toBeVisible();
+  await expect(page.locator("table").first()).toContainText("Accounted for");
+  await expect(page.locator("table").first()).toContainText("Manual check-in");
+  void context;
+});
+test("Underground now fits a 390 px phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Underground now", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Manual check-in" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

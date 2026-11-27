@@ -1,0 +1,23 @@
+# Render Blueprint: one always-on service running the Foresight simulation
+# engines and the messaging service (overdue-alert scheduler). See
+# docs/RENDER_SETUP.md. Secrets are entered in the Render dashboard (sync: false).
+services:
+  - type: web
+    name: foresight-engine
+    runtime: docker
+    dockerfilePath: ./deploy/render.Dockerfile
+    dockerContext: .
+    branch: claude/minetech-v2
+    region: virginia
+    plan: starter
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FORESIGHT_WORKER_TOKEN
+        sync: false
+      - key: FORESIGHT_PERSONAL_DATA_KEY
+        sync: false
+      - key: MESSAGING_MODE
+        value: dry-run

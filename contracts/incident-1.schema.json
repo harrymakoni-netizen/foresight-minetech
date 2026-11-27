@@ -1,0 +1,106 @@
+{
+  "$ref": "#/definitions/incident-1",
+  "definitions": {
+    "incident-1": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "zoneId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "near-miss",
+            "injury",
+            "equipment-failure",
+            "overdue-miner",
+            "collapse",
+            "flooding",
+            "drill"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "real-event",
+            "report"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 4000
+        },
+        "peopleAffected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100
+              },
+              "personId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 200,
+          "default": []
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "dueAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "occurredAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "title",
+        "zoneId",
+        "category",
+        "source",
+        "description",
+        "owner",
+        "dueAt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

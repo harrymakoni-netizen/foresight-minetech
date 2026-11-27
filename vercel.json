@@ -1,5 +1,12 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm ci"
+  "installCommand": "npm ci",
+  "functions": {
+    "api/simulation.py": {
+      "maxDuration": 150,
+      "includeFiles": "services/simulator/{__init__,engine,ensemble}.py",
+      "excludeFiles": "{.venv/**,node_modules/**,.minetech-data/**,outputs/**,tests/**,fixtures/**,services/vision/**}"
+    }
+  }
 }

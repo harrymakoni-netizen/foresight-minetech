@@ -1,0 +1,1072 @@
+{
+  "model": {
+    "schemaVersion": "mine-model-1",
+    "meta": {
+      "name": "Mavambo training mine",
+      "fictional": true,
+      "datum": "Fictional local plan datum; metres; origin at main shaft; not surveyed",
+      "source": "template"
+    },
+    "units": {
+      "length": "m",
+      "confirmed": true
+    },
+    "junctions": [
+      {
+        "id": "JMS",
+        "x": 0,
+        "y": 0,
+        "z": -60,
+        "name": "Main shaft station"
+      },
+      {
+        "id": "J1",
+        "x": 60,
+        "y": 0,
+        "z": -60
+      },
+      {
+        "id": "J2",
+        "x": 120,
+        "y": 0,
+        "z": -61
+      },
+      {
+        "id": "J3",
+        "x": 180,
+        "y": 0,
+        "z": -62,
+        "name": "Refuge bay"
+      },
+      {
+        "id": "J4",
+        "x": 240,
+        "y": 0,
+        "z": -63
+      },
+      {
+        "id": "J5",
+        "x": 300,
+        "y": 0,
+        "z": -64,
+        "name": "East face"
+      },
+      {
+        "id": "J6",
+        "x": 240,
+        "y": -50,
+        "z": -65,
+        "name": "East sump"
+      },
+      {
+        "id": "J7",
+        "x": 120,
+        "y": -80,
+        "z": -61
+      },
+      {
+        "id": "J8",
+        "x": 40,
+        "y": -100,
+        "z": -60,
+        "name": "South face"
+      },
+      {
+        "id": "J9",
+        "x": 120,
+        "y": 80,
+        "z": -58
+      },
+      {
+        "id": "J10",
+        "x": 60,
+        "y": 130,
+        "z": -50,
+        "name": "North adit portal"
+      },
+      {
+        "id": "J11",
+        "x": 300,
+        "y": 60,
+        "z": -60,
+        "name": "Incline foot"
+      },
+      {
+        "id": "J12",
+        "x": 420,
+        "y": 180,
+        "z": -20,
+        "name": "East incline portal"
+      }
+    ],
+    "tunnels": [
+      {
+        "id": "T1",
+        "from": "JMS",
+        "to": "J1",
+        "name": "Main haulage",
+        "length": null,
+        "width": 3.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T2",
+        "from": "J1",
+        "to": "J2",
+        "name": "Main haulage",
+        "length": null,
+        "width": 3.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T3",
+        "from": "J2",
+        "to": "J3",
+        "name": "East drive",
+        "length": null,
+        "width": 3,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T4",
+        "from": "J3",
+        "to": "J4",
+        "name": "East development",
+        "length": null,
+        "width": 3,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T5",
+        "from": "J4",
+        "to": "J5",
+        "name": "East development face",
+        "length": null,
+        "width": 2.8,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T6",
+        "from": "J4",
+        "to": "J6",
+        "name": "Sump access",
+        "length": null,
+        "width": 2.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T7",
+        "from": "J5",
+        "to": "J11",
+        "name": "East cross-cut",
+        "length": null,
+        "width": 2.8,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T8",
+        "from": "J11",
+        "to": "J12",
+        "name": "East incline",
+        "length": null,
+        "width": 3,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T9",
+        "from": "J2",
+        "to": "J7",
+        "name": "South drive",
+        "length": null,
+        "width": 2.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T10",
+        "from": "J7",
+        "to": "J8",
+        "name": "South working",
+        "length": null,
+        "width": 2.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T11",
+        "from": "J8",
+        "to": "JMS",
+        "name": "South return airway",
+        "length": null,
+        "width": 2.2,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T12",
+        "from": "J1",
+        "to": "J9",
+        "name": "North drive",
+        "length": null,
+        "width": 2.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      },
+      {
+        "id": "T13",
+        "from": "J9",
+        "to": "J10",
+        "name": "North adit",
+        "length": null,
+        "width": 2.5,
+        "height": 3,
+        "profile": "arched",
+        "walkable": true,
+        "resistance": null
+      }
+    ],
+    "exits": [
+      {
+        "id": "X-MS",
+        "junction": "JMS",
+        "name": "Main shaft",
+        "kind": "shaft",
+        "shaftId": "main-shaft",
+        "usableForEscape": true,
+        "hoist": {
+          "cageCapacity": 8,
+          "loadingSeconds": 45,
+          "tripSecondsByLevel": [
+            {
+              "level": "60 m level",
+              "junction": "JMS",
+              "seconds": 90
+            }
+          ]
+        },
+        "ladderClimbSeconds": 900
+      },
+      {
+        "id": "X-EI",
+        "junction": "J12",
+        "name": "East incline",
+        "kind": "incline",
+        "shaftId": "east-incline",
+        "usableForEscape": true,
+        "hoist": null,
+        "ladderClimbSeconds": null
+      },
+      {
+        "id": "X-NA",
+        "junction": "J10",
+        "name": "North adit",
+        "kind": "adit",
+        "shaftId": "north-adit",
+        "usableForEscape": true,
+        "hoist": null,
+        "ladderClimbSeconds": null
+      }
+    ],
+    "refuges": [
+      {
+        "id": "R1",
+        "junction": "J3",
+        "name": "Refuge bay 1",
+        "capacity": 12,
+        "airSupplyM3": 80
+      }
+    ],
+    "sumps": [
+      {
+        "id": "S1",
+        "junction": "J6",
+        "name": "East sump",
+        "levelVolume": [
+          {
+            "levelM": 0,
+            "volumeM3": 0
+          },
+          {
+            "levelM": 5,
+            "volumeM3": 150
+          }
+        ],
+        "dangerLevelM": 2,
+        "initialVolumeM3": 30,
+        "inflowM3h": 18,
+        "closesTunnelIds": [
+          "T6",
+          "T4"
+        ]
+      }
+    ],
+    "pumps": [
+      {
+        "id": "P1",
+        "sumpId": "S1",
+        "name": "P1 duty pump",
+        "capacityM3h": 24,
+        "role": "duty"
+      },
+      {
+        "id": "P2",
+        "sumpId": "S1",
+        "name": "P2 backup pump",
+        "capacityM3h": 24,
+        "role": "backup"
+      }
+    ],
+    "fans": [
+      {
+        "id": "F1",
+        "tunnelId": "T13",
+        "name": "North adit fan",
+        "fixedDutyM3s": null,
+        "pressurePa": null
+      }
+    ],
+    "doors": [
+      {
+        "id": "D1",
+        "tunnelId": "T11",
+        "name": "South return door",
+        "open": true,
+        "resistance": null
+      }
+    ],
+    "zones": [
+      {
+        "id": "zone-a",
+        "name": "North working",
+        "tunnelIds": [
+          "T12",
+          "T13"
+        ],
+        "shaftIds": [
+          "main-shaft",
+          "north-adit"
+        ]
+      },
+      {
+        "id": "zone-b",
+        "name": "East development",
+        "tunnelIds": [
+          "T4",
+          "T5",
+          "T6",
+          "T7"
+        ],
+        "shaftIds": [
+          "east-incline"
+        ]
+      },
+      {
+        "id": "zone-c",
+        "name": "South working",
+        "tunnelIds": [
+          "T9",
+          "T10",
+          "T11"
+        ],
+        "shaftIds": [
+          "main-shaft"
+        ]
+      }
+    ],
+    "storageLinks": {
+      "reviewed": false,
+      "reviewedBy": null,
+      "links": []
+    },
+    "provenance": {
+      "JMS.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "JMS.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "JMS.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J1.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J1.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J1.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J2.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J2.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J2.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J3.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J3.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J3.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J4.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J4.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J4.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J5.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J5.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J5.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J6.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J6.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J6.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J7.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J7.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J7.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J8.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J8.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J8.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J9.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J9.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J9.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J10.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J10.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J10.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J11.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J11.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J11.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J12.x": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J12.y": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "J12.z": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T1.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T1.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T2.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T2.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T3.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T3.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T4.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T4.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T5.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T5.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T6.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T6.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T7.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T7.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T8.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T8.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T9.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T9.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T10.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T10.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T11.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T11.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T12.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T12.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T13.width": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "T13.height": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "P1.capacityM3h": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "P2.capacityM3h": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "S1.dangerLevelM": {
+        "quality": "assumed",
+        "note": "Fictional 2 m threshold carried over from the water laboratory exercise",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "S1.inflowM3h": {
+        "quality": "assumed",
+        "note": "Fictional inflow carried over from the water laboratory baseline",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "S1.initialVolumeM3": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "S1.levelVolume": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "R1.capacity": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      },
+      "R1.airSupplyM3": {
+        "quality": "assumed",
+        "note": "Fictional training-mine value; not measured",
+        "author": "Foresight template",
+        "at": "2026-11-17T00:00:00Z"
+      }
+    }
+  },
+  "escapeNetwork": {
+    "junctions": [
+      {
+        "id": "JMS",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "id": "J1",
+        "x": 60,
+        "y": 0
+      },
+      {
+        "id": "J2",
+        "x": 120,
+        "y": 0
+      },
+      {
+        "id": "J3",
+        "x": 180,
+        "y": 0
+      },
+      {
+        "id": "J4",
+        "x": 240,
+        "y": 0
+      },
+      {
+        "id": "J5",
+        "x": 300,
+        "y": 0
+      },
+      {
+        "id": "J6",
+        "x": 240,
+        "y": -50
+      },
+      {
+        "id": "J7",
+        "x": 120,
+        "y": -80
+      },
+      {
+        "id": "J8",
+        "x": 40,
+        "y": -100
+      },
+      {
+        "id": "J9",
+        "x": 120,
+        "y": 80
+      },
+      {
+        "id": "J10",
+        "x": 60,
+        "y": 130
+      },
+      {
+        "id": "J11",
+        "x": 300,
+        "y": 60
+      },
+      {
+        "id": "J12",
+        "x": 420,
+        "y": 180
+      }
+    ],
+    "tunnels": [
+      {
+        "id": "T1",
+        "from": "JMS",
+        "to": "J1",
+        "width": 3.5,
+        "walkable": true
+      },
+      {
+        "id": "T2",
+        "from": "J1",
+        "to": "J2",
+        "width": 3.5,
+        "walkable": true
+      },
+      {
+        "id": "T3",
+        "from": "J2",
+        "to": "J3",
+        "width": 3,
+        "walkable": true
+      },
+      {
+        "id": "T4",
+        "from": "J3",
+        "to": "J4",
+        "width": 3,
+        "walkable": true
+      },
+      {
+        "id": "T5",
+        "from": "J4",
+        "to": "J5",
+        "width": 2.8,
+        "walkable": true
+      },
+      {
+        "id": "T6",
+        "from": "J4",
+        "to": "J6",
+        "width": 2.5,
+        "walkable": true
+      },
+      {
+        "id": "T7",
+        "from": "J5",
+        "to": "J11",
+        "width": 2.8,
+        "walkable": true
+      },
+      {
+        "id": "T8",
+        "from": "J11",
+        "to": "J12",
+        "width": 3,
+        "walkable": true
+      },
+      {
+        "id": "T9",
+        "from": "J2",
+        "to": "J7",
+        "width": 2.5,
+        "walkable": true
+      },
+      {
+        "id": "T10",
+        "from": "J7",
+        "to": "J8",
+        "width": 2.5,
+        "walkable": true
+      },
+      {
+        "id": "T11",
+        "from": "J8",
+        "to": "JMS",
+        "width": 2.2,
+        "walkable": true
+      },
+      {
+        "id": "T12",
+        "from": "J1",
+        "to": "J9",
+        "width": 2.5,
+        "walkable": true
+      },
+      {
+        "id": "T13",
+        "from": "J9",
+        "to": "J10",
+        "width": 2.5,
+        "walkable": true
+      }
+    ],
+    "exits": [
+      {
+        "id": "X-MS",
+        "junction": "JMS",
+        "kind": "shaft",
+        "usableForEscape": true
+      },
+      {
+        "id": "X-EI",
+        "junction": "J12",
+        "kind": "incline",
+        "usableForEscape": true
+      },
+      {
+        "id": "X-NA",
+        "junction": "J10",
+        "kind": "adit",
+        "usableForEscape": true
+      }
+    ],
+    "refuges": [
+      {
+        "id": "R1",
+        "junction": "J3",
+        "capacity": 12
+      }
+    ],
+    "zones": [
+      {
+        "id": "zone-a",
+        "name": "North working",
+        "tunnelIds": [
+          "T12",
+          "T13"
+        ]
+      },
+      {
+        "id": "zone-b",
+        "name": "East development",
+        "tunnelIds": [
+          "T4",
+          "T5",
+          "T6",
+          "T7"
+        ]
+      },
+      {
+        "id": "zone-c",
+        "name": "South working",
+        "tunnelIds": [
+          "T9",
+          "T10",
+          "T11"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,689 @@
+{
+  "schemaVersion": "1.0",
+  "evaluatedAt": "2026-10-17T22:41:37Z",
+  "engineVersion": "lumped-water-1.0.0",
+  "hardware": {
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "python": "3.12.14"
+  },
+  "verificationOnly": true,
+  "independentReview": false,
+  "cases": [
+    {
+      "id": "N01",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 2.1950121130254708e-13,
+      "durationMs": 38.268,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 2.1950121130254708e-13,
+        "fineRelativeResidual": 1.379022479930295e-13
+      },
+      "passed": true
+    },
+    {
+      "id": "N02",
+      "partition": "development",
+      "analyticErrorM3": 6.938893903907228e-18,
+      "relativeResidual": 3.4246444942648826e-15,
+      "durationMs": 1.717,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 6.938893903907228e-18,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.4246444942648826e-15,
+        "fineRelativeResidual": 9.83674482395235e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N03",
+      "partition": "development",
+      "analyticErrorM3": 4.902744876744691e-13,
+      "relativeResidual": 3.2154355376230687e-15,
+      "durationMs": 1.796,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 3.552713678800501e-13,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.2154355376230687e-15,
+        "fineRelativeResidual": 1.851311370146618e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N04",
+      "partition": "development",
+      "analyticErrorM3": 2.6432189770275727e-12,
+      "relativeResidual": 4.132211729538204e-14,
+      "durationMs": 11.584,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 1.3869794202037156e-11,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 4.132211729538204e-14,
+        "fineRelativeResidual": 1.2111655069336254e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N05",
+      "partition": "development",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 6.362836064205559e-14,
+      "durationMs": 9.622,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 6.362836064205559e-14,
+        "fineRelativeResidual": 6.868332498058457e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N06",
+      "partition": "development",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 1.288646063869337e-14,
+      "durationMs": 9.648,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.288646063869337e-14,
+        "fineRelativeResidual": 6.192195371839575e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N07",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 4.287595991833036e-14,
+      "durationMs": 9.723,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 4.287595991833036e-14,
+        "fineRelativeResidual": 7.280823382358379e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N08",
+      "partition": "development",
+      "analyticErrorM3": 1.0516032489249483e-12,
+      "relativeResidual": 7.512659530795233e-15,
+      "durationMs": 1.676,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 4.376943252282217e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 7.512659530795233e-15,
+        "fineRelativeResidual": 3.540448744397781e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N09",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 1.1774796340868457e-13,
+      "durationMs": 38.534,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.1774796340868457e-13,
+        "fineRelativeResidual": 3.284031399002683e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N10",
+      "partition": "development",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 2.2652666680968945e-14,
+      "durationMs": 10.872,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 2.2652666680968945e-14,
+        "fineRelativeResidual": 4.004891346911804e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N11",
+      "partition": "development",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 3.3936038025878814e-14,
+      "durationMs": 37.568,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.3936038025878814e-14,
+        "fineRelativeResidual": 1.6142547817715636e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N12",
+      "partition": "development",
+      "analyticErrorM3": 4.3520742565306136e-13,
+      "relativeResidual": 7.35412792254913e-15,
+      "durationMs": 1.933,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 4.800604358479177e-13,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 7.35412792254913e-15,
+        "fineRelativeResidual": 5.8277994857936365e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N13",
+      "partition": "development",
+      "analyticErrorM3": 2.8137492336099967e-12,
+      "relativeResidual": 2.206549286885539e-14,
+      "durationMs": 10.238,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 7.673861546209082e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 2.206549286885539e-14,
+        "fineRelativeResidual": 6.046676498868863e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N14",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 3.827904295356852e-14,
+      "durationMs": 9.787,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 5.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.827904295356852e-14,
+        "fineRelativeResidual": 4.5984564587080565e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N15",
+      "partition": "development",
+      "analyticErrorM3": 4.973799150320701e-14,
+      "relativeResidual": 3.4419021881775205e-16,
+      "durationMs": 2.159,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 1.2789769243681803e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.4419021881775205e-16,
+        "fineRelativeResidual": 1.8448595728631473e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N16",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 3.409021931313395e-14,
+      "durationMs": 39.167,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.409021931313395e-14,
+        "fineRelativeResidual": 1.740567928391836e-13
+      },
+      "passed": true
+    },
+    {
+      "id": "N17",
+      "partition": "development",
+      "analyticErrorM3": 8.526512829121202e-13,
+      "relativeResidual": 1.8251450449042137e-14,
+      "durationMs": 10.291,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 4.4284576006248244e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.8251450449042137e-14,
+        "fineRelativeResidual": 3.7404207093101576e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N18",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 9.615982339127938e-14,
+      "durationMs": 11.178,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 5.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 9.615982339127938e-14,
+        "fineRelativeResidual": 2.922259567994842e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N19",
+      "partition": "development",
+      "analyticErrorM3": 7.105427357601002e-12,
+      "relativeResidual": 9.615727668422166e-14,
+      "durationMs": 9.747,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 2.8244073746463982e-11,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 9.615727668422166e-14,
+        "fineRelativeResidual": 2.0839038290697865e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N20",
+      "partition": "development",
+      "analyticErrorM3": 0,
+      "relativeResidual": 1.2393292825343292e-13,
+      "durationMs": 43.354,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.2393292825343292e-13,
+        "fineRelativeResidual": 5.087402756955151e-13
+      },
+      "passed": true
+    },
+    {
+      "id": "N21",
+      "partition": "locked",
+      "analyticErrorM3": 0,
+      "relativeResidual": 1.111201161511703e-13,
+      "durationMs": 41.339,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 0.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.111201161511703e-13,
+        "fineRelativeResidual": 2.196034837834943e-13
+      },
+      "passed": true
+    },
+    {
+      "id": "N22",
+      "partition": "locked",
+      "analyticErrorM3": 3.8120617773529375e-12,
+      "relativeResidual": 4.409471857160316e-14,
+      "durationMs": 10.423,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 6.643574579356937e-13,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 4.409471857160316e-14,
+        "fineRelativeResidual": 2.3483872780343118e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N23",
+      "partition": "locked",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 1.3033805672007665e-14,
+      "durationMs": 40.573,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.3033805672007665e-14,
+        "fineRelativeResidual": 1.4006477737081844e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N24",
+      "partition": "locked",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 0.0,
+      "durationMs": 41.082,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 0.0,
+        "fineRelativeResidual": 7.079753293455933e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N25",
+      "partition": "locked",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 1.2909458914827636e-14,
+      "durationMs": 45.673,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.2909458914827636e-14,
+        "fineRelativeResidual": 1.2909458914824896e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N26",
+      "partition": "locked",
+      "analyticErrorM3": 0.0,
+      "relativeResidual": 3.998926959562659e-15,
+      "durationMs": 1.846,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0.0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.998926959562659e-15,
+        "fineRelativeResidual": 1.366980134136218e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N27",
+      "partition": "locked",
+      "analyticErrorM3": 1.3287149158713873e-12,
+      "relativeResidual": 1.1410608621154725e-14,
+      "durationMs": 1.595,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 4.320099833421409e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 1.1410608621154725e-14,
+        "fineRelativeResidual": 2.958305938817927e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N28",
+      "partition": "locked",
+      "analyticErrorM3": 3.3084646133829665e-13,
+      "relativeResidual": 2.974204639599683e-15,
+      "durationMs": 1.917,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 3.33510996597397e-13,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 2.974204639599683e-15,
+        "fineRelativeResidual": 6.809363253820326e-15
+      },
+      "passed": true
+    },
+    {
+      "id": "N29",
+      "partition": "locked",
+      "analyticErrorM3": 1.5205614545266144e-12,
+      "relativeResidual": 2.2084765665723428e-14,
+      "durationMs": 1.819,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 2.3021584638627246e-12,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": null,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 2.2084765665723428e-14,
+        "fineRelativeResidual": 1.700423271914866e-14
+      },
+      "passed": true
+    },
+    {
+      "id": "N30",
+      "partition": "locked",
+      "analyticErrorM3": 0,
+      "relativeResidual": 3.461326814262175e-14,
+      "durationMs": 9.758,
+      "convergence": {
+        "coarseStepSeconds": 10,
+        "fineStepSeconds": 5.0,
+        "finalStorageDifferenceM3": 0,
+        "thresholdDifferences": [
+          {
+            "id": "limit",
+            "differenceSeconds": 5.0,
+            "censoringMatches": true
+          }
+        ],
+        "coarseRelativeResidual": 3.461326814262175e-14,
+        "fineRelativeResidual": 6.767337681730488e-14
+      },
+      "passed": true
+    }
+  ],
+  "passed": 30,
+  "failed": 0,
+  "performance24h3nodes6pumps": {
+    "conservationResidualM3": 7.453309081029147e-10,
+    "relativeResidual": 2.7790115887519214e-13,
+    "internalSteps": 8640,
+    "maxStepSeconds": 10,
+    "durationMs": 82.826,
+    "thresholdTimePrecisionSeconds": 10
+  },
+  "limitations": [
+    "Constructed analytic fixtures; not measured mine data.",
+    "Locked partition has no independent human review. No product accuracy release threshold has been approved.",
+    "Software conservation and convergence do not establish engineering validity."
+  ]
+}

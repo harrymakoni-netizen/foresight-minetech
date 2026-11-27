@@ -1,0 +1,785 @@
+{
+  "$ref": "#/definitions/mine-model-1",
+  "definitions": {
+    "mine-model-1": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "mine-model-1"
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            },
+            "fictional": {
+              "type": "boolean"
+            },
+            "datum": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "template",
+                "editor",
+                "dxf"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "fictional",
+            "datum",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "units": {
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "string",
+              "const": "m"
+            },
+            "confirmed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "length",
+            "confirmed"
+          ],
+          "additionalProperties": false
+        },
+        "junctions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": -5000,
+                    "maximum": 5000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              }
+            },
+            "required": [
+              "id",
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 2000
+        },
+        "tunnels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "from": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 20000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0.3,
+                    "maximum": 50
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0.3,
+                    "maximum": 50
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "profile": {
+                "type": "string",
+                "enum": [
+                  "box",
+                  "arched"
+                ]
+              },
+              "walkable": {
+                "type": "boolean"
+              },
+              "resistance": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "length",
+              "width",
+              "height",
+              "profile",
+              "walkable",
+              "resistance"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4000
+        },
+        "exits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "junction": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "shaft",
+                  "adit",
+                  "incline",
+                  "portal"
+                ]
+              },
+              "shaftId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usableForEscape": {
+                "type": "boolean"
+              },
+              "hoist": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cageCapacity": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "loadingSeconds": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 3600
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tripSecondsByLevel": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "level": {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            "junction": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                            },
+                            "seconds": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 7200
+                            }
+                          },
+                          "required": [
+                            "level",
+                            "junction",
+                            "seconds"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 50
+                      }
+                    },
+                    "required": [
+                      "cageCapacity",
+                      "loadingSeconds",
+                      "tripSecondsByLevel"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ladderClimbSeconds": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 36000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "junction",
+              "name",
+              "kind",
+              "shaftId",
+              "usableForEscape",
+              "hoist",
+              "ladderClimbSeconds"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "refuges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "junction": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "capacity": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "airSupplyM3": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "junction",
+              "name",
+              "capacity",
+              "airSupplyM3"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "sumps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "junction": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "levelVolume": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "levelM": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000
+                    },
+                    "volumeM3": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100000000
+                    }
+                  },
+                  "required": [
+                    "levelM",
+                    "volumeM3"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 50
+              },
+              "dangerLevelM": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "initialVolumeM3": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "inflowM3h": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closesTunnelIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "maxItems": 50
+              }
+            },
+            "required": [
+              "id",
+              "junction",
+              "name",
+              "levelVolume",
+              "dangerLevelM",
+              "initialVolumeM3",
+              "inflowM3h",
+              "closesTunnelIds"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "pumps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "sumpId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "capacityM3h": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "duty",
+                  "backup"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "sumpId",
+              "name",
+              "capacityM3h",
+              "role"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "fans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "tunnelId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "fixedDutyM3s": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pressurePa": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "tunnelId",
+              "name",
+              "fixedDutyM3s",
+              "pressurePa"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "doors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "tunnelId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "open": {
+                "type": "boolean"
+              },
+              "resistance": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "tunnelId",
+              "name",
+              "open",
+              "resistance"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 200
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "tunnelIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "maxItems": 500
+              },
+              "shaftIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "maxItems": 20
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "tunnelIds",
+              "shaftIds"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "storageLinks": {
+          "type": "object",
+          "properties": {
+            "reviewed": {
+              "type": "boolean"
+            },
+            "reviewedBy": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "fromSumpId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "toSumpId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "fromSumpId",
+                  "toSumpId",
+                  "note"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "reviewed",
+            "reviewedBy",
+            "links"
+          ],
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "survey-plan",
+                  "assumed",
+                  "default"
+                ]
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "author": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "at": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "quality",
+              "note",
+              "author",
+              "at"
+            ],
+            "additionalProperties": false
+          },
+          "propertyNames": {
+            "maxLength": 140
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "meta",
+        "units",
+        "junctions",
+        "tunnels",
+        "exits",
+        "refuges",
+        "sumps",
+        "pumps",
+        "fans",
+        "doors",
+        "zones",
+        "storageLinks",
+        "provenance"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
