@@ -38,6 +38,14 @@ test("manual source: counts become people at the entered level with the model's 
   assert.deepEqual(b.input!.outages, [{ fromSeconds: 300, toSeconds: null }]);
   assert.equal(b.input!.horizonSeconds, 240 * 60);
 });
+test("cage count is part of the scenario and the engine input (1 to 4)", async () => {
+  const ctx = await ws("cages");
+  const one = await cg.buildCageInput(ctx, cg.cageScenarioSchema.parse(base));
+  assert.equal(one.input!.cageCount, 1);
+  const two = await cg.buildCageInput(ctx, cg.cageScenarioSchema.parse({ ...base, cageCount: 2 }));
+  assert.equal(two.input!.cageCount, 2);
+  for (const bad of [0, 5, 1.5]) assert.throws(() => cg.cageScenarioSchema.parse({ ...base, cageCount: bad }));
+});
 test("preflight lists blocking problems instead of guessing", async () => {
   const ctx = await ws("preflight");
   assert.match((await cg.cagePreflight(ctx, { ...base, shaftExitId: "X-EI" })).problems[0], /has no hoist entered/);

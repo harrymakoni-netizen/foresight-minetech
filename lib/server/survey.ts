@@ -10,6 +10,7 @@ import { createDraftFromModel, publishedModel } from "./mine-model.ts";
 import { newAssessment } from "./concerns.ts";
 import { modelFromImport, type ImportProposal } from "../domain/mine-model-import.ts";
 import type { MineModel } from "../domain/mine-model.ts";
+import { planToMap } from "../domain/basemap-align.ts";
 
 const requireEditor = (ctx: Context) => {
   if (ctx.role !== "supervisor" && ctx.role !== "administrator")
@@ -117,7 +118,7 @@ export async function acceptDxfImport(ctx: Context, id: string, input: unknown) 
 }
 
 // ---- GeoTIFF base maps ---------------------------------------------------------------------------
-export const baseMapUploadSchema = z.object({ name: z.string().trim().min(3).max(120), filename: z.string().max(160), b64: z.string().min(100) }).strict();
+export const baseMapUploadSchema = z.object({ name: z.string().trim().min(3).max(120), filename: z.string().max(160), b64: z.string().min(100), reproject: z.boolean().default(false) }).strict();
 export async function uploadBaseMap(ctx: Context, input: unknown) {
   requireEditor(ctx);
   const b = baseMapUploadSchema.parse(input);
@@ -125,7 +126,7 @@ export async function uploadBaseMap(ctx: Context, input: unknown) {
   if (raw.length > LIMITS.geotiffBytes) throw new DomainError(413, "SIZE_LIMIT", `GeoTIFF files up to ${LIMITS.geotiffBytes / 1e6} MB can be uploaded here. Reduce the resolution first, for example gdal_translate -outsize 2000 0.`);
   const magic = raw.subarray(0, 4).toString("hex");
   if (!["49492a00", "4d4d002a", "49492b00", "4d4d002b"].includes(magic)) throw new DomainError(422, "NOT_TIFF", "This is not a TIFF file.");
-  const sub = await submit(ctx, "basemap", { b64: b.b64, maxPixels: 1600 });
+  const sub = await submit(ctx, "basemap", { b64: b.b64, maxPixels: 1600, reproject: b.reproject });
   return await insert(ctx, "base-map", { name: b.name, filename: b.filename, size: raw.length, sha256: createHash("sha256").update(raw).digest("hex"), status: sub.error ? "worker-unavailable" : "processing", jobId: sub.jobId, error: sub.error, alignment: null, active: false, uploadedBy: ctx.actor, originalKept: false });
 }
 export async function pollBaseMap(ctx: Context, id: string) {
@@ -142,8 +143,8 @@ export async function pollBaseMap(ctx: Context, id: string) {
   if (["failed", "cancelled"].includes(job.status)) return await update(ctx, m, m.revision, { ...m.data, status: "failed", error: job.error || "The worker could not read the file" });
   return m;
 }
-export const alignSchema = z.object({ planOriginEasting: z.number().finite(), planOriginNorthing: z.number().finite(), confirmMetres: z.literal(true) }).strict();
-/** The plan's (0, 0) sits at this map coordinate; plan and map are both in metres. */
+export const alignSchema = z.object({ planOriginEasting: z.number().finite(), planOriginNorthing: z.number().finite(), rotationDegrees: z.number().min(-180).max(180).default(0), confirmMetres: z.literal(true) }).strict();
+/** The plan's (0, 0) sits at this map coordinate, with the plan grid rotated by rotationDegrees (counter-clockwise from map east); both are in metres. */
 export async function alignBaseMap(ctx: Context, id: string, input: unknown) {
   requireEditor(ctx);
   const b = alignSchema.parse(input);
@@ -153,13 +154,13 @@ export async function alignBaseMap(ctx: Context, id: string, input: unknown) {
   const model = (await publishedModel(ctx))?.data.model as MineModel | undefined;
   const warnings: string[] = [];
   if (model?.junctions.length) {
-    const xs = model.junctions.map((j) => j.x + b.planOriginEasting), ys = model.junctions.map((j) => j.y + b.planOriginNorthing);
-    const inside = model.junctions.filter((_, i) => xs[i] >= bounds.west && xs[i] <= bounds.east && ys[i] >= bounds.south && ys[i] <= bounds.north).length;
+    const pts = model.junctions.map((j) => planToMap(b, j.x, j.y));
+    const inside = pts.filter((p) => p.easting >= bounds.west && p.easting <= bounds.east && p.northing >= bounds.south && p.northing <= bounds.north).length;
     if (inside === 0) warnings.push("With this origin no part of the mine plan falls inside the base map. Check the coordinates.");
     else if (inside < model.junctions.length) warnings.push(`${model.junctions.length - inside} of ${model.junctions.length} junctions fall outside the base map.`);
   }
   for (const other of await list(ctx, "base-map")) if (other.id !== id && other.data.active) await update(ctx, other, other.revision, { ...other.data, active: false });
-  return await update(ctx, m, m.revision, { ...m.data, alignment: { planOriginEasting: b.planOriginEasting, planOriginNorthing: b.planOriginNorthing, confirmedMetres: true, by: ctx.actor, at: new Date().toISOString(), warnings }, active: true });
+  return await update(ctx, m, m.revision, { ...m.data, alignment: { planOriginEasting: b.planOriginEasting, planOriginNorthing: b.planOriginNorthing, rotationDegrees: b.rotationDegrees, confirmedMetres: true, by: ctx.actor, at: new Date().toISOString(), warnings }, active: true });
 }
 export async function setBaseMapActive(ctx: Context, id: string, active: boolean) {
   requireEditor(ctx);

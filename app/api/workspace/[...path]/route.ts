@@ -70,6 +70,7 @@ import {
   updateRollEntry,
 } from "@/lib/server/emergency";
 import { canSeePersonal, personalKeySource } from "@/lib/server/personal";
+import { setAiDataPolicy } from "@/lib/server/privacy";
 import { manualCheckInSchema, checkInStatusSchema } from "@/lib/domain/checkin";
 import type { Entity } from "@/lib/domain/contracts";
 
@@ -395,6 +396,7 @@ export async function POST(request: Request, route: RouteContext) {
         "sensor-readings",
         "base-maps",
         "subsidence-marks",
+        "ai-policy",
       ].includes(path[0]) || path[2] === "review";
     const ctx = await context(request, review ? "review" : "submit");
     if (path[0] === "assets") return await assetsPost(ctx, request);
@@ -590,6 +592,7 @@ export async function POST(request: Request, route: RouteContext) {
           .parse(body);
         return await bindChannel(ctx, b.provider, b.channelKey);
       }
+      if (path[0] === "ai-policy" && !path[1]) return await setAiDataPolicy(ctx, z.object({ allowNames: z.boolean() }).strict().parse(body));
       if (path[0] === "assistant" && path[1] === "chat") {
         const b = z.object({ message: z.string().trim().min(3).max(2000), allowRuns: z.boolean().default(false) }).strict().parse(body);
         return await runAssistant(ctx, b);

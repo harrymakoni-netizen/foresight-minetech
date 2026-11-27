@@ -567,6 +567,27 @@ export default function Workspace() {
               </a>
             ))}
           </details>
+          <h3>AI data policy</h3>
+          <label className="fs-3d-check">
+            <input
+              type="checkbox"
+              checked={Boolean(data?.entities.find((e) => e.kind === "ai-policy")?.data.allowNames)}
+              disabled={data?.workspace.role !== "administrator"}
+              onChange={(e) =>
+                void fetch("/api/workspace/ai-policy", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID(), "X-Workspace-Id": data!.workspace.id },
+                  body: JSON.stringify({ allowNames: e.target.checked }),
+                })
+                  .then(async (r) => (r.ok ? (setNotice("AI data policy saved."), await refresh()) : setError((await r.json()).message || "Could not save the policy.")))
+              }
+            />{" "}
+            Let the assistant&apos;s tools show people&apos;s names
+          </label>
+          <small>
+            Off by default. Phone numbers and miners&apos; messages are never sent to an AI provider, whatever this says.
+            {data?.workspace.role !== "administrator" ? " Only an administrator can change it." : ""}
+          </small>
           <h3>Services</h3>
           <p>
             AI:{" "}

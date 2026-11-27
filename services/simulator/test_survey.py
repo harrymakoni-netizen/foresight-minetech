@@ -3,6 +3,7 @@ tests; GeoTIFF fixtures with rasterio. Expected values are worked out by hand
 from the coordinates below, not taken from the importer's output."""
 import base64
 import io
+import math
 import unittest
 
 import ezdxf
@@ -197,6 +198,68 @@ class BaseMapTests(unittest.TestCase):
             survey.basemap({"b64": base64.b64encode(b"not a tiff").decode()})
         with self.assertRaises(ValueError):
             survey.basemap({"b64": ""})
+
+
+class ReprojectionTests(unittest.TestCase):
+    def test_geographic_raster_is_reprojected_to_the_utm_zone_of_its_centre(self):
+        # 100 x 80 px of 0.001 degree: lon 31.00-31.10, lat -17.75 to -17.83 (zone 36 south, central meridian 33 E).
+        b64 = tif(100, 80, 3, "uint8", crs="EPSG:4326", transform=from_origin(31.0, -17.75, 0.001, 0.001), fill=lambda b, h, w: np.full((h, w), 80 * (b + 1), dtype="uint8"))
+        r = survey.basemap({"b64": b64, "reproject": True})
+        self.assertEqual(r["epsg"], 32736)
+        self.assertEqual(r["reprojected"]["from"], "EPSG:4326")
+        self.assertEqual(r["reprojected"]["to"], "EPSG:32736")
+        self.assertIn("resampled", r["reprojected"]["note"])
+        bd = r["bounds"]
+        # Independent estimate: easting = 500000 - (33 - lon) x 111.32 km x cos(lat); northing = 10,000,000 + lat x 110.6 km.
+        lat = -17.79
+        east_w = 500000 - (33 - 31.00) * 111320 * math.cos(math.radians(lat))
+        east_e = 500000 - (33 - 31.10) * 111320 * math.cos(math.radians(lat))
+        self.assertAlmostEqual(bd["west"], east_w, delta=1500)
+        self.assertAlmostEqual(bd["east"], east_e, delta=1500)
+        self.assertAlmostEqual((bd["north"] + bd["south"]) / 2, 10_000_000 + lat * 110600, delta=3000)
+        self.assertGreater(r["pixelSizeM"][0], 90)  # 0.001 degree is about 105 m of easting
+        self.assertLess(r["pixelSizeM"][0], 120)
+        from PIL import Image
+        img = Image.open(io.BytesIO(base64.b64decode(r["png"])))
+        self.assertEqual(img.mode, "RGBA")
+        cx, cy = img.size[0] // 2, img.size[1] // 2
+        self.assertEqual(img.getpixel((cx, cy))[:3], (80, 160, 240))  # imagery colour survives, bilinear on a flat colour
+        self.assertEqual(img.getpixel((0, 0))[3] in (0, 255), True)
+
+    def test_rotated_raster_is_warped_north_up_and_its_footprint_matches_the_rotated_corners(self):
+        from affine import Affine
+        theta = math.radians(20)
+        c, s = math.cos(theta), math.sin(theta)
+        # 60 x 40 px at 5 m, rotated 20 degrees about the top-left corner (310000, 8000200).
+        t = Affine(5 * c, 5 * s, 310000, 5 * s, -5 * c, 8000200)
+        b64 = tif(60, 40, 3, "uint8", transform=t)
+        with self.assertRaisesRegex(ValueError, "Rotated"):
+            survey.basemap({"b64": b64})
+        r = survey.basemap({"b64": b64, "reproject": True})
+        corners = [t * (0, 0), t * (60, 0), t * (0, 40), t * (60, 40)]
+        xs, ys = [p[0] for p in corners], [p[1] for p in corners]
+        self.assertAlmostEqual(r["bounds"]["west"], min(xs), delta=8)
+        self.assertAlmostEqual(r["bounds"]["east"], max(xs), delta=8)
+        self.assertAlmostEqual(r["bounds"]["south"], min(ys), delta=8)
+        self.assertAlmostEqual(r["bounds"]["north"], max(ys), delta=8)
+        self.assertIn("reprojected", r)
+
+    def test_projected_metre_raster_is_left_alone_even_when_reprojection_is_allowed(self):
+        r = survey.basemap({"b64": tif(60, 40, 3, "uint8"), "reproject": True})
+        self.assertNotIn("reprojected", r)
+        self.assertEqual(r["epsg"], 32736)
+
+    def test_reprojected_elevation_model_keeps_its_value_range_and_masks_outside_pixels(self):
+        def dem(b, h, w):
+            return np.linspace(1200, 1230, w, dtype="float32")[None, :].repeat(h, axis=0)
+        r = survey.basemap({"b64": tif(60, 40, 1, "float32", crs="EPSG:4326", transform=from_origin(31.0, -17.75, 0.001, 0.001), fill=dem), "reproject": True})
+        self.assertEqual(r["kind"], "elevation")
+        self.assertAlmostEqual(r["range"]["min"], 1200, delta=1.0)
+        self.assertAlmostEqual(r["range"]["max"], 1230, delta=1.0)
+
+    def test_polar_rasters_are_refused(self):
+        with self.assertRaisesRegex(ValueError, "polar"):
+            survey.basemap({"b64": tif(10, 10, 3, "uint8", crs="EPSG:4326", transform=from_origin(10.0, 89.0, 0.001, 0.001)), "reproject": True})
 
 
 if __name__ == "__main__":

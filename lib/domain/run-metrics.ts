@@ -169,6 +169,31 @@ function allowedNumbers(metrics: Metric[]) {
   }
   return ok;
 }
+/** Deterministic comparison of two runs of the same kind: every changed metric cited in both runs. */
+export function deterministicComparison(a: MetricRun, b: MetricRun) {
+  const c = compareRuns(a, b);
+  const paragraphs = c.deltas
+    .filter((d) => d.change !== "no change" && d.change !== "both unavailable")
+    .map((d) => ({
+      text: `${d.label}: ${d.a} in ${a.name}, ${d.b} in ${b.name} (${d.change}).`,
+      citations: [{ runId: a.id, metricId: d.id }, { runId: b.id, metricId: d.id }],
+    }));
+  if (!paragraphs.length)
+    paragraphs.push({ text: "No metric differs between the two runs.", citations: [{ runId: a.id, metricId: c.deltas[0].id }, { runId: b.id, metricId: c.deltas[0].id }] });
+  return {
+    runId: a.id,
+    comparedWith: b.id,
+    mode: "deterministic" as const,
+    paragraphs,
+    assumptions: [
+      ...(c.sameInputs ? ["The two runs have identical inputs."] : ["The inputs differ between the runs, so a difference is not necessarily caused by one change."]),
+      ...(c.sameModelRevision ? [] : [`The runs used different mine model revisions (${a.mineModelRevision ?? "?"} and ${b.mineModelRevision ?? "?"}).`]),
+      ...a.assumptions,
+    ].filter((x, i, all) => all.indexOf(x) === i),
+    unavailable: [a, b].flatMap((r) => r.metrics.filter((x) => !x.available).map((x) => ({ metricId: `${x.id} (${r.name})`, label: x.label, reason: x.reason || "unavailable" }))),
+    limitation: "Planning calculations under the stated assumptions; a person must decide what to do.",
+  };
+}
 export type Citation = { runId: string; metricId: string };
 export type ExplanationParagraph = { text: string; citations: Citation[] };
 /**
@@ -191,6 +216,12 @@ export function groundingProblems(paragraphs: ExplanationParagraph[], runs: Metr
       else cited.push(metric);
     }
     const allowed = allowedNumbers(cited);
+    // A difference between the same metric in two cited runs is a derived figure a comparison may state.
+    for (const m1 of cited)
+      for (const m2 of cited) {
+        if (m1 === m2 || m1.id !== m2.id || typeof m1.value !== "number" || typeof m2.value !== "number") continue;
+        for (const n of allowedNumbers([{ ...m1, value: Math.abs(m1.value - m2.value) }])) allowed.add(n);
+      }
     // Strip metric/run identifiers and ordinals before looking for stated numbers.
     const text = p.text.replace(/[a-z]+\.[a-z0-9.-]+/gi, " ").replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi, " ").replace(/\b[0-9a-f]{8}\b/g, " ");
     for (const n of text.match(/\d+(?:\.\d+)?/g) || []) if (!allowed.has(n) && !allowed.has(String(Number(n)))) problems.push(`Paragraph ${i + 1} states ${n}, which is not a value of the metrics it cites.`);

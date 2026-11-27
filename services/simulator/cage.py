@@ -78,6 +78,10 @@ def validate(data: dict) -> None:
         if o.get("toSeconds") is not None and _num(o["toSeconds"], "outage end", 0, 1e6) <= f:
             raise ValueError("an outage must end after it starts")
     _num(data.get("horizonSeconds"), "horizon", 60, 86400)
+    if "cageCount" in data:
+        n = data["cageCount"]
+        if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= 4:
+            raise ValueError("cage count must be a whole number from 1 to 4")
 
 
 def _simulate(data: dict, outages: list[dict]) -> dict:
@@ -92,14 +96,23 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
     outs = sorted(({"from": float(o["fromSeconds"]), "to": None if o.get("toSeconds") is None else float(o["toSeconds"])} for o in outages), key=lambda o: o["from"])
 
     env = simpy.Environment()
-    cage = simpy.Resource(env, capacity=1)  # the single hoist
+    n_cages = int(data.get("cageCount", 1))
+    cage_res = [simpy.Resource(env, capacity=1) for _ in range(n_cages)]  # each cage runs one cycle at a time
     people = {a["id"]: {"id": a["id"], "name": a.get("name"), "level": a["level"], "arrivedAt": float(a["atSeconds"]), "route": None,
                         "surfaceAt": None, "reason": None, "cageTrips": 0, "movedToLadderAt": None, "aboardAt": None} for a in data["arrivals"]}
     waiting: dict[str, list[str]] = {lv: [] for lv in level_order}
     series: dict[str, list[list[float]]] = {lv: [[0.0, 0]] for lv in level_order}
     cycles: list[dict] = []
-    aboard: list[str] = []
-    wake = {"event": env.event()}
+    aboard_by: dict[int, list[str]] = {i: [] for i in range(n_cages)}
+    waiters: list = []  # idle cages wait here for an arrival or a failure
+    targeted: dict[str, int] = {lv: 0 for lv in level_order}  # people already claimed by a cage on its way
+
+    def wake_all() -> None:
+        pending = list(waiters)
+        waiters.clear()
+        for ev in pending:
+            if not ev.triggered:
+                ev.succeed()
 
     def note(level: str) -> None:
         n = len(waiting[level])
@@ -137,8 +150,7 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
             return
         waiting[p["level"]].append(pid)
         note(p["level"])
-        if not wake["event"].triggered:
-            wake["event"].succeed()
+        wake_all()
 
     fail_done = [env.event() for _ in outs]
 
@@ -147,17 +159,18 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
         # Let anything finishing at this very instant (a cage reaching the
         # surface, an arrival) settle first.
         yield env.timeout(0)
-        moved = [*aboard]
-        aboard.clear()
+        moved = [pid for i in range(n_cages) for pid in aboard_by[i]]
+        for i in range(n_cages):
+            aboard_by[i].clear()
         for lv in level_order:
+            targeted[lv] = 0
             moved += waiting[lv]
             waiting[lv] = []
             note(lv)
         for pid in moved:
             to_ladder(pid, env.now)
         fail_done[index].succeed()
-        if not wake["event"].triggered:
-            wake["event"].succeed()
+        wake_all()
 
     def next_outage(t: float):
         for i, o in enumerate(outs):
@@ -165,7 +178,7 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
                 return i
         return None
 
-    def dispatcher():
+    def dispatcher(idx: int):
         while True:
             o = out_at(env.now)
             if o is not None:
@@ -173,39 +186,50 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
                     return
                 yield env.timeout(o["to"] - env.now)
                 continue
-            ready = [(people[waiting[lv][0]]["arrivedAt"], i, lv) for i, lv in enumerate(level_order) if waiting[lv]]
+            # Levels with people not already claimed by another cage; oldest unclaimed first.
+            ready = [(people[waiting[lv][targeted[lv]]]["arrivedAt"], i, lv) for i, lv in enumerate(level_order) if len(waiting[lv]) - targeted[lv] > 0]
             if not ready:
-                wake["event"] = env.event()
-                yield wake["event"]
+                ev = env.event()
+                waiters.append(ev)
+                yield ev
                 continue
             _, _, level = min(ready)
+            claim = min(capacity, len(waiting[level]) - targeted[level])
+            targeted[level] += claim
             start = env.now
             down = trip[level]
             cycle_end = start + 2 * down + load_s + unload_s
             nxt = next_outage(start)
             cut = outs[nxt]["from"] if nxt is not None else None
-            with cage.request() as req:
+            with cage_res[idx].request() as req:
                 yield req
                 if cut is not None and cut < cycle_end:
                     # A failure interrupts this cycle.
                     boarded: list[str] = []
                     if cut >= start + down:
                         yield env.timeout(down)
-                        boarded = [pid for pid in waiting[level] if people[pid]["arrivedAt"] <= env.now][:capacity]
+                        others = targeted[level] - claim  # waiting people other cages have claimed
+                        pool = waiting[level][: max(0, len(waiting[level]) - others)]
+                        boarded = [pid for pid in pool if people[pid]["arrivedAt"] <= env.now][:capacity]
                         for pid in boarded:
                             waiting[level].remove(pid)
                             people[pid]["aboardAt"] = env.now
-                        aboard[:] = boarded
+                        aboard_by[idx][:] = boarded
+                        targeted[level] = max(0, targeted[level] - claim)
                         note(level)
                     yield fail_done[nxt]
-                    cycles.append({"startSeconds": start, "level": level, "boarded": len(boarded), "completed": False, "endSeconds": None})
+                    cycles.append({"startSeconds": start, "level": level, "boarded": len(boarded), "completed": False, "endSeconds": None, "cage": idx + 1})
                     continue
                 yield env.timeout(down)
-                boarded = [pid for pid in waiting[level] if people[pid]["arrivedAt"] <= env.now][:capacity]
+                others = targeted[level] - claim  # waiting people other cages have claimed
+                pool = waiting[level][: max(0, len(waiting[level]) - others)]
+                boarded = [pid for pid in pool if people[pid]["arrivedAt"] <= env.now][:capacity]
                 for pid in boarded:
                     waiting[level].remove(pid)
                     people[pid]["aboardAt"] = env.now
-                aboard[:] = boarded
+                    people[pid]["cage"] = idx + 1
+                aboard_by[idx][:] = boarded
+                targeted[level] = max(0, targeted[level] - claim)
                 note(level)
                 yield env.timeout(load_s + down + unload_s)
                 for pid in boarded:
@@ -213,14 +237,15 @@ def _simulate(data: dict, outages: list[dict]) -> dict:
                     p["route"] = "cage"
                     p["surfaceAt"] = env.now
                     p["cageTrips"] += 1
-                aboard.clear()
-                cycles.append({"startSeconds": start, "level": level, "boarded": len(boarded), "completed": True, "endSeconds": env.now})
+                aboard_by[idx].clear()
+                cycles.append({"startSeconds": start, "level": level, "boarded": len(boarded), "completed": True, "endSeconds": env.now, "cage": idx + 1})
 
     for pid in people:
         env.process(arrival(pid))
     for i in range(len(outs)):
         env.process(failure(i))
-    env.process(dispatcher())
+    for idx in range(n_cages):
+        env.process(dispatcher(idx))
     env.run(until=horizon + 1e-6)
 
     # Anyone still waiting or aboard at the horizon was not reached.
@@ -272,6 +297,7 @@ def run(data: dict, cancelled: Callable[[], bool] = lambda: False) -> dict:
         f"Unloading takes {'the entered ' + str(data['shaft']['unloadSeconds']) + ' s' if data['shaft'].get('unloadSeconds') is not None else 'the same time as loading (' + str(data['shaft']['loadingSeconds']) + ' s): no separate unloading time is entered'}.",
         "The cage serves the level whose oldest waiting person arrived earliest and boards up to its capacity from people already there when loading starts.",
         "Hoist failure: everyone waiting or in the cage moves to the ladderway at their level and starts climbing at once; rescue of a cage stuck in transit is not modelled.",
+        (f"{int(data.get('cageCount', 1))} cages run independently (no balanced or counterweighted pairing), share the level queues and never take people another cage has already claimed. A cage claims the people waiting when it sets off; people who arrive later are claimed by whichever cage sets off next." if int(data.get("cageCount", 1)) > 1 else "One cage."),
         "The ladderway takes any number of climbers at once; each climb takes the entered ladder climb time" + ("." if ladder_known else "; none is entered, so ladder users are reported as not reached."),
     ]
     warnings = []
@@ -288,6 +314,7 @@ def run(data: dict, cancelled: Callable[[], bool] = lambda: False) -> dict:
         "queueSeries": with_failure["queueSeries"],
         "cycles": with_failure["cycles"],
         "outages": outages,
+        "cageCount": int(data.get("cageCount", 1)),
         "effect": effect,
         "assumptions": assumptions,
         "warnings": warnings,

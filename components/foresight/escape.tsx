@@ -511,7 +511,7 @@ function Completed({ run, r, model, data, post, refresh, notify, runs, live }: {
           </>
         )}
         <TimeToAct run={run} studies={studies} post={post} refresh={refresh} />
-        <Compare run={run} r={r} runs={runs} />
+        <Compare run={run} r={r} runs={runs} data={data} post={post} />
         <Responses run={run} post={post} refresh={refresh} notify={notify} role={data.workspace.role} />
         <button className="fs-button secondary" onClick={() => download(`foresight-run-${run.id.slice(0, 8)}.json`, { run: run.data, note: "Planning calculation under stated assumptions" })}>
           Export run (JSON)
@@ -600,7 +600,7 @@ function TimeToAct({ run, studies, post, refresh }: { run: Row; studies: Row[]; 
     </section>
   );
 }
-function Compare({ run, r, runs }: { run: Row; r: Result; runs: Row[] }) {
+function Compare({ run, r, runs, data, post }: { run: Row; r: Result; runs: Row[]; data: ViewProps["data"]; post: ViewProps["post"] }) {
   const others = runs.filter((x) => x.id !== run.id && x.data.result);
   const [otherId, setOtherId] = useState("");
   const o = others.find((x) => x.id === otherId)?.data.result as Result | undefined;
@@ -623,6 +623,7 @@ function Compare({ run, r, runs }: { run: Row; r: Result; runs: Row[] }) {
           </option>
         ))}
       </select>
+      {otherId && <RunExplain key={otherId} runId={run.id} compareWith={otherId} data={data} post={post} />}
       {o && (
         <table className="fs-register">
           <caption className="fs-sr-only">Run comparison</caption>

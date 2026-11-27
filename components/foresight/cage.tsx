@@ -14,7 +14,7 @@ import { RunExplain } from "./assistant";
 const Tunnels3D = dynamic(() => import("./tunnels-3d"), { ssr: false, loading: () => <p role="status">Loading 3D view…</p> });
 const sec = (s: number | null | undefined) => (s === null || s === undefined ? "not reached" : s >= 60 ? `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, "0")} s` : `${Math.round(s)} s`);
 
-type Person = { id: string; name: string | null; level: string; arrivedAt: number; route: "cage" | "ladder" | null; surfaceAt: number | null; reason: string | null; cageTrips: number; movedToLadderAt: number | null; aboardAt: number | null };
+type Person = { id: string; cage?: number; name: string | null; level: string; arrivedAt: number; route: "cage" | "ladder" | null; surfaceAt: number | null; reason: string | null; cageTrips: number; movedToLadderAt: number | null; aboardAt: number | null };
 type Result = {
   engine: string;
   simpy: string;
@@ -24,7 +24,8 @@ type Result = {
   lastReachedSeconds: number | null;
   people: Person[];
   queueSeries: { level: string; points: [number, number][] }[];
-  cycles: { startSeconds: number; level: string; boarded: number; completed: boolean; endSeconds: number | null }[];
+  cycles: { startSeconds: number; level: string; boarded: number; completed: boolean; endSeconds: number | null; cage?: number }[];
+  cageCount?: number;
   outages: { fromSeconds: number; toSeconds: number | null }[];
   effect: { baselineLastSurfaceSeconds: number | null; withFailureLastSurfaceSeconds: number | null; delaySeconds: number | null; movedToLadder: number } | null;
   assumptions: string[];
@@ -100,7 +101,7 @@ export function CageScenarios({ data, post, refresh, notify }: ViewProps) {
 function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; model: MineModel; post: ViewProps["post"]; onStarted: (r: Row) => Promise<void> }) {
   const hoists = model.exits.filter((e) => e.hoist);
   const escapeRuns = rows(data, "escape-run").filter((r) => r.data.status === "completed");
-  const [f, setF] = useState({ name: `${hoists[0].name} hoist failure`, exitId: hoists[0].id, source: "declared" as "declared" | "escape-run" | "manual", escapeRunId: escapeRuns[0]?.id || "", assembly: "0", fail: true, failAt: "10", restore: false, restoreAt: "40", unload: "", horizon: "240" });
+  const [f, setF] = useState({ cages: "1", name: `${hoists[0].name} hoist failure`, exitId: hoists[0].id, source: "declared" as "declared" | "escape-run" | "manual", escapeRunId: escapeRuns[0]?.id || "", assembly: "0", fail: true, failAt: "10", restore: false, restoreAt: "40", unload: "", horizon: "240" });
   const exit = hoists.find((e) => e.id === f.exitId)!;
   const [manual, setManual] = useState<Record<string, string>>({});
   const [arrive, setArrive] = useState("0");
@@ -118,6 +119,7 @@ function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; mo
     outages: f.fail ? [{ fromMinutes: Number(f.failAt), toMinutes: f.restore ? Number(f.restoreAt) : null }] : [],
     unloadSeconds: f.unload.trim() === "" ? null : Number(f.unload),
     horizonMinutes: Number(f.horizon),
+    cageCount: Number(f.cages),
   });
   async function go(run: boolean) {
     setBusy(true);
@@ -224,6 +226,9 @@ function Builder({ data, model, post, onStarted }: { data: ViewProps["data"]; mo
         <Field label="Unloading time at the surface (s, blank = same as loading)">
           <input type="number" min={0} value={f.unload} onChange={(e) => setF({ ...f, unload: e.target.value })} />
         </Field>
+        <Field label="Number of cages (independent, sharing the queues)" help="The model does not record a cage count, so it is entered here. Cages are not balanced or counterweighted.">
+          <input type="number" min={1} max={4} value={f.cages} onChange={(e) => setF({ ...f, cages: e.target.value })} />
+        </Field>
         <Field label="Horizon (min)">
           <input type="number" min={5} value={f.horizon} onChange={(e) => setF({ ...f, horizon: e.target.value })} />
         </Field>
@@ -253,27 +258,34 @@ function stateAt(run: Row, r: Result, t: number, station: { x: number; y: number
   const trip = Object.fromEntries(shaft.levels.map((l) => [l.level, l.tripSeconds]));
   const L = shaft.loadingSeconds, U = shaft.unloadSeconds ?? shaft.loadingSeconds;
   const outage = r.outages.find((o) => t >= o.fromSeconds && (o.toSeconds === null || t < o.toSeconds)) || null;
-  let fraction = 1, aboard = 0;
   const posIn = (T: number, start: number, tt: number) => (tt < start + T ? 1 - (tt - start) / T : tt < start + T + L ? 0 : tt < start + 2 * T + L ? (tt - (start + T + L)) / T : 1);
-  for (const c of r.cycles) {
-    if (t < c.startSeconds) break;
-    const T = trip[c.level];
-    if (c.completed) {
-      const end = c.startSeconds + 2 * T + L + U;
-      if (t <= end) {
-        fraction = posIn(T, c.startSeconds, t);
-        aboard = t >= c.startSeconds + T && t < end ? c.boarded : 0;
-      }
-    } else {
-      const hit = r.outages.find((o) => o.fromSeconds > c.startSeconds);
-      const ft = hit?.fromSeconds ?? t;
-      if (t >= c.startSeconds) {
-        // Frozen where it was when the hoist failed; back at the surface once repaired.
-        fraction = hit && hit.toSeconds !== null && t >= hit.toSeconds ? 1 : posIn(T, c.startSeconds, Math.min(t, ft));
-        aboard = 0;
+  const count = r.cageCount || 1;
+  // Where each cage is at time t, from its own recorded trips.
+  const cages: { index: number; fraction: number; aboard: number; failed: boolean }[] = [];
+  for (let k = 1; k <= count; k++) {
+    let fraction = 1, aboard = 0;
+    for (const c of r.cycles.filter((x) => (x.cage || 1) === k)) {
+      if (t < c.startSeconds) break;
+      const T = trip[c.level];
+      if (c.completed) {
+        const end = c.startSeconds + 2 * T + L + U;
+        if (t <= end) {
+          fraction = posIn(T, c.startSeconds, t);
+          aboard = t >= c.startSeconds + T && t < end ? c.boarded : 0;
+        }
+      } else {
+        const hit = r.outages.find((o) => o.fromSeconds > c.startSeconds);
+        const ft = hit?.fromSeconds ?? t;
+        if (t >= c.startSeconds) {
+          // Frozen where it was when the hoist failed; back at the surface once repaired.
+          fraction = hit && hit.toSeconds !== null && t >= hit.toSeconds ? 1 : posIn(T, c.startSeconds, Math.min(t, ft));
+          aboard = 0;
+        }
       }
     }
+    cages.push({ index: k - 1, fraction, aboard, failed: Boolean(outage) });
   }
+  const fractionOf = (k: number) => cages[(k || 1) - 1]?.fraction ?? 1;
   const people: Playback["people"] = [];
   let waiting = 0, inCage = 0, surfaced = 0, climbing = 0;
   for (const p of r.people) {
@@ -287,7 +299,7 @@ function stateAt(run: Row, r: Result, t: number, station: { x: number; y: number
       const boardAt = p.surfaceAt - (T + L + T + U) + T;
       if (t >= boardAt) {
         inCage++;
-        people.push({ id: p.id, x: station.x, y: station.y, tone: "walking", shaft: { exitId, fraction } });
+        people.push({ id: p.id, x: station.x, y: station.y, tone: "walking", shaft: { exitId, fraction: fractionOf(p.cage || 1) } });
         continue;
       }
     }
@@ -301,7 +313,7 @@ function stateAt(run: Row, r: Result, t: number, station: { x: number; y: number
     waiting++;
     people.push({ id: p.id, x: station.x, y: station.y, tone: "waiting", shaft: { exitId, fraction: 0 } });
   }
-  return { fraction, aboard, failed: Boolean(outage), people, waiting, inCage, surfaced, climbing };
+  return { cages, failed: Boolean(outage), people, waiting, inCage, surfaced, climbing };
 }
 
 function RunView({ run, model, data, post }: { run: Row; model: MineModel; data: ViewProps["data"]; post: ViewProps["post"] }) {
@@ -339,7 +351,7 @@ function RunView({ run, model, data, post }: { run: Row; model: MineModel; data:
     ? {
         people: state.people,
         closed: new Set(),
-        cage: { exitId: exit.id, fraction: state.fraction, aboard: state.aboard, failed: state.failed },
+        cages: state.cages.map((c) => ({ exitId: exit.id, ...c })),
         clock: `${sec(t)} · ${state.waiting} waiting · ${state.inCage} in cage · ${state.climbing} on ladder · ${state.surfaced}/${r.totals.people} at surface${state.failed ? " · HOIST FAILED" : ""}`,
       }
     : undefined;
@@ -400,6 +412,7 @@ function RunView({ run, model, data, post }: { run: Row; model: MineModel; data:
             <thead>
               <tr>
                 <th scope="col">Starts</th>
+                {(r.cageCount || 1) > 1 && <th scope="col">Cage</th>}
                 <th scope="col">Level</th>
                 <th scope="col">Carried</th>
                 <th scope="col">At the surface</th>
@@ -409,6 +422,7 @@ function RunView({ run, model, data, post }: { run: Row; model: MineModel; data:
               {r.cycles.map((c, i) => (
                 <tr key={i}>
                   <td>{sec(c.startSeconds)}</td>
+                  {(r.cageCount || 1) > 1 && <td>{c.cage}</td>}
                   <td>{c.level}</td>
                   <td>{c.boarded}</td>
                   <td>{c.completed ? sec(c.endSeconds) : "interrupted by the hoist failure"}</td>

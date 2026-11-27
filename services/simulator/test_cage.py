@@ -125,6 +125,49 @@ class CageTests(unittest.TestCase):
                 cage.run(bad)
 
 
+class MultiCageTests(unittest.TestCase):
+    def test_two_cages_halve_the_trips(self):
+        # Cycle 180 s, capacity 4. At t = 0 cage 1 claims 4 and cage 2 the next 4; at 180 s one cage takes the last 2.
+        r = cage.run({**inp(), "cageCount": 2})
+        self.assertEqual(surfaced(r), [180] * 8 + [360] * 2)
+        self.assertEqual(r["lastSurfaceSeconds"], 360)
+        self.assertEqual(r["cageCount"], 2)
+        self.assertEqual(sorted((c["startSeconds"], c["boarded"]) for c in r["cycles"]), [(0, 4), (0, 4), (180, 2)])
+        self.assertEqual({c["cage"] for c in r["cycles"]}, {1, 2})
+        self.assertTrue(r["totals"]["balanced"])
+
+    def test_three_cages_clear_ten_people_in_one_cycle(self):
+        r = cage.run({**inp(), "cageCount": 3})
+        self.assertEqual(surfaced(r), [180] * 10)
+        self.assertEqual(sorted(c["boarded"] for c in r["cycles"]), [2, 4, 4])
+
+    def test_cages_never_claim_the_same_person(self):
+        # One person, two cages: one trip only, no empty second trip.
+        r = cage.run({**inp(people=1), "cageCount": 2})
+        self.assertEqual(len(r["cycles"]), 1)
+        self.assertEqual(surfaced(r), [180])
+        # p0 at 0 s, p1 at 10 s: cage 1 sets off for p0, cage 2 for p1 at 10 s; cage 1 must not take p1 at the bottom.
+        arrivals = [{"id": "p0", "name": None, "level": "L1", "atSeconds": 0}, {"id": "p1", "name": None, "level": "L1", "atSeconds": 10}]
+        r = cage.run({**inp(arrivals=arrivals), "cageCount": 2})
+        by = {p["id"]: p for p in r["people"]}
+        self.assertEqual((round(by["p0"]["surfaceAt"]), round(by["p1"]["surfaceAt"])), (180, 190))
+        self.assertEqual({p["id"]: p["cage"] for p in r["people"]}, {"p0": 1, "p1": 2})
+        self.assertTrue(all(c["boarded"] == 1 for c in r["cycles"]))
+
+    def test_a_hoist_failure_stops_every_cage(self):
+        r = cage.run({**inp(outages=[{"fromSeconds": 100, "toSeconds": None}]), "cageCount": 2})
+        self.assertEqual(surfaced(r), [700] * 10)  # everyone on the ladderway from 100 s, 600 s climb
+        self.assertEqual(r["totals"]["byLadder"], 10)
+        self.assertTrue(all(not c["completed"] for c in r["cycles"]))
+
+    def test_cage_count_is_validated_and_stated(self):
+        for bad in (0, 5, 2.5, True, "2"):
+            with self.assertRaises(ValueError):
+                cage.run({**inp(), "cageCount": bad})
+        self.assertTrue(any("2 cages run independently" in a for a in cage.run({**inp(), "cageCount": 2})["assumptions"]))
+        self.assertEqual(cage.run(inp())["cageCount"], 1)
+
+
 class CageWorkerTests(unittest.TestCase):
     """The worker accepts a cage job over its authenticated API."""
 

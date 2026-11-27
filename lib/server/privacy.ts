@@ -1,4 +1,4 @@
-import { list, type Context } from "./repository.ts";
+import { DomainError, insert, list, update, type Context } from "./repository.ts";
 // Length-preserving masks keep source UTF-16 offsets stable. This is deliberately
 // conservative filtering, not a claim of comprehensive named-entity detection.
 export async function permittedModelText(ctx: Context, text: string) {
@@ -35,4 +35,12 @@ export type AiDataPolicy = { allowNames: boolean; neverSent: readonly ["phone nu
 export async function aiDataPolicy(ctx: Context): Promise<AiDataPolicy> {
   const stored = (await list(ctx, "ai-policy"))[0];
   return { allowNames: stored?.data.allowNames === true, neverSent: ["phone numbers", "message bodies from miners"] };
+}
+
+/** Administrators decide whether the assistant's tools may show people's names. Phone numbers and miners' messages are never sent. */
+export async function setAiDataPolicy(ctx: Context, input: { allowNames: boolean }) {
+  if (ctx.role !== "administrator") throw new DomainError(403, "ROLE_REQUIRED", "Only an administrator can change the AI data policy.");
+  const stored = (await list(ctx, "ai-policy"))[0];
+  const data = { allowNames: input.allowNames === true, changedBy: ctx.actor, changedAt: new Date().toISOString() };
+  return stored ? await update(ctx, stored, stored.revision, data) : await insert(ctx, "ai-policy", data);
 }

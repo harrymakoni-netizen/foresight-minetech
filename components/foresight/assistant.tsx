@@ -16,7 +16,8 @@ type Explanation = {
   provenance?: { modelId: string };
 };
 
-export function RunExplain({ runId, data, post }: { runId: string; data: ViewProps["data"]; post: ViewProps["post"] }) {
+export function RunExplain({ runId, compareWith, data, post }: { runId: string; compareWith?: string; data: ViewProps["data"]; post: ViewProps["post"] }) {
+  const runIds = compareWith ? [runId, compareWith] : [runId];
   const [x, setX] = useState<Explanation | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,10 +26,10 @@ export function RunExplain({ runId, data, post }: { runId: string; data: ViewPro
     setBusy(true);
     setError("");
     try {
-      setX((await post("assistant/explain", { runIds: [runId], mode })) as Explanation);
+      setX((await post("assistant/explain", { runIds, mode })) as Explanation);
     } catch (e) {
       setError((e as Error).message);
-      if (mode === "ai" && !x) setX((await post("assistant/explain", { runIds: [runId], mode: "deterministic" })) as Explanation);
+      if (mode === "ai" && !x) setX((await post("assistant/explain", { runIds, mode: "deterministic" })) as Explanation);
     } finally {
       setBusy(false);
     }
@@ -37,7 +38,7 @@ export function RunExplain({ runId, data, post }: { runId: string; data: ViewPro
     <section className="fs-explain" aria-label="Explanation of this run">
       <div className="fs-button-row">
         <button className="fs-button secondary" disabled={busy} onClick={() => void load("deterministic")}>
-          <FileText size={15} /> Explain these results
+          <FileText size={15} /> {compareWith ? "Explain the difference" : "Explain these results"}
         </button>
         <button className="fs-button secondary" disabled={busy || !aiOn} title={aiOn ? "" : "No AI provider is set up. The explanation on the left needs none."} onClick={() => void load("ai")}>
           <Bot size={15} /> Explain with AI

@@ -26,6 +26,7 @@ export function Surface({ data, model, post, refresh, notify }: Pick<ViewProps, 
   const [aligning, setAligning] = useState<Row | null>(null);
   const [error, setError] = useState("");
   const [opacity, setOpacity] = useState(0.75);
+  const [reproject, setReproject] = useState(true);
   const base = activeBaseMap(data);
   // Poll maps that are still being processed.
   useEffect(() => {
@@ -49,7 +50,7 @@ export function Surface({ data, model, post, refresh, notify }: Pick<ViewProps, 
     setError("");
     try {
       if (file.size > 3_000_000) throw new Error("GeoTIFF files up to 3 MB can be uploaded here. Reduce the resolution first, for example gdal_translate -outsize 2000 0.");
-      await post("base-maps", { name: file.name.replace(/\.[^.]+$/, "").slice(0, 120).padEnd(3, "_"), filename: file.name, b64: await toB64(file) });
+      await post("base-maps", { name: file.name.replace(/\.[^.]+$/, "").slice(0, 120).padEnd(3, "_"), filename: file.name, b64: await toB64(file), reproject });
       notify("Base map uploaded; the worker is reading it.");
       await refresh();
     } catch (err) {
@@ -89,6 +90,11 @@ export function Surface({ data, model, post, refresh, notify }: Pick<ViewProps, 
         <p className="fs-help">
           An orthophoto or elevation model from a surveyor or OpenDroneMap, in a metre-based projected system (for example UTM), north-up, up to 3 MB. It is read in the simulation worker and shown as a reduced picture; the original file is not kept here, so keep your copy.
         </p>
+        {supervisor && (
+          <label className="fs-3d-check">
+            <input type="checkbox" checked={reproject} onChange={(e) => setReproject(e.target.checked)} /> If the file is not in a metre-based, north-up grid, resample it into the UTM zone of its centre (the picture is resampled; the original is unchanged)
+          </label>
+        )}
         <ErrorText message={error} />
         {maps.length === 0 && <p className="fs-muted">No base map uploaded.</p>}
         {maps.map((raw) => {
@@ -107,9 +113,15 @@ export function Surface({ data, model, post, refresh, notify }: Pick<ViewProps, 
                       ? `${String(m.data.kind)} · ${String(m.data.crs)} · ${Number((m.data.pixelSizeM as number[])[0]).toFixed(2)} m pixels · covers E ${b.west}–${b.east}, N ${b.south}–${b.north}${m.data.range ? ` · values ${(m.data.range as { min: number }).min.toFixed(1)}–${(m.data.range as { max: number }).max.toFixed(1)} (${(m.data.range as { units: string }).units})` : ""}`
                       : "Reading the file…"}
                 </small>
+                {m.data.reprojected ? (
+                  <small className="fs-block">
+                    Reprojected from {String((m.data.reprojected as { from: string }).from)} to {String((m.data.reprojected as { to: string }).to)}: {String((m.data.reprojected as { note: string }).note)}
+                  </small>
+                ) : null}
                 {m.data.alignment ? (
                   <small className="fs-block">
                     Plan origin is E {(m.data.alignment as { planOriginEasting: number }).planOriginEasting}, N {(m.data.alignment as { planOriginNorthing: number }).planOriginNorthing}
+                    {(m.data.alignment as { rotationDegrees?: number }).rotationDegrees ? `, plan grid turned ${(m.data.alignment as { rotationDegrees: number }).rotationDegrees}° from map east` : ""}
                     {((m.data.alignment as { warnings: string[] }).warnings || []).map((w) => (
                       <span key={w} className="fs-tone-red"> · {w}</span>
                     ))}
@@ -227,16 +239,17 @@ function MarkForm({ point, onClose, post, refresh, notify }: { point: { x: numbe
 
 function AlignDialog({ map, model, post, refresh, notify, onClose }: { map: Row; model: MineModel; onClose: () => void } & Pick<ViewProps, "post" | "refresh" | "notify">) {
   const b = map.data.bounds as { west: number; south: number; east: number; north: number };
-  const a = map.data.alignment as { planOriginEasting: number; planOriginNorthing: number } | null;
+  const a = map.data.alignment as { planOriginEasting: number; planOriginNorthing: number; rotationDegrees?: number } | null;
   const xs = model.junctions.map((j) => j.x), ys = model.junctions.map((j) => j.y);
   const [e, setE] = useState(a ? String(a.planOriginEasting) : "");
   const [n, setN] = useState(a ? String(a.planOriginNorthing) : "");
+  const [rot, setRot] = useState(a?.rotationDegrees ? String(a.rotationDegrees) : "0");
   const [ok, setOk] = useState(false);
   const [error, setError] = useState("");
   async function save() {
     setError("");
     try {
-      await post(`base-maps/${map.id}/align`, { planOriginEasting: Number(e), planOriginNorthing: Number(n), confirmMetres: true });
+      await post(`base-maps/${map.id}/align`, { planOriginEasting: Number(e), planOriginNorthing: Number(n), rotationDegrees: Number(rot), confirmMetres: true });
       notify("Base map aligned and shown under the plan.");
       await refresh();
       onClose();
@@ -247,7 +260,7 @@ function AlignDialog({ map, model, post, refresh, notify, onClose }: { map: Row;
   return (
     <Dialog title="Align the base map to the plan" onClose={onClose}>
       <p className="fs-help">
-        The mine plan uses its own origin (0, 0) in metres. Enter the map coordinates (easting and northing, in the file&apos;s coordinate system {String(map.data.crs)}) that the plan&apos;s origin corresponds to. The map covers E {b.west}–{b.east} and N {b.south}–{b.north}; the plan spans x {Math.min(...xs)}–{Math.max(...xs)} m and y {Math.min(...ys)}–{Math.max(...ys)} m. Rotation is not applied: the plan must be north-up on the same grid.
+        The mine plan uses its own origin (0, 0) in metres. Enter the map coordinates (easting and northing, in the file&apos;s coordinate system {String(map.data.crs)}) that the plan&apos;s origin corresponds to. The map covers E {b.west}–{b.east} and N {b.south}–{b.north}; the plan spans x {Math.min(...xs)}–{Math.max(...xs)} m and y {Math.min(...ys)}–{Math.max(...ys)} m. The picture is turned by the rotation below, around the plan origin.
       </p>
       <Field label="Easting of the plan origin (m)">
         <input inputMode="decimal" value={e} onChange={(ev) => setE(ev.target.value)} />
@@ -255,11 +268,14 @@ function AlignDialog({ map, model, post, refresh, notify, onClose }: { map: Row;
       <Field label="Northing of the plan origin (m)">
         <input inputMode="decimal" value={n} onChange={(ev) => setN(ev.target.value)} />
       </Field>
+      <Field label="Rotation of the plan grid (degrees counter-clockwise from map east)" help="0 when the plan's x axis points east. Use it when the plan was drawn on a mine grid that is turned against the map.">
+        <input inputMode="decimal" value={rot} onChange={(ev) => setRot(ev.target.value)} />
+      </Field>
       <label className="fs-confirm">
-        <input type="checkbox" checked={ok} onChange={(ev) => setOk(ev.target.checked)} /> Both the plan and the map are in metres on the same grid
+        <input type="checkbox" checked={ok} onChange={(ev) => setOk(ev.target.checked)} /> Both the plan and the map are in metres
       </label>
       <ErrorText message={error} />
-      <button className="fs-button" disabled={!ok || e === "" || n === "" || !Number.isFinite(Number(e)) || !Number.isFinite(Number(n))} onClick={() => void save()}>
+      <button className="fs-button" disabled={!ok || e === "" || n === "" || !Number.isFinite(Number(e)) || !Number.isFinite(Number(n)) || !Number.isFinite(Number(rot)) || Math.abs(Number(rot)) > 180} onClick={() => void save()}>
         Align and show
       </button>
     </Dialog>

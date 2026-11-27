@@ -8,7 +8,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { MockLanguageModelV4 } from "ai/test";
-import { compareRuns, deterministicExplanation, escapeMetrics, groundingProblems, toMetricRun } from "../lib/domain/run-metrics.ts";
+import { compareRuns, deterministicComparison, deterministicExplanation, escapeMetrics, groundingProblems, toMetricRun } from "../lib/domain/run-metrics.ts";
 
 const directory = mkdtempSync(path.join(tmpdir(), "foresight-ai-"));
 process.env.FORESIGHT_DATABASE_PATH = path.join(directory, "test.sqlite");
@@ -254,4 +254,42 @@ test("AI explanation is accepted only when every figure and citation is grounded
   await assert.rejects(() => ai.explainRuns(ctx, { runIds: [e.id], mode: "ai" }, { model: fake.model }), /unknown run/);
   const garbage = scripted({ text: "not json" });
   await assert.rejects(() => ai.explainRuns(ctx, { runIds: [e.id], mode: "ai" }, { model: garbage.model }), /unavailable/);
+});
+
+// ---- comparison explanation and the policy setter --------------------------------------------------------
+test("the comparison explanation cites both runs for every changed metric and is grounded", () => {
+  const a = fixtureRun("run-a");
+  const b = fixtureRun("run-b", escapeResult({ inputHash: "b".repeat(64), escape: { totals: { simulated: 12, "reached-exit": 12, "reached-refuge": 0, "cut-off": 0, "still-walking": 0 }, times: { t50: 480, t95: 900, t100: 1500 } } }));
+  const e = deterministicComparison(a, b);
+  assert.ok(e.paragraphs.length > 0);
+  assert.ok(e.paragraphs.every((p) => p.citations.length === 2 && p.citations[0].runId === "run-a" && p.citations[1].runId === "run-b"));
+  assert.ok(e.paragraphs.some((p) => /Cut off from their assumed start: 5 in Fixture run, 0 in Fixture run/.test(p.text)));
+  assert.ok(e.assumptions.some((x) => /inputs differ/.test(x)));
+  assert.deepEqual(groundingProblems([{ text: "Cut off fell from 5 to 0, a difference of 5.", citations: [{ runId: "run-a", metricId: "escape.people.cut-off" }, { runId: "run-b", metricId: "escape.people.cut-off" }] }], [a, b]), []);
+  assert.match(groundingProblems([{ text: "Cut off fell by 4.", citations: [{ runId: "run-a", metricId: "escape.people.cut-off" }, { runId: "run-b", metricId: "escape.people.cut-off" }] }], [a, b]).join(), /states 4/);
+  assert.deepEqual(deterministicComparison(a, fixtureRun("run-c")).paragraphs.length, 1);
+});
+test("comparing two runs through the explain function; runs of different kinds are refused", async () => {
+  const ctx = await ws("explain-compare");
+  const e1 = await savedRun(ctx);
+  const e2 = await repo.insert(ctx, "escape-run", { name: "Second", status: "completed", result: escapeResult({ escape: { totals: { simulated: 12, "reached-exit": 12, "reached-refuge": 0, "cut-off": 0, "still-walking": 0 }, times: { t50: 480, t95: 900, t100: 1500 } } }), mineModelRevisionNumber: 1, startAssumption: "assumed start", scenario: { evacuationOrderMinutes: 100, preMovementMinutes: { min: 0, max: 2 }, speed: { mean: 1 }, seed: 11, peopleSource: "planned-headcount" } });
+  const x = (await ai.explainRuns(ctx, { runIds: [e1.id, e2.id], mode: "deterministic" })) as any;
+  assert.equal(x.comparedWith, e2.id);
+  const good = scripted({ text: JSON.stringify({ paragraphs: [{ text: "Cut off fell from 5 to 0.", citations: [{ runId: e1.id, metricId: "escape.people.cut-off" }, { runId: e2.id, metricId: "escape.people.cut-off" }] }] }) });
+  const ok = (await ai.explainRuns(ctx, { runIds: [e1.id, e2.id], mode: "ai" }, { model: good.model })) as any;
+  assert.equal(ok.comparedWith, e2.id);
+  const cage = await repo.insert(ctx, "cage-run", { name: "Cage", status: "completed", result: { totals: { people: 1, byCage: 1, byLadder: 0, notReached: 0 }, lastSurfaceSeconds: 100, lastReachedSeconds: 100, effect: null }, mineModelRevisionNumber: 1 });
+  await assert.rejects(() => ai.explainRuns(ctx, { runIds: [e1.id, cage.id], mode: "deterministic" }), /different kinds/);
+});
+test("the AI data policy can only be changed by an administrator and changes what the tools show", async () => {
+  const ctx = await ws("policy");
+  const priv = await import("../lib/server/privacy.ts");
+  await assert.rejects(() => priv.setAiDataPolicy(ctx, { allowNames: true }), /administrator/);
+  const admin = { ...ctx, role: "administrator" as const };
+  assert.equal((await priv.aiDataPolicy(ctx)).allowNames, false);
+  await priv.setAiDataPolicy(admin, { allowNames: true });
+  assert.equal((await priv.aiDataPolicy(ctx)).allowNames, true);
+  await priv.setAiDataPolicy(admin, { allowNames: false });
+  assert.equal((await priv.aiDataPolicy(ctx)).allowNames, false);
+  assert.equal((await repo.list(ctx, "ai-policy")).length, 1, "one policy record, updated in place");
 });

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import { preflight, tunnelLength, type MineModel, type Provenance, type Quality } from "@/lib/domain/mine-model";
 import { activeBaseMap, planMarks } from "./surface-data";
+import { imageMatrix } from "@/lib/domain/basemap-align";
 import { Empty, ErrorText, Field, rows, Tag, type Row, type ViewProps } from "./shared";
 
 const Surface = dynamic(() => import("./surface").then((m) => m.Surface), { loading: () => <p role="status">Loading surface view…</p> });
@@ -22,7 +23,8 @@ export function zoneColour(model: MineModel) {
 export type Dot = { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string };
 export type Trail = { id: string; points: [number, number][]; tone: Dot["tone"] };
 /** Georeferenced image drawn under the plan: plan-coordinate extent of the picture. */
-export type PlanBaseMap = { href: string; west: number; south: number; east: number; north: number; opacity?: number };
+/** west/south/east/north are offsets from the plan origin in the map grid (metres); rotationDegrees turns the plan grid against the map grid. */
+export type PlanBaseMap = { href: string; west: number; south: number; east: number; north: number; opacity?: number; rotationDegrees?: number };
 export type PlanMark = { id: string; x: number; y: number; label: string; tone: "near" | "far" | "pending" };
 export function PlanView({
   model,
@@ -85,7 +87,19 @@ export function PlanView({
       </defs>
       {baseMap && (
         // eslint-disable-next-line @next/next/no-img-element
-        <image href={baseMap.href} x={sx(baseMap.west)} y={sy(baseMap.north)} width={baseMap.east - baseMap.west} height={baseMap.north - baseMap.south} preserveAspectRatio="none" opacity={baseMap.opacity ?? 0.75} />
+        <image
+          href={baseMap.href}
+          x={0}
+          y={0}
+          width={baseMap.east - baseMap.west}
+          height={baseMap.north - baseMap.south}
+          preserveAspectRatio="none"
+          opacity={baseMap.opacity ?? 0.75}
+          transform={(() => {
+            const m = imageMatrix({ planOriginEasting: 0, planOriginNorthing: 0, rotationDegrees: baseMap.rotationDegrees ?? 0 }, { west: baseMap.west, north: baseMap.north }, sx, sy);
+            return `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`;
+          })()}
+        />
       )}
       <rect width={W} height={H} fill="url(#grid)" />
       {model.tunnels.map((t) => {

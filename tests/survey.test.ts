@@ -192,3 +192,43 @@ test("subsidence marks: roles, photo type and content, future dates", async () =
   await assert.rejects(() => sv.recordSubsidenceMark(ctx, { ...base, photo: { filename: "fake.png", contentType: "image/png", b64: Buffer.from("<html><script>alert(1)</script></html>").toString("base64") } }), /not the image type/);
   assert.equal((await repo.list(ctx, "subsidence-mark")).length, 0);
 });
+
+test("base map: a degrees file is refused unless reprojection is chosen; reprojected maps report it; rotation changes what falls inside", { skip: !haveWorker }, async () => {
+  const ctx = await ws("basemap-reproject");
+  const b64 = readFileSync("tests/fixtures/orthophoto-wgs84.tif").toString("base64");
+  const refused = await sv.uploadBaseMap(ctx, { name: "WGS84 orthophoto", filename: "w.tif", b64 });
+  const failed = await until(() => sv.pollBaseMap(ctx, refused.id), (e) => e.data.status !== "processing");
+  assert.equal(failed.data.status, "failed");
+  assert.match(String(failed.data.error), /degrees/);
+  const up = await sv.uploadBaseMap(ctx, { name: "WGS84 reprojected", filename: "w.tif", b64, reproject: true });
+  const ready = await until(() => sv.pollBaseMap(ctx, up.id), (e) => e.data.status !== "processing");
+  assert.equal(ready.data.status, "ready");
+  assert.equal(ready.data.epsg, 32736);
+  assert.equal((ready.data.reprojected as { from: string; to: string }).from, "EPSG:4326");
+  assert.equal((ready.data.reprojected as { to: string }).to, "EPSG:32736");
+  assert.match(String((ready.data.reprojected as { note: string }).note), /resampled/);
+  // Alignment: JMS at plan (0, 0) is always at the origin. Put the origin at the middle of the map and count junctions by hand.
+  const b = ready.data.bounds as { west: number; south: number; east: number; north: number };
+  // Origin 50 m inside the west edge, halfway up: the plan runs east from it, or west when turned 180 degrees.
+  const E0 = b.west + 50, N0 = (b.south + b.north) / 2;
+  const model = (await mm.publishedModel(ctx))!.data.model as import("../lib/domain/mine-model.ts").MineModel;
+  const countInside = (deg: number) => {
+    const t = (deg * Math.PI) / 180;
+    return model.junctions.filter((j) => {
+      const e = E0 + j.x * Math.cos(t) - j.y * Math.sin(t), n = N0 + j.x * Math.sin(t) + j.y * Math.cos(t);
+      return e >= b.west && e <= b.east && n >= b.south && n <= b.north;
+    }).length;
+  };
+  for (const deg of [0, 180]) {
+    const aligned = await sv.alignBaseMap(ctx, up.id, { planOriginEasting: E0, planOriginNorthing: N0, rotationDegrees: deg, confirmMetres: true });
+    assert.equal((aligned.data.alignment as { rotationDegrees: number }).rotationDegrees, deg);
+    const outside = model.junctions.length - countInside(deg);
+    const w = (aligned.data.alignment as { warnings: string[] }).warnings.join(" ");
+    if (outside === 0) assert.equal(w, "");
+    else assert.match(w, new RegExp(`${outside} of ${model.junctions.length} junctions fall outside`));
+  }
+  assert.equal(countInside(0), model.junctions.length);
+  assert.ok(countInside(180) < model.junctions.length);
+  assert.notEqual(countInside(0), countInside(180), "the rotation changes which junctions are inside the picture");
+  await assert.rejects(() => sv.alignBaseMap(ctx, up.id, { planOriginEasting: E0, planOriginNorthing: N0, rotationDegrees: 200, confirmMetres: true }));
+});

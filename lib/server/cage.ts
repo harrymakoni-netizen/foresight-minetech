@@ -20,6 +20,8 @@ export const cageScenarioSchema = z
     assemblyMinutes: z.number().min(0).max(240).default(0),
     outages: z.array(z.object({ fromMinutes: z.number().min(0).max(1440), toMinutes: z.number().min(0).max(1440).nullable() }).strict()).max(5).default([]),
     unloadSeconds: z.number().min(0).max(3600).nullable().default(null),
+    /** Independent cages sharing the level queues (the model does not record a cage count). */
+    cageCount: z.number().int().min(1).max(4).default(1),
     horizonMinutes: z.number().min(5).max(720).default(240),
     sourceConcernId: z.string().max(80).nullable().default(null),
   })
@@ -85,6 +87,7 @@ export async function buildCageInput(ctx: Context, s: CageScenario) {
         arrivals,
         outages: s.outages.map((o) => ({ fromSeconds: secs(o.fromMinutes), toSeconds: o.toMinutes === null ? null : secs(o.toMinutes) })),
         horizonSeconds: secs(s.horizonMinutes),
+        cageCount: s.cageCount,
       }
     : null;
   return { problems, rev, input, people: arrivals.length, notes, exit };

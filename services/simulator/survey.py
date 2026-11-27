@@ -424,28 +424,68 @@ def basemap(data: dict) -> dict:
     with mf, ds:
         if ds.crs is None:
             raise ValueError("The file has no coordinate reference system, so it cannot be placed on the plan")
+        factor = None if ds.crs.is_geographic else ds.crs.linear_units_factor[1]
+        t0 = ds.transform
+        reason = None
         if ds.crs.is_geographic:
-            raise ValueError("The file uses latitude and longitude (degrees). Reproject it to a metre-based projected system (for example UTM) before uploading")
-        factor = ds.crs.linear_units_factor[1]
-        if abs(factor - 1.0) > 1e-9:
-            raise ValueError(f"The file's coordinates are in {ds.crs.linear_units}, not metres. Reproject it to a metre-based system")
-        t = ds.transform
-        if abs(t.b) > 1e-9 or abs(t.d) > 1e-9:
-            raise ValueError("Rotated or sheared rasters are not supported. Reproject or resample the file north-up")
-        scale = min(1.0, max_px / max(ds.width, ds.height))
-        w, h = max(1, round(ds.width * scale)), max(1, round(ds.height * scale))
-        arr = ds.read(out_shape=(ds.count, h, w), resampling=Resampling.average, masked=True)
-        b = ds.bounds
-        info = {
-            "crs": ds.crs.to_string(),
-            "epsg": ds.crs.to_epsg(),
-            "bounds": {"west": b.left, "south": b.bottom, "east": b.right, "north": b.top},
-            "pixelSizeM": [abs(t.a), abs(t.e)],
-            "originalPixels": [ds.width, ds.height],
-            "pixels": [w, h],
-            "bands": ds.count,
-            "dtype": ds.dtypes[0],
-        }
+            reason = "The file uses latitude and longitude (degrees). Reproject it to a metre-based projected system (for example UTM) before uploading, or let Foresight reproject it"
+        elif abs(factor - 1.0) > 1e-9:
+            reason = f"The file's coordinates are in {ds.crs.linear_units}, not metres. Reproject it to a metre-based system, or let Foresight reproject it"
+        elif abs(t0.b) > 1e-9 or abs(t0.d) > 1e-9:
+            reason = "Rotated or sheared rasters are not supported unless Foresight reprojects them north-up. Reproject or resample the file north-up, or let Foresight reproject it"
+        vrt = None
+        reprojected = None
+        bands = ds.count
+        if reason:
+            if not data.get("reproject"):
+                raise ValueError(reason)
+            from rasterio.crs import CRS
+            from rasterio.vrt import WarpedVRT
+            from rasterio.warp import calculate_default_transform, transform as warp_transform
+
+            cx, cy = (ds.bounds.left + ds.bounds.right) / 2, (ds.bounds.bottom + ds.bounds.top) / 2
+            lons, lats = warp_transform(ds.crs, "EPSG:4326", [cx], [cy])
+            lon, lat = lons[0], lats[0]
+            if abs(lat) > 84:
+                raise ValueError("The file lies in a polar region, where UTM reprojection is not available")
+            zone = min(60, max(1, int((lon + 180) // 6) + 1))
+            epsg = (32600 if lat >= 0 else 32700) + zone
+            dst = CRS.from_epsg(epsg)
+            _, dw, dh = calculate_default_transform(ds.crs, dst, ds.width, ds.height, *ds.bounds)
+            k = min(1.0, max_px / max(dw, dh))
+            dt, dw, dh = calculate_default_transform(ds.crs, dst, ds.width, ds.height, *ds.bounds, dst_width=max(1, round(dw * k)), dst_height=max(1, round(dh * k)))
+            vrt = WarpedVRT(ds, crs=dst, transform=dt, width=dw, height=dh, resampling=Resampling.bilinear, add_alpha=(ds.count != 4))
+            reprojected = {"from": ds.crs.to_string(), "to": f"EPSG:{epsg}", "method": "bilinear", "note": f"The picture was resampled into the UTM zone {zone}{'N' if lat >= 0 else 'S'} grid so it can sit on the metre-based plan. Positions are good to about one pixel; the original file is unchanged."}
+        src = vrt or ds
+        try:
+            scale = 1.0 if vrt else min(1.0, max_px / max(ds.width, ds.height))
+            w, h = (src.width, src.height) if vrt else (max(1, round(ds.width * scale)), max(1, round(ds.height * scale)))
+            idx = list(range(1, bands + 1))
+            data_arr = src.read(indexes=idx, out_shape=(bands, h, w), resampling=Resampling.average)
+            # The dataset mask honours nodata and the alpha band added when reprojecting.
+            mask_arr = src.read_masks(indexes=idx, out_shape=(bands, h, w), resampling=Resampling.nearest)
+            blank = mask_arr == 0
+            if vrt is not None and ds.count != 4:
+                # The alpha band added by the warp marks pixels outside the source footprint.
+                alpha_band = src.read(bands + 1, out_shape=(h, w), resampling=Resampling.nearest)
+                blank = blank | (alpha_band == 0)[None, :, :]
+            arr = np.ma.masked_array(data_arr, mask=blank)
+            b = src.bounds
+            t = src.transform
+            info = {
+                "crs": src.crs.to_string(),
+                "epsg": src.crs.to_epsg(),
+                "bounds": {"west": b.left, "south": b.bottom, "east": b.right, "north": b.top},
+                "pixelSizeM": [abs(t.a), abs(t.e)],
+                "originalPixels": [ds.width, ds.height],
+                "pixels": [w, h],
+                "bands": bands,
+                "dtype": ds.dtypes[0],
+                **({"reprojected": reprojected} if reprojected else {}),
+            }
+        finally:
+            if vrt:
+                pass
         if ds.count >= 3:
             rgb = np.ma.filled(arr[:3], 0).astype("float64")
             if ds.dtypes[0] != "uint8":
@@ -470,4 +510,6 @@ def basemap(data: dict) -> dict:
             bl = (50 + 150 * norm).astype("uint8")
             a = valid.astype("uint8") * 255
             info.update(kind="elevation", range={"min": lo, "max": hi, "units": "as stored in the file (not assumed to be metres)"}, nodataPercent=round(100 * (1 - valid.mean()), 2), png=_png(np.dstack([r, g, bl, a]), "RGBA"))
+        if vrt:
+            vrt.close()
         return info

@@ -18,6 +18,8 @@ export type Playback = {
   people: { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string; shaft?: { exitId: string; fraction: number } }[];
   /** Cage position in a shaft (0 = station, 1 = surface) with the number aboard. */
   cage?: { exitId: string; fraction: number; aboard: number; failed: boolean };
+  /** Several cages in one shaft (each rides beside the others). */
+  cages?: { exitId: string; index: number; fraction: number; aboard: number; failed: boolean }[];
   /** Airflow by tunnel id (signed m3/s, positive from the tunnel's start to its end): colours tunnels by speed and animates arrows along the flow. */
   flows?: Record<string, number>;
   closed: Set<string>;
@@ -43,7 +45,7 @@ export default function Tunnels3D({
   counts?: Record<string, number>;
   playback?: Playback;
   /** Georeferenced picture laid on the surface plane (plan coordinates, metres). */
-  baseMap?: { href: string; west: number; south: number; east: number; north: number } | null;
+  baseMap?: { href: string; west: number; south: number; east: number; north: number; rotationDegrees?: number } | null;
   /** Subsidence marks, shown as pins on the surface. */
   marks?: { id: string; x: number; y: number; label: string; near: boolean }[];
   label?: string;
@@ -122,7 +124,7 @@ export default function Tunnels3D({
     const arrowSets = new Map<string, { group: THREE.Group; q: number; f: number }>();
     const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number }>();
     const shaftColumns = new Map<string, { top: THREE.Vector3; bottom: THREE.Vector3 }>();
-    const cages = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>();
+    const cages = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>(); // key: exitId or exitId#index
     const disposables: { dispose: () => void }[] = [];
     const mat = (o: THREE.MeshStandardMaterialParameters) => {
       const m = new THREE.MeshStandardMaterial(o);
@@ -252,17 +254,21 @@ export default function Tunnels3D({
         label(text, new THREE.Vector3(top.x, top.y + hf + 10, top.z), "exit");
         shaftColumns.set(e.id, { top: top.clone(), bottom: bottom.clone() });
         if (e.hoist) {
-          const cageMesh = new THREE.Mesh(new THREE.BoxGeometry(5, 7, 5), mat({ color: 0xa76a2b, emissive: new THREE.Color(0x5a3611), metalness: 0.4, roughness: 0.4 }));
-          disposables.push(cageMesh.geometry);
-          cageMesh.position.copy(top);
-          const cageDiv = document.createElement("div");
-          cageDiv.className = "fs-3d-label person cage";
-          const cageTag = new CSS2DObject(cageDiv);
-          cageTag.userData.label = true;
-          cageTag.visible = false;
-          cageMesh.add(cageTag);
-          world.add(cageMesh);
-          cages.set(e.id, { mesh: cageMesh, tag: cageTag });
+          // Up to four cages can be drawn; only those in a playback state are shown, the first rests at the collar.
+          for (let ci = 0; ci < 4; ci++) {
+            const cageMesh = new THREE.Mesh(new THREE.BoxGeometry(4, 7, 4), mat({ color: 0xa76a2b, emissive: new THREE.Color(0x5a3611), metalness: 0.4, roughness: 0.4 }));
+            disposables.push(cageMesh.geometry);
+            cageMesh.position.copy(top).add(new THREE.Vector3(ci * 5.5 - 2.75, 0, 0));
+            cageMesh.visible = ci === 0;
+            const cageDiv = document.createElement("div");
+            cageDiv.className = "fs-3d-label person cage";
+            const cageTag = new CSS2DObject(cageDiv);
+            cageTag.userData.label = true;
+            cageTag.visible = false;
+            cageMesh.add(cageTag);
+            world.add(cageMesh);
+            cages.set(ci === 0 ? e.id : `${e.id}#${ci}`, { mesh: cageMesh, tag: cageTag });
+          }
         }
         shaft.userData.pick = {
           title: e.name,
@@ -397,8 +403,12 @@ export default function Tunnels3D({
       const bmPlane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), bmMat);
       disposables.push(bmPlane.geometry);
       bmPlane.rotation.x = -Math.PI / 2;
+      // Placed in the map grid around the plan origin, then the whole picture is turned by the alignment rotation.
       bmPlane.position.set((bm.west + bm.east) / 2, 0.15, -(bm.south + bm.north) / 2);
-      surface.add(bmPlane);
+      const pivot = new THREE.Group();
+      pivot.rotation.y = -((bm.rotationDegrees ?? 0) * Math.PI) / 180;
+      pivot.add(bmPlane);
+      surface.add(pivot);
       new THREE.TextureLoader().load(bm.href, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         bmMat.map = tex;
@@ -529,14 +539,20 @@ export default function Tunnels3D({
         mesh.position.y = floor + h / 2;
         (mesh.material as THREE.MeshStandardMaterial).color.set(ratio >= 1 ? 0xd9534f : 0x2f7fd0);
       }
-      for (const [id, c] of cages) {
+      const list = pb?.cages ?? (pb?.cage ? [{ ...pb.cage, index: 0 }] : []);
+      for (const [key, c] of cages) {
+        const [id, idxText] = key.split("#");
+        const idx = idxText === undefined ? 0 : Number(idxText);
         const col = shaftColumns.get(id);
         if (!col) continue;
-        const state = pb?.cage?.exitId === id ? pb.cage : null;
-        c.mesh.position.lerpVectors(col.bottom, col.top, state ? state.fraction : 1);
+        const state = list.find((x) => x.exitId === id && x.index === idx) || null;
+        const count = list.filter((x) => x.exitId === id).length;
+        c.mesh.visible = idx === 0 || Boolean(state);
+        const side = new THREE.Vector3(idx * 5.5 - (Math.max(count, 1) - 1) * 2.75, 0, 0);
+        c.mesh.position.lerpVectors(col.bottom, col.top, state ? state.fraction : 1).add(side);
         (c.mesh.material as THREE.MeshStandardMaterial).color.set(state?.failed ? 0xd92d20 : 0xa76a2b);
         c.tag.visible = Boolean(state) && layersRef.current.labels;
-        (c.tag.element as HTMLElement).textContent = state ? `Cage · ${state.aboard} aboard${state.failed ? " · hoist failed" : ""}` : "";
+        (c.tag.element as HTMLElement).textContent = state ? `${count > 1 ? `Cage ${idx + 1}` : "Cage"} · ${state.aboard} aboard${state.failed ? " · hoist failed" : ""}` : "";
         c.tag.position.set(0, 7, 0);
       }
       const seen = new Set<string>();
