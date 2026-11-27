@@ -55,10 +55,17 @@ def _survey(fn):
     return run
 def _survey_validate(data):
     if not isinstance(data,dict):raise ValueError('Input must be an object')
-EXTENDED={'escape':_escape,'escape-chain':_chain,'time-to-act':_tta,'cage':_cage,'dxf-inspect':_survey('inspect'),'dxf-build':_survey('build'),'basemap':_survey('basemap')}
-VALIDATORS={'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate,'cage':_cage_validate,'dxf-inspect':_survey_validate,'dxf-build':_survey_validate,'basemap':_survey_validate}
+def _vent(data,cancelled):
+    from .ventilation import run
+    return run(data,cancelled)
+def _vent_validate(data):
+    if not isinstance(data,dict) or not isinstance(data.get('states'),dict) or 'baseline' not in data['states']:raise ValueError('A baseline network is required')
+    from .ventilation import validate as v
+    for spec in data['states'].values():v({'nodes':spec.get('nodes'),'airways':spec.get('airways'),'slack':spec.get('slack') or [],'tolerance':data.get('tolerance',1e-6),'maxIterations':data.get('maxIterations',10000)})
+EXTENDED={'ventilation':_vent,'escape':_escape,'escape-chain':_chain,'time-to-act':_tta,'cage':_cage,'dxf-inspect':_survey('inspect'),'dxf-build':_survey('build'),'basemap':_survey('basemap')}
+VALIDATORS={'ventilation':_vent_validate,'escape':_escape_validate,'escape-chain':_chain_validate,'time-to-act':_tta_validate,'cage':_cage_validate,'dxf-inspect':_survey_validate,'dxf-build':_survey_validate,'basemap':_survey_validate}
 # Modules each job kind needs; a kind is offered only where they are installed.
-NEEDS={'escape':('jupedsim','shapely','networkx'),'escape-chain':('jupedsim','shapely','networkx'),'time-to-act':('jupedsim','shapely','networkx'),'cage':('simpy',),'dxf-inspect':('ezdxf',),'dxf-build':('ezdxf',),'basemap':('rasterio','PIL','numpy')}
+NEEDS={'ventilation':(),'escape':('jupedsim','shapely','networkx'),'escape-chain':('jupedsim','shapely','networkx'),'time-to-act':('jupedsim','shapely','networkx'),'cage':('simpy',),'dxf-inspect':('ezdxf',),'dxf-build':('ezdxf',),'basemap':('rasterio','PIL','numpy')}
 def kind_available(kind):
     try:
         import importlib
@@ -93,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
         # Unauthenticated liveness for hosting platforms (Render). Reveals nothing.
         if self.path=='/healthz':return self.send(200,{'status':'ok'})
         if not self.authorized():return self.send(401,{'error':'Worker credential required'})
-        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])+(['cage-simpy-1.0.0'] if kind_available('cage') else [])+(['dxf-ezdxf-1.0.0'] if kind_available('dxf-inspect') else [])+(['basemap-rasterio-1.0.0'] if kind_available('basemap') else [])})
+        if self.path=='/health':return self.send(200,{'status':'ready','model':'lumped-water-1.0.0','persistentJobs':True,'engines':['lumped-water-1.0.0']+(['escape-jupedsim-1.0.0','flood-escape-chain-1.0.0','time-to-act-scan-1.0.0'] if extended_available() else [])+(['cage-simpy-1.0.0'] if kind_available('cage') else [])+(['dxf-ezdxf-1.0.0'] if kind_available('dxf-inspect') else [])+(['basemap-rasterio-1.0.0'] if kind_available('basemap') else [])+['ventilation-hardycross-1.0.0']})
         job_id=self.path.removeprefix('/jobs/')
         with db() as c:row=c.execute('SELECT * FROM jobs WHERE id=? AND workspace_id=?',(job_id,self.headers.get('X-Workspace-Id',''))).fetchone()
         if not row:return self.send(404,{'error':'Job not found'})

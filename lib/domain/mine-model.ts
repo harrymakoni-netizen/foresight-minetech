@@ -230,6 +230,8 @@ export function valuePaths(m: MineModel) {
   for (const s of m.sumps) for (const f of ["dangerLevelM", "inflowM3h", "initialVolumeM3"] as const) if (s[f] !== null) out.push(`${s.id}.${f}`);
   for (const s of m.sumps) if (s.levelVolume.length) out.push(`${s.id}.levelVolume`);
   for (const r of m.refuges) for (const f of ["capacity", "airSupplyM3"] as const) if (r[f] !== null) out.push(`${r.id}.${f}`);
+  for (const f of m.fans) if (f.fixedDutyM3s !== null) out.push(`${f.id}.fixedDutyM3s`);
+  for (const d of m.doors) if (d.resistance !== null) out.push(`${d.id}.resistance`);
   return out;
 }
 export const blocking = (issues: Issue[], engine?: Engine) =>
@@ -288,6 +290,15 @@ export function trainingMineModel(author = "Foresight template", at = "2026-11-1
     storageLinks: { reviewed: false, reviewedBy: null, links: [] },
     provenance: {},
   };
+  // Fictional ventilation values so the training mine can demonstrate the solver:
+  // Atkinson R = k L P / A^3 with an ASSUMED friction factor k = 0.012 kg/m^3, a
+  // fictional 30 m^3/s exhaust fan and a fictional door resistance. Not measured.
+  for (const t of m.tunnels) {
+    const w = t.width ?? 3, h = t.height ?? 3;
+    t.resistance = Number(((0.012 * (tunnelLength(m, t) ?? 0) * 2 * (w + h)) / Math.pow(w * h, 3)).toFixed(5));
+  }
+  m.fans[0]!.fixedDutyM3s = 30;
+  m.doors[0]!.resistance = 50;
   const p = (quality: Quality, note: string): Provenance => ({ quality, note, author, at });
   for (const path of valuePaths(m))
     m.provenance[path] = p("assumed", "Fictional training-mine value; not measured");

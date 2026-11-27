@@ -18,6 +18,7 @@ import {
 } from "@/lib/server/repository";
 import { mutate, extract, explain, newAssessment } from "@/lib/server/workflows";
 import { cagePreflight, startCageRun } from "@/lib/server/cage";
+import { startVentilationRun, ventilationPreflight } from "@/lib/server/ventilation";
 import { acceptDxfImport, alignBaseMap, buildDxfProposal, pollBaseMap, pollImport, readFile, recordSubsidenceMark, retractSubsidenceMark, setBaseMapActive, startDxfImport, uploadBaseMap } from "@/lib/server/survey";
 import { explainRuns, runAssistant } from "@/lib/server/ai-tools";
 import { issueAdvisory, withdrawAdvisory, recordPreEntryCheck, preEntrySchema, pollWeatherFor, recordSensorReading } from "@/lib/server/concerns";
@@ -218,6 +219,8 @@ export async function GET(request: Request, route: RouteContext) {
         headers: { "Content-Type": f.contentType, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox", "Cache-Control": "private, max-age=3600" },
       });
     }
+    if (path[0] === "ventilation" && path[1] === "runs" && path[2])
+      return Response.json(await pollEscape(ctx, path[2], "ventilation-run"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "cage" && path[1] === "runs" && path[2])
       return Response.json(await pollEscape(ctx, path[2], "cage-run"), { headers: { "Cache-Control": "no-store" } });
     if (path[0] === "escape" && path[1] === "time-to-act" && path[2])
@@ -379,6 +382,7 @@ export async function POST(request: Request, route: RouteContext) {
         "mine-model",
         "escape",
         "cage",
+        "ventilation",
         "assessments",
         "scenarios",
         "snapshots",
@@ -505,6 +509,8 @@ export async function POST(request: Request, route: RouteContext) {
       if (path[0] === "scenarios" && !path[1])
         return await createScenario(ctx, body);
       if (path[0] === "people" && !path[1]) return await createPerson(ctx, body);
+      if (path[0] === "ventilation" && path[1] === "preflight") return await ventilationPreflight(ctx, body);
+      if (path[0] === "ventilation" && path[1] === "runs" && !path[2]) return await startVentilationRun(ctx, body);
       if (path[0] === "cage" && path[1] === "preflight") return await cagePreflight(ctx, body);
       if (path[0] === "cage" && path[1] === "runs" && !path[2]) return await startCageRun(ctx, body);
       if (path[0] === "escape" && path[1] === "preflight") return await scenarioPreflight(ctx, body);

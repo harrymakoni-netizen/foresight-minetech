@@ -166,6 +166,20 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Phase 10 — ventilation, gas and re-entry (2026-11-27)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Hardy Cross solver with Atkinson square law (`services/simulator/ventilation.py`, `ventilation-hardycross-1.0.0`) | **Implemented and verified against closed-form and independent checks** | `services/simulator/test_ventilation.py` (15 tests + 1 skipped): parallel airways R = 4 and 1 carrying 30 m³/s split 10 / 20 (both drop 400 Pa) and R = 1, 4, 9 carrying 22 split 12 / 6 / 4 (all drop 144 Pa) to 1e-8; series airways; zero-resistance surface links with a slack node; fan operating point and power; **8 random networks** where the answer satisfies continuity at every node and the pressure law on every airway and matches an independent nonlinear solver (SciPy least squares from a cold start) to 4 decimals; deterministic |
+| Flow reversal, disconnected sections, convergence reporting | **Implemented and verified** | A reversed airway reports a negative flow and `reversedFromDrawn`; a section with no driver is `no-driver` with zero flow, a section a fan cannot balance is `infeasible` with no flows, isolated junctions are listed; tolerance, iteration limit, iterations used, last correction, continuity and pressure-closure residuals are returned; an iteration limit of 1 reports `converged: false` |
+| Gas dilution and re-entry (screening) | **Implemented and verified** | Hand-worked: 0.01 m³/s released into 20 m³/s = 0.05 %; a 50:50 split keeps the concentration; clean air joining dilutes it (0.005 m³/s into 30 m³/s); no airflow = "cannot be estimated"; recirculation flagged; t = (2400 / 20) ln(0.01 / 0.0005) = 359.49 s; already-below-limit = 0; no airflow = does not clear. No defaults for release rate or limit |
+| Scenarios | **Implemented and verified** | Fan failure (airway stays open), duty override, door open/closed (resistance added in series), blocked airways, gas and re-entry; baseline and scenario solved together and compared; `tests/ventilation.test.ts` (8) and `tests/browser/ventilation.spec.ts` through the real worker (fan failure stops all flow; baseline T13 = 30.00 m³/s) |
+| UI | **Implemented and verified** | Scenarios → Ventilation: builder with preflight, verification banner, convergence and residuals, section status, baseline vs scenario table, gas and re-entry, and a **3D airflow view** (tunnels coloured by speed, arrows along the flow, baseline/scenario toggle) |
+| **Textbook verification (spec 9.8)** | **NOT MET** | The spec requires agreement with a **published textbook worked example within a stated tolerance before results are shown**. No such example could be retrieved while this was built (the publisher and course-note sites were unreachable from the build environment) and none is invented. The results screen says in a banner that the solver has been checked against closed-form cases and an independent solver but **not** against a textbook example; `TextbookReference` in the Python tests is a skipped placeholder with instructions. To close this: supply the figures of one worked example (source, page, branch resistances, fan or flow, published final flows, stated tolerance) and it becomes a fixture and a gate |
+| Training mine | Changed | The fictional template now carries assumed ventilation values (resistance from an assumed friction factor 0.012, a 30 m³/s fan, a door resistance of 50), recorded as `assumed` provenance. Existing workspaces get them with a training-mine reset |
+
+Not done: fan curves, natural ventilation, heat and density, shaft/portal losses, transient (time-dependent) ventilation, blast re-entry with explosive-quantity fume estimates.
+
 ## Phase 9 — surveyor features (2026-11-27)
 
 | Item | Status | Evidence |

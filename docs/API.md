@@ -143,3 +143,13 @@ A report's review dialog has **Run scenario from this report**: it opens the bui
 | GET `/api/workspace/files/:id` | Stored images (PNG/JPEG/WebP only, `nosniff`, sandboxed CSP) |
 
 Worker env `FORESIGHT_WORKER_BODY_LIMIT` (default 8 MB). Hosted uploads are capped below Vercel's 4.5 MB request limit. The original GeoTIFF is not kept; the reduced picture and its metadata are.
+
+## Phase 10 additions: ventilation, gas and re-entry
+
+| Method and path | Body / result |
+| --- | --- |
+| POST `/api/workspace/ventilation/preflight` | Scenario → `{ok,problems,warnings,revision}` |
+| POST `/api/workspace/ventilation/runs` | `{name,fanFailures:[fanId],fanDutyOverrides:[{fanId,dutyM3s}],doorChanges:[{doorId,open}],blockedTunnels:[id],gas:{releaseTunnelId,releaseM3s,limitFraction}\|null,reentry:{tunnelIds,feedTunnelId,startFraction}\|null,tolerance,maxIterations}` → run (supervisor or administrator). The baseline (the model as it stands) and, when anything changes, the scenario are both solved and compared |
+| GET `/api/workspace/ventilation/runs/:id` | Polls the worker. Result: per-airway flow (signed, from→to positive), speed where the size is entered, pressure drop or fan operating point, `sections` (solved / no-driver / infeasible / isolated), tolerance, iterations, residuals, `comparison`, `gas`, `reentry`, `verification`, `assumptions` |
+
+Worker job kind `ventilation` (engine `ventilation-hardycross-1.0.0`). Inputs come from the published mine model: tunnel `resistance` (N s²/m⁸), fan `fixedDutyM3s`, door `resistance` (added when closed), tunnel width/height/profile for speed and volume. Missing values block the run and are listed.

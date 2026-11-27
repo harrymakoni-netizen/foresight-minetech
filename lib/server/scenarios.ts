@@ -171,7 +171,7 @@ export async function dispatch(ctx: Context, run: Awaited<ReturnType<typeof inse
   }
 }
 /** Poll the worker; on completion store the result. Trajectories become their own source record. */
-export async function pollEscape(ctx: Context, id: string, kind: "escape-run" | "time-to-act-study" | "cage-run") {
+export async function pollEscape(ctx: Context, id: string, kind: "escape-run" | "time-to-act-study" | "cage-run" | "ventilation-run") {
   const run = await get(ctx, id, kind);
   if (!["running", "queued"].includes(String(run.data.status))) return run;
   let job: { status: string; result?: Record<string, unknown> | null; error?: string; progress?: number };

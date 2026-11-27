@@ -672,6 +672,7 @@ function Responses({ run, post, refresh, notify, role }: { run: Row; post: ViewP
   );
 }
 const Cage = dynamic(() => import("./cage").then((m) => m.CageScenarios), { loading: () => <p role="status">Loading cage scenarios…</p> });
+const Vent = dynamic(() => import("./ventilation").then((m) => m.VentilationScenarios), { loading: () => <p role="status">Loading ventilation…</p> });
 const WaterLab = dynamic(() => import("./simulator").then((m) => m.Simulator), { loading: () => <p role="status">Loading water laboratory…</p> });
 export function Scenarios(props: ViewProps) {
   const [tab, setTab] = useState(() => (typeof location !== "undefined" && location.hash.startsWith("#simulator") ? "water" : "escape"));
@@ -692,11 +693,14 @@ export function Scenarios(props: ViewProps) {
         <button role="tab" aria-selected={tab === "cage"} onClick={() => setTab("cage")}>
           Cage and hoist
         </button>
+        <button role="tab" aria-selected={tab === "vent"} onClick={() => setTab("vent")}>
+          Ventilation
+        </button>
         <button role="tab" aria-selected={tab === "water"} onClick={() => setTab("water")}>
           Water laboratory
         </button>
       </div>
-      {tab === "escape" ? <EscapeScenarios {...props} /> : tab === "cage" ? <Cage {...props} /> : <WaterLab {...props} />}
+      {tab === "escape" ? <EscapeScenarios {...props} /> : tab === "cage" ? <Cage {...props} /> : tab === "vent" ? <Vent {...props} /> : <WaterLab {...props} />}
     </>
   );
 }

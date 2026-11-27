@@ -18,6 +18,8 @@ export type Playback = {
   people: { id: string; x: number; y: number; tone: "walking" | "cut-off" | "safe" | "waiting"; label?: string; shaft?: { exitId: string; fraction: number } }[];
   /** Cage position in a shaft (0 = station, 1 = surface) with the number aboard. */
   cage?: { exitId: string; fraction: number; aboard: number; failed: boolean };
+  /** Airflow by tunnel id (signed m3/s, positive from the tunnel's start to its end): colours tunnels by speed and animates arrows along the flow. */
+  flows?: Record<string, number>;
   closed: Set<string>;
   sumps?: Record<string, { levelM: number; dangerLevelM: number | null }>;
   clock?: string;
@@ -116,7 +118,8 @@ export default function Tunnels3D({
     const P = (x: number, y: number, z: number | null) => new THREE.Vector3(x, (z ?? 0) * ex, -y);
     const world = new THREE.Group();
     const pickable: THREE.Object3D[] = [];
-    const tunnelMeshes = new Map<string, { mesh: THREE.Mesh; base: THREE.Color }>();
+    const tunnelMeshes = new Map<string, { mesh: THREE.Mesh; base: THREE.Color; pa: THREE.Vector3; pb: THREE.Vector3 }>();
+    const arrowSets = new Map<string, { group: THREE.Group; q: number; f: number }>();
     const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number }>();
     const shaftColumns = new Map<string, { top: THREE.Vector3; bottom: THREE.Vector3 }>();
     const cages = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>();
@@ -198,7 +201,7 @@ export default function Tunnels3D({
       } satisfies Picked;
       world.add(mesh);
       pickable.push(mesh);
-      tunnelMeshes.set(t.id, { mesh, base });
+      tunnelMeshes.set(t.id, { mesh, base, pa: pa.clone(), pb: pb.clone() });
     }
     // Junction nodes.
     const nodeGeo = new THREE.SphereGeometry(Math.max(1.2, Math.min(spanX, spanY) / 160), 16, 12);
@@ -483,8 +486,36 @@ export default function Tunnels3D({
     const lift = Math.max(1, Math.min(spanX, spanY) / 110) * 1.6;
     applyRef.current = (pb) => {
       const closed = pb?.closed || highlight || new Set<string>();
-      for (const [id, { mesh, base }] of tunnelMeshes) {
+      const flows = pb?.flows;
+      const flowMax = flows ? Math.max(1e-9, ...Object.values(flows).map(Math.abs)) : 0;
+      for (const [, set] of arrowSets) set.group.visible = false;
+      for (const [id, { mesh, base, pa, pb: pend }] of tunnelMeshes) {
         const m = mesh.material as THREE.MeshStandardMaterial;
+        if (flows) {
+          const q = flows[id] ?? 0;
+          const f = Math.min(1, Math.abs(q) / flowMax);
+          const c = new THREE.Color(0x3a4a5a).lerp(new THREE.Color(0x39d0ff), Math.sqrt(f));
+          m.color.copy(c);
+          m.emissive.copy(c).multiplyScalar(0.35);
+          if (Math.abs(q) > 1e-9) {
+            let set = arrowSets.get(id);
+            if (!set) {
+              const group = new THREE.Group();
+              const cone = new THREE.ConeGeometry(Math.max(1.4, spanX / 150), Math.max(4, spanX / 60), 8);
+              disposables.push(cone);
+              const cm = mat({ color: 0xffffff, emissive: new THREE.Color(0xbfefff) });
+              for (let k = 0; k < 3; k++) group.add(new THREE.Mesh(cone, cm));
+              world.add(group);
+              set = { group, q, f };
+              arrowSets.set(id, set);
+            }
+            set.q = q;
+            set.f = f;
+            set.group.visible = true;
+            set.group.userData.ends = [pa, pend];
+          }
+          continue;
+        }
         const c = closed.has(id) ? new THREE.Color(0xd92d20) : base;
         m.color.copy(c);
         m.emissive.copy(c).multiplyScalar(closed.has(id) ? 0.5 : 0.25);
@@ -625,6 +656,17 @@ export default function Tunnels3D({
       }
       orbit.autoRotate = spinRef.current && !tween;
       orbit.autoRotateSpeed = 0.8;
+      for (const [, set] of arrowSets) {
+        if (!set.group.visible) continue;
+        const [a, b] = set.group.userData.ends as THREE.Vector3[];
+        const dir = new THREE.Vector3().subVectors(set.q > 0 ? b : a, set.q > 0 ? a : b);
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+        set.group.children.forEach((child, k) => {
+          const u = ((k / 3 + time * (0.15 + 0.6 * set.f)) % 1 + 1) % 1;
+          child.position.copy(set.q > 0 ? a : b).addScaledVector(dir, u).add(new THREE.Vector3(0, 1.5, 0));
+          child.quaternion.copy(quat);
+        });
+      }
       world.traverse((o) => {
         if (o.userData.spin) o.rotation.z += dt * 2.5;
         if (o.userData.tone === "cut-off") o.scale.setScalar(1 + Math.sin(time * 6) * 0.18);
