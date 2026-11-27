@@ -31,3 +31,21 @@ test("cage scenario: 10 people, capacity 8, hoist fails at 5 min → ladderway; 
   await expect(page.locator(".fs-3d-clock")).toContainText("HOIST FAILED");
   await expect(page.locator(".fs-3d-clock")).toContainText("8/10 at surface");
 });
+
+test("two cages bring 10 people to the surface in one 270 s cycle", async ({ page }) => {
+  await page.goto("/#scenarios");
+  await page.getByRole("tab", { name: "Cage and hoist" }).click();
+  const builder = page.getByLabel("Cage scenario builder");
+  await builder.getByLabel("Source").selectOption("manual");
+  await builder.getByLabel("People at 60 m level").fill("10");
+  await builder.getByLabel("The hoist fails", { exact: true }).uncheck();
+  await builder.getByText("Advanced assumptions", { exact: true }).click();
+  await builder.getByLabel("Number of cages (independent, sharing the queues)").fill("2");
+  await builder.getByRole("button", { name: "Run cage scenario" }).click();
+
+  const results = page.getByLabel("Cage results");
+  await expect(results).toContainText("10 people = 10 by cage + 0 by the ladderway + 0 not reached ✓ balanced", { timeout: 60_000 });
+  await expect(results.getByRole("definition").first()).toHaveText("4 min 30 s");
+  const trips = results.getByRole("table").first();
+  await expect(trips.getByRole("row").filter({ hasText: "4 min 30 s" })).toHaveCount(2);
+});

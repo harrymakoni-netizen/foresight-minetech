@@ -20,7 +20,7 @@ Connectivity and isolated parts; tunnels crossing in plan without a junction (th
 
 * Escape (`services/simulator/escape.py`): walkable polygons are tunnel centrelines buffered by half their width; closures split the run; people start **evenly spread along their zone's tunnel centrelines** with a seeded lateral offset (falls back to seeded random placement only if the zone is too crowded, and records that).
 * Flooding (`lumped-water-1.0.0`, unchanged): one sump per run; the sump's danger level closes the tunnels listed in `closesTunnelIds` from that instant (one-way handoff). The engine labels storage with `zone-a/b/c` only; a sump in another zone is reported as a limitation rather than relabelled.
-* Not yet built: DXF import, GeoTIFF base maps, subsidence marks (phase 9); ventilation (phase 10).
+* Cage and hoist (SimPy): a scenario takes 1–4 independent cages with identical modelled capacity and timings. They serve shared queues and each person boards at most once. Cage count is a scenario input. Counterweights, skip-and-cage operation and coupled hoist mechanics are outside the model.
 
 
 ## Importing a surveyor's DXF (phase 9)
@@ -36,13 +36,20 @@ Limits: 4 MB per file; at most 5000 line ends. Larger drawings: export only the 
 
 ## Base maps and subsidence marks (phase 9)
 
-Mine → Surface. A GeoTIFF orthophoto or elevation model (metre-based projected CRS such as UTM, north-up, up to 3 MB; reduce larger ones first, for example `gdal_translate -outsize 2000 0`) is read in the worker and shown as a reduced picture. You enter the map coordinate the plan's origin sits at and confirm both are in metres; rotation is not applied. It is a picture to read the plan against and never changes a tunnel. Elevation models are drawn with a plain colour ramp and report their real value range, not assumed to be metres.
+Mine → Surface. The worker accepts a georeferenced GeoTIFF up to 3 MB and retains a reduced picture and its metadata. The default import expects a north-up projected raster in metres. With reprojection enabled, the worker can resample a geographic, non-metre or rotated raster to a north-up UTM grid in the zone of its centre. It still requires a source CRS and a raster centre within UTM coverage. Elevation previews report the source value range in the raster's units.
+
+Enter the map coordinate of plan (0, 0), confirm metres and optionally enter a counter-clockwise rotation from map east. The same alignment applies to the plan and 3D surface. It changes the backdrop only and requires survey control for any accuracy claim.
 
 A subsidence mark (click the plan, describe it, add a photo of up to 2.5 MB) is placed **near a zone** when it is within 100 m (plan distance) of one of that zone's tunnels. That distance is a development default, not a validated value. A mark near a zone raises a concern for review; a mark farther away is only recorded. Marks can be retracted with a reason.
 
 
 ## Ventilation inputs (phase 10)
 
-Scenarios → Ventilation reads, from the published model: each tunnel's airway resistance R (N s²/m⁸, Atkinson: dP = R Q|Q|), each fan's fixed duty (m³/s, moving air from its tunnel's start junction to its end junction), each door's resistance (added in series while closed) and tunnel sizes (for speed and re-entry volume). Every exit is joined to the surface through a zero-resistance link, so shaft and portal losses are not modelled. The fictional training mine carries **assumed** values (R from k L P / A³ with k = 0.012 kg/m³, a 30 m³/s fan, a 50 N s²/m⁸ door); a real mine needs measured or surveyed values, which preflight does not invent.
+Scenarios → Ventilation reads, from the published model: each tunnel's airway resistance R (N s²/m⁸, Atkinson: dP = R Q|Q|), each fan's fixed duty (m³/s) or pressure–quantity curve, each door's resistance (added in series while closed) and tunnel sizes (for speed and re-entry volume). Every exit is joined to the surface through a zero-resistance link, so shaft and portal losses are not modelled. The fictional training mine carries **assumed** values (R from k L P / A³ with k = 0.012 kg/m³, a 30 m³/s fan, a 50 N s²/m⁸ door); a real mine needs measured or surveyed values, which preflight does not invent.
 
-What is solved: steady airflow by Hardy Cross with junction continuity, the tolerance and iteration limit you set (reported with the iterations used and the residuals), flow reversal against the drawn direction, and sections with no driver or that cannot balance (listed, given no flows). Gas: concentration in each airway downstream of a release = gas flow ÷ airflow with full mixing at junctions; re-entry t = (V ÷ Q) ln(c_start ÷ c_limit) for a work area. Both are screening estimates: they need fume-emission data and are not a clearance to re-enter. Not modelled: fire, CFD, natural ventilation, heat, leakage, fan curves, licensed ventilation software.
+What is solved: steady airflow by Hardy Cross with junction continuity, the tolerance and iteration limit you set (reported with the iterations used and the residuals), flow reversal against the drawn direction, and sections with no driver or that cannot balance (listed, given no flows). Gas: concentration in each airway downstream of a release = gas flow ÷ airflow with full mixing at junctions; re-entry t = (V ÷ Q) ln(c_start ÷ c_limit) for a work area. Both are screening estimates: they need fume-emission data and are not a clearance to re-enter. Fire, CFD, leakage, time-varying airflow and thermal transport are outside the model.
+
+
+Enter a fan curve as 2–20 flow and pressure-rise points with strictly increasing flow. The solver interpolates linearly between points and holds the endpoint pressure outside the tabulated range. Results flag out-of-range operation and reverse flow, where the curve is unverified. A scenario can override the curve with fixed duty.
+
+Natural ventilation is a user-entered signed pressure in Pa, applied along the drawn airway direction and shared by baseline and scenario where the airway stays open and has no fixed flow. The helper estimates pressure from entered vertical height, cold and warm column temperatures and surface pressure using ideal-gas densities and a static two-column approximation. It supplies no site readings. Closed-form and independent solver checks cover the software arithmetic. The published textbook benchmark and field validation are outstanding, and gas and re-entry results remain screening estimates.

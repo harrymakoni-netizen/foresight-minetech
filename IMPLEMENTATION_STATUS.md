@@ -6,7 +6,7 @@ Status categories (spec §18): **Implemented and verified** · **Implemented, aw
 
 ## At a glance (2026-11-17)
 
-Phases 0–5 (the competition build) are implemented on `claude/minetech-v2`. Phases 6–11 are **not implemented** yet.
+Phases 0–5 (the competition build) are implemented on `claude/minetech-v2`. Phases 6–10 were added later and are recorded below. Phase 11 was cancelled.
 
 **Blocked by named dependencies (owner action needed):**
 1. Real SMS: an Android phone with an Econet/NetOne SIM running SMSGate, its credentials, and the consenting test numbers for `MESSAGING_TEST_NUMBERS`.
@@ -166,6 +166,20 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Follow-ups (2026-11-28)
+
+| Item | Implementation and verification | Limits |
+| --- | --- | --- |
+| AI policy screen | Settings exposes the workspace `allowNames` switch. Server tests cover the default, administrator-only writes and the name policy applied by the tools. | Default is off. Phone numbers and miners' message bodies stay excluded from tool data. Free-text masking has limited coverage. The settings control and live-provider behavior were not independently exercised. |
+| Run-comparison explanation | The escape comparison view can explain two runs of the same kind. Individual escape and cage results also have an explanation control. Tests cover the deterministic explanation and grounding checks for AI explanations, including deltas between two cited values of the same metric. | AI checks use a mock provider. Numeric grounding does not validate a causal interpretation or the completeness of an explanation. The two-run UI path was not independently exercised. |
+| Multi-cage | SimPy runs up to four independent cages with shared queues and exclusive boarding. The real-worker browser check uses two cages, ten manual people and no failure. Both trips finish at 270 s (4 min 30 s), with all ten people accounted for by cage. | Cages use the same model values and the same outage schedule. Coupled hoist mechanics, counterweights and skip-and-cage operation are outside the model. |
+| Map rotation and reprojection | The map can be rotated relative to the plan in 2D and 3D. Worker and server tests exercise opt-in reprojection of a referenced fixture to UTM and transformed alignment bounds. | A known source CRS is required. Reprojection resamples the image and the original GeoTIFF is not retained. Survey accuracy and rotated or reprojected rendering in the browser were not independently verified. |
+| Fan curves and natural ventilation | The worker solves entered pressure–quantity curves and signed natural pressure sources. Closed-form and independent nonlinear solver tests cover the arithmetic. The real-worker browser check passed with the exact pressure-field label and verified that the result reports the applied pressure. | The browser check uses fictional readings and does not exercise fan curve entry end to end. A published textbook worked example and field validation remain outstanding. Out-of-range and reverse-flow operating points are flagged. Gas and re-entry estimates are for screening only. |
+
+Verification passed locally: production build and typecheck, 126 Node tests each on SQLite and PostgreSQL 16, PostgreSQL auth (1), Python (36), simulator (84 passed and the textbook benchmark skipped), vision runtime (2), numerical evaluation (30/30), and all 18 browser checks (10 general and 8 demo).
+
+Local verification keeps messaging in dry-run except for isolated delivery tests against a local mock with the existing allow-listed fixtures. No real messages were sent. Hosted messaging configuration and follow-up behavior were not exercised.
+
 ## Phase 10 — ventilation, gas and re-entry (2026-11-27)
 
 | Item | Status | Evidence |
@@ -178,7 +192,7 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 | **Textbook verification (spec 9.8)** | **NOT MET** | The spec requires agreement with a **published textbook worked example within a stated tolerance before results are shown**. No such example could be retrieved while this was built (the publisher and course-note sites were unreachable from the build environment) and none is invented. The results screen says in a banner that the solver has been checked against closed-form cases and an independent solver but **not** against a textbook example; `TextbookReference` in the Python tests is a skipped placeholder with instructions. To close this: supply the figures of one worked example (source, page, branch resistances, fan or flow, published final flows, stated tolerance) and it becomes a fixture and a gate |
 | Training mine | Changed | The fictional template now carries assumed ventilation values (resistance from an assumed friction factor 0.012, a 30 m³/s fan, a door resistance of 50), recorded as `assumed` provenance. Existing workspaces get them with a training-mine reset |
 
-Not done: fan curves, natural ventilation, heat and density, shaft/portal losses, transient (time-dependent) ventilation, blast re-entry with explosive-quantity fume estimates.
+The follow-up adds fan curves and a static natural pressure estimate. Heat transport, shaft and portal losses, transient ventilation and explosive-quantity fume estimates remain outside the model.
 
 ## Phase 9 — surveyor features (2026-11-27)
 
@@ -186,12 +200,12 @@ Not done: fan curves, natural ventilation, heat and density, shaft/portal losses
 | --- | --- | --- |
 | DXF import (ezdxf 1.4.5 in the worker) | **Implemented and verified** | `services/simulator/test_survey.py` with DXF fixtures written by ezdxf and expected values worked out by hand: layers and unsupported entities listed; snap of a 0.02 m gap; a T-junction splitting a line; a 1.5 m near miss proposed and only joined when accepted; unit conversion (12000 mm = 12 m) with the unit chosen by the person; elevations from a 3D layer, constant or unknown (a flat layer is never 0 m); a bent polyline keeps its 70 m path length (chord 50 m); arcs approximated and counted; bad input refused; deterministic |
 | Import review flow | **Implemented and verified** | `tests/survey.test.ts` through the real worker: inspect → build → accept near miss → both confirmations required → **draft** revision with `survey-plan` provenance and widths left not entered; cannot be published until preflight passes. The UI wizard is covered in `tests/browser/survey.spec.ts` |
-| GeoTIFF base maps (rasterio 1.4.3 / GDAL 3.9.3) | **Implemented and verified** | Bounds and pixel size match the fixture exactly (300000–300200 × 7999840–8000000 at 2 m; 5 m fixture in the server test); downsampling keeps the covered ground; elevation range and nodata share computed; geographic, no-CRS, rotated and unreadable files refused with a reason; alignment and metres confirmation required; only one map shown |
+| GeoTIFF base maps (rasterio 1.4.3 / GDAL 3.9.3) | **Implemented and verified** | Bounds and pixel size match the fixture exactly (300000–300200 × 7999840–8000000 at 2 m; 5 m fixture in the server test); downsampling keeps the covered ground; elevation range and nodata share computed; the original import rejected geographic, no-CRS, rotated and unreadable files with a reason; alignment and metres confirmation required; only one map shown |
 | Subsidence marks | **Implemented and verified** | Placed near a zone by plan distance to its tunnels (development default 100 m); near a zone raises a `development-controls-2` concern with the mark as evidence; far marks recorded only; photo type and content checked (an SVG or HTML disguised as PNG is refused); retract removes the concern |
 | Views | **Implemented and verified** | Base map under the plan and on the 3D surface plane, marks as diamonds/pins (click in 3D shows the entered text) |
 | Render image | **Verified in the built image** | `deploy/requirements-engine.txt` includes ezdxf, rasterio and pillow. Building the image caught a real gap: the slim Python image has no `libexpat`, so rasterio failed to import and the base map engine was silently absent. `deploy/render.Dockerfile` now copies libexpat from the build stage. In the rebuilt image `/health` lists `cage-simpy`, `dxf-ezdxf` and `basemap-rasterio`, and a DXF, GeoTIFF and cage job each completed. The image is about 2 GB; **Render must be redeployed to get the cage, DXF and base map engines** |
 
-Limits and gaps (stated in the UI): ASCII DXF only; LINE, LWPOLYLINE and POLYLINE only; closed polylines with nothing attached to them are not made into tunnels (warned); the original GeoTIFF is not kept; no rotation or reprojection of base maps; DXF up to 4 MB and GeoTIFF up to 3 MB because of the 4.5 MB hosting request limit; subsidence "near" distance is a development default.
+Limits and gaps (stated in the UI): ASCII DXF only; LINE, LWPOLYLINE and POLYLINE only; closed polylines with nothing attached to them are not made into tunnels (warned); the original GeoTIFF is not kept; DXF up to 4 MB and GeoTIFF up to 3 MB because of the 4.5 MB hosting request limit; subsidence "near" distance is a development default.
 
 ## Phase 8 — report trigger and AI tools (2026-11-27)
 
@@ -205,7 +219,7 @@ Limits and gaps (stated in the UI): ASCII DXF only; LINE, LWPOLYLINE and POLYLIN
 | UI | **Implemented and verified** | Scenarios: collapsible assistant (says it is off when no provider is set), "Explain these results" (no AI) and "Explain with AI" (disabled with a reason when no provider) on escape and cage runs, drafts open in the builder |
 | **Not verified** | | **No live AI provider was reached.** The models in every test are mocks; the Gemini credential supplied to this sandbox did not authenticate from here. Check the assistant and AI explanation with your real provider key before relying on them. "Explain with AI" is not shown as working until then; the deterministic explanation is |
 
-Not done: comparing two runs in the UI with the AI wording (the compare tool and deterministic comparison exist on the server), a policy screen for `allowNames`.
+See Follow-ups for the two-run explanation and the `allowNames` settings control.
 
 ## Phase 7 — cage and hoist evacuation (2026-11-27)
 
@@ -218,7 +232,7 @@ Not done: comparing two runs in the UI with the AI wording (the compare tool and
 | Worker and API | **Verified** | Worker job round-trip test; `cage/preflight`, `cage/runs` routes; `tests/cage.test.ts` (4) for how input is built from the model and people source and that an unreachable worker is recorded, not faked |
 | UI | **Implemented and verified** | Scenarios → Cage and hoist: builder with preflight, results with accounting, queue chart, trips, assumptions; **3D playback**: cage rides the shaft (turns red while the hoist is out of service), waiting people at the station, climbers in the shaft column. `tests/browser/cage.spec.ts` runs in `npm run test:demo` through the real worker and checks the hand-calculated 9 min 00 s baseline, 20 min 00 s with the failure and +11 min 00 s |
 
-Not done: multi-cage or skip-and-cage shafts, variable loading times, ladder capacity limits (no data supplied), concern-to-cage-scenario link.
+See Follow-ups for independent multi-cage scenarios. Skip-and-cage shafts, variable loading times, ladder capacity limits and a concern-to-cage-scenario link remain outside this implementation.
 
 ## Phase 6 — rain and pre-entry checks (2026-11-27)
 

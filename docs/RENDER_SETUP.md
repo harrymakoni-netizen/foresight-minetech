@@ -1,7 +1,7 @@
 # Render setup — engines and messaging service
 
 The web app runs on Vercel (`foresight-minetech-v2`). Two things cannot run
-there: the Python simulation engines (escape, flood-escape chain, Time to act)
+there: the persistent Python simulation worker
 and the always-on messaging service (overdue-return scheduler, escalation,
 gateway polling). Both run in **one Render web service** defined by
 `render.yaml` and built from `deploy/render.Dockerfile`.
@@ -34,9 +34,7 @@ Render form only — never into chat, commits or tickets.
 | `FORESIGHT_WORKER_TOKEN` | Must equal the value on the Vercel project (Settings → Environment Variables). |
 | `FORESIGHT_PERSONAL_DATA_KEY` | Must equal the value on the Vercel project, or sealed phone numbers cannot be read. |
 
-`MESSAGING_MODE` is preset to `dry-run`. Do not change it here: `live` is chosen
-by an administrator in workspace settings, and sends are still limited to the
-allow-list.
+Keep `MESSAGING_MODE=dry-run` and the workspace in dry-run. Use only consenting test numbers supplied by the owner for any allow-list. The local delivery smoke uses the existing fixtures and a loopback mock gateway.
 
 ## 3. Deploy and check
 
@@ -58,14 +56,14 @@ project (Production and Preview) and redeploy. Then in the app:
 
 ## Notes
 
-- After pulling new commits, **Manual Deploy** the service: the cage (SimPy), DXF (ezdxf) and base map (rasterio) engines only exist in the newer image. `/health` (with the worker token) should list `cage-simpy-1.0.0`, `dxf-ezdxf-1.0.0` and `basemap-rasterio-1.0.0`.
+- Deploy matching web and worker revisions for multi-cage, GeoTIFF reprojection, fan curves and natural ventilation. With the worker token, check that `/health` lists `cage-simpy-1.0.0`, `dxf-ezdxf-1.0.0`, `basemap-rasterio-1.0.0` and `ventilation-hardycross-1.0.0`. Engine identifiers do not distinguish revisions with the follow-ups, so confirm the deployed commit and exercise these paths on a fictional workspace. Hosted verification of the follow-ups is outstanding.
 - The image is about 2 GB (JuPedSim, SciPy, GDAL). rasterio needs `libexpat`, which the Dockerfile copies from its build stage.
 - `autoDeploy` is off: deploy new commits with **Manual Deploy** in Render.
 - JuPedSim is installed with `--no-deps`; its GUI dependencies (PySide6, VTK,
   ~1.2 GB) are not used by the engines.
 - Job records live in `/tmp` inside the container and are lost on restart; run
   results the app needs are stored in PostgreSQL by the web app.
-- The image was built and run locally against a fresh PostgreSQL database:
+- An earlier image was built and run locally against a fresh PostgreSQL database:
   `/healthz` ok, `/health` 401 without the token and lists all four engines with
   it, and both the messaging-service and gateway heartbeats were written.
 - If a build fails, open the service → **Events/Logs** in Render and look at the

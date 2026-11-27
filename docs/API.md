@@ -108,17 +108,18 @@ Assessments created from now on record `policyVersion: "development-controls-2"`
 | Method and path | Body / result |
 | --- | --- |
 | POST `/api/workspace/cage/preflight` | Cage scenario → `{ok,problems,warnings,people,revision}` |
-| POST `/api/workspace/cage/runs` | `{name,shaftExitId,source:"declared"\|"escape-run"\|"manual",escapeRunId,manual:[{level,count,arriveMinutes}],assemblyMinutes,outages:[{fromMinutes,toMinutes\|null}],unloadSeconds,horizonMinutes}` → run (202-style: `status` queued/running/worker-unavailable); supervisor or administrator |
+| POST `/api/workspace/cage/runs` | `{name,shaftExitId,source:"declared"\|"escape-run"\|"manual",escapeRunId,manual:[{level,count,arriveMinutes}],assemblyMinutes,outages:[{fromMinutes,toMinutes\|null}],unloadSeconds,horizonMinutes,cageCount}` → run (202-style: `status` queued/running/worker-unavailable); supervisor or administrator |
 | GET `/api/workspace/cage/runs/:id` | Polls the worker and stores the result (`totals`, `lastSurfaceSeconds` or null = not reached, `queueSeries`, `cycles`, `people`, `effect` vs. a no-failure baseline, `assumptions`) |
 
-Cage and hoist values come from the published mine model (`exits[].hoist`, `ladderClimbSeconds`). Worker job kind `cage` (engine `cage-simpy-1.0.0`).
+Cage and hoist values come from the published mine model (`exits[].hoist`, `ladderClimbSeconds`). `cageCount` is an integer from 1 to 4 and defaults to 1. Cages share queues and use the same hoist values. Results include `cageCount` and a cage number on each new trip. Worker job kind `cage` (engine `cage-simpy-1.0.0`).
 
 ## Phase 8 additions: assistant and grounded explanations
 
 | Method and path | Body / result |
 | --- | --- |
+| POST `/api/workspace/ai-policy` | `{allowNames:boolean}` → saved workspace policy (administrator only, off by default) |
 | POST `/api/workspace/assistant/chat` | `{message,allowRuns}` → `{text,steps,drafts,runsAllowed}`. 503 `ASSISTANT_UNAVAILABLE` when no AI provider is configured. `allowRuns:true` needs a supervisor or administrator and applies to this request only |
-| POST `/api/workspace/assistant/explain` | `{runIds:[1–2],question?,mode:"deterministic"\|"ai"}` → `{paragraphs:[{text,citations:[{runId,metricId}]}],assumptions,unavailable,limitation}`. `deterministic` needs no AI. `ai` is rejected (502 `UNGROUNDED_EXPLANATION`) unless every citation names a real run and metric and every number is a value of the metrics it cites |
+| POST `/api/workspace/assistant/explain` | `{runIds:[1–2],question?,mode:"deterministic"\|"ai"}` → `{paragraphs:[{text,citations:[{runId,metricId}]}],assumptions,unavailable,limitation}`. `deterministic` needs no AI. `ai` is rejected (502 `UNGROUNDED_EXPLANATION`) unless every citation names a real run and metric and each number matches a cited value or the difference between cited values of the same metric |
 
 Assistant tools (server-side, act as the signed-in user): `list_declared_underground`, `inspect_mine_model`, `identify_missing_inputs`, `create_scenario_draft`, `validate_scenario`, `submit_run`, `get_run_results`, `compare_runs`, `draft_incident_report`. There is no tool to send a message, declare an emergency, change a status or accept evidence. `create_scenario_draft` stores a `scenario-draft` record that opens in the builder (`#scenarios?draft=<id>`) and runs nothing; endurance values stay "not entered". Metric ids look like `escape.people.cut-off`, `escape.time.t100`, `flooding.first-danger`, `cage.time.last-surface`.
 
@@ -134,9 +135,9 @@ A report's review dialog has **Run scenario from this report**: it opens the bui
 | GET `/api/workspace/mine-model/imports/:id` | Polls the worker and stores the result |
 | POST `/api/workspace/mine-model/imports/:id/build` | `{layers,unit,snapMetres,nearMissMetres,elevation:{mode:"dxf"\|"constant"\|"unknown",constant},acceptNearMiss:[ids]}` → proposal (junctions, tunnels, near misses, isolated parts, warnings). The unit has no default. Nothing is joined beyond the snap distance unless its near-miss id is accepted |
 | POST `/api/workspace/mine-model/imports/:id/accept` | `{unitsConfirmed:true,elevationsConfirmed:true}` → **draft** revision (`meta.source:"dxf"`, `survey-plan` provenance; widths, exits, zones, sumps not in the drawing stay not entered). Never publishes |
-| POST `/api/workspace/base-maps` | `{name,filename,b64}` GeoTIFF up to 3 MB → `base-map` (worker job `basemap`: bounds, CRS, pixel size, a reduced PNG). Geographic (degree), unreferenced, non-metre and rotated rasters are refused with a reason |
+| POST `/api/workspace/base-maps` | `{name,filename,b64,reproject}` GeoTIFF up to 3 MB → `base-map` (worker job `basemap`: bounds, CRS, pixel size, a reduced PNG). Opt in with `reproject:true` to resample a referenced geographic, non-metre or rotated raster to the UTM zone of its centre. A missing CRS or a polar location outside the UTM range blocks reprojection |
 | GET `/api/workspace/base-maps/:id` | Polls the worker |
-| POST `/api/workspace/base-maps/:id/align` | `{planOriginEasting,planOriginNorthing,confirmMetres:true}`: the map coordinate the plan's (0, 0) sits at; warns when the plan falls outside the map |
+| POST `/api/workspace/base-maps/:id/align` | `{planOriginEasting,planOriginNorthing,rotationDegrees,confirmMetres:true}`: origin in map metres and counter-clockwise rotation from map east (−180° to 180°, default 0°). Warns when plan junctions fall outside the map |
 | POST `/api/workspace/base-maps/:id/active` | `{active}` (one map is shown at a time) |
 | POST `/api/workspace/subsidence-marks` | `{x,y,description,observedAt,photo?:{filename,contentType,b64}}`: plan position in metres; placed near a zone when within 100 m (development default) of one of its tunnels, which raises a concern for review |
 | POST `/api/workspace/subsidence-marks/:id/retract` | `{reason}` |
@@ -149,7 +150,9 @@ Worker env `FORESIGHT_WORKER_BODY_LIMIT` (default 8 MB). Hosted uploads are capp
 | Method and path | Body / result |
 | --- | --- |
 | POST `/api/workspace/ventilation/preflight` | Scenario → `{ok,problems,warnings,revision}` |
-| POST `/api/workspace/ventilation/runs` | `{name,fanFailures:[fanId],fanDutyOverrides:[{fanId,dutyM3s}],doorChanges:[{doorId,open}],blockedTunnels:[id],gas:{releaseTunnelId,releaseM3s,limitFraction}\|null,reentry:{tunnelIds,feedTunnelId,startFraction}\|null,tolerance,maxIterations}` → run (supervisor or administrator). The baseline (the model as it stands) and, when anything changes, the scenario are both solved and compared |
+| POST `/api/workspace/ventilation/runs` | `{name,fanFailures:[fanId],fanDutyOverrides:[{fanId,dutyM3s}],doorChanges:[{doorId,open}],blockedTunnels:[id],naturalVentilation:[{tunnelId,pressurePa}],gas:{releaseTunnelId,releaseM3s,limitFraction}\|null,reentry:{tunnelIds,feedTunnelId,startFraction}\|null,tolerance,maxIterations}` → run (supervisor or administrator). Entered natural pressure is common to both states on eligible open airways. Fan, door or blockage changes produce a second state for comparison |
 | GET `/api/workspace/ventilation/runs/:id` | Polls the worker. Result: per-airway flow (signed, from→to positive), speed where the size is entered, pressure drop or fan operating point, `sections` (solved / no-driver / infeasible / isolated), tolerance, iterations, residuals, `comparison`, `gas`, `reentry`, `verification`, `assumptions` |
 
-Worker job kind `ventilation` (engine `ventilation-hardycross-1.0.0`). Inputs come from the published mine model: tunnel `resistance` (N s²/m⁸), fan `fixedDutyM3s`, door `resistance` (added when closed), tunnel width/height/profile for speed and volume. Missing values block the run and are listed.
+Worker job kind `ventilation` (engine `ventilation-hardycross-1.0.0`). Inputs come from the published mine model: tunnel `resistance` (N s²/m⁸), fan `fixedDutyM3s` or `curve:[{q,p}]` (flow in m³/s, pressure rise in Pa), door `resistance` (added when closed), tunnel width/height/profile for speed and volume. Missing values block the run and are listed.
+
+A fan duty override replaces the curve with fixed flow. Signed natural pressure follows the drawn tunnel direction and only applies to open airways without a fixed-flow constraint. Results report applied `naturalPressurePa` and flag curve operating points outside the entered range or in reverse flow.
