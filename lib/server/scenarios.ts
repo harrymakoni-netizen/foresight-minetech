@@ -50,10 +50,14 @@ export const requireRunner = (ctx: Context) => {
 /** Snapshot the people source. Declared people start in their declared zone,
  * else the first zone reached from their shaft; the assumption is recorded. */
 async function peopleSnapshot(ctx: Context, s: EscapeScenario, model: MineModel) {
-  const people: { id: string; name: string; zoneId: string; checkInId?: string; assumption: string }[] = [];
+  const people: { id: string; name: string; zoneId: string; checkInId?: string; assumption: string; observation?: { zoneId: string | null; observedAt: string; status: "last-known" | "stale-or-unmapped"; confidence: "receiver-zone-only" } | null }[] = [];
   const unplaced: string[] = [];
   if (s.peopleSource === "current-declarations") {
+    const tags = (await list(ctx, "personnel-device")).filter((d) => d.data.kind === "wearable" && d.data.source === "physical");
     for (const c of await activeCheckIns(ctx)) {
+      const tag = tags.find((d) => d.data.personId === c.data.personId && typeof d.data.observedAt === "string");
+      const observedZone = model.zones.find((z) => z.id === tag?.data.lastZoneId)?.id ?? null;
+      const observedAt = Date.parse(String(tag?.data.observedAt));
       const declared = c.data.declaredZoneId as string | null;
       const shaftZone = model.zones.find((z) => z.shaftIds.includes(String(c.data.shaftId)))?.id;
       const zoneId = declared && model.zones.some((z) => z.id === declared) ? declared : shaftZone;
@@ -64,6 +68,12 @@ async function peopleSnapshot(ctx: Context, s: EscapeScenario, model: MineModel)
       people.push({
         id: c.id,
         checkInId: c.id,
+        observation: tag ? {
+          zoneId: observedZone,
+          observedAt: String(tag.data.observedAt),
+          status: observedZone && observedAt >= Date.parse(String(c.data.timeIn)) && Date.now() - observedAt < 90_000 ? "last-known" : "stale-or-unmapped",
+          confidence: "receiver-zone-only",
+        } : null,
         name: String(c.data.personName),
         zoneId,
         assumption: declared ? `declared zone ${zoneId}` : `no declared zone; assumed first zone of ${c.data.shaftName} (${zoneId})`,

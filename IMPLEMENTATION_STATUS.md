@@ -166,6 +166,15 @@ Checks after Phase 5: typecheck, build, `npm test` **60/60** (SQLite and Postgre
 
 ---
 
+## Underground Personnel Intelligence — bench milestone (2026-11-28)
+
+- Added supervisor provisioning for receivers and person-to-wearable assignment. The local gateway submits heartbeats, zone observations and SOS with a mine-scoped credential. Observation time and server receipt time are separate. Retried packets are idempotent, a late packet cannot replace latest location, and an SOS relayed by more than one receiver keeps one alert when the wearable event ID matches.
+- The Underground monitor reuses the published plan. It highlights a selected device's approximate zone, distinguishes physical and explicitly enabled demo telemetry, and keeps stale or unknown personnel visible on the declared roll. SOS acknowledgement records the human action while leaving the alert open. Existing emergency, muster and manual accountability controls remain available.
+- Escape runs freeze physical observation context with the existing declared roster and mine revision. The simulator retains its declared or explicitly assumed starting zones. Demo telemetry and later observations do not modify a saved run.
+- Existing audit records, messaging dependencies and scheduler duties are preserved at this stage. Validation used dry-run and the existing loopback delivery mock only. No real messages were sent.
+- Verification covered the production build and typecheck, local HTTP gateway authentication and SOS retry, SQLite and PostgreSQL Node suites, PostgreSQL auth, browser and demo suites, desktop and phone rendering, Python and simulator suites, and 30/30 numerical fixtures. The published ventilation textbook benchmark remained skipped.
+- This is an initial local bench milestone. Hardware and public-internet outage recovery remain unverified. RFID, motion and fall classification, RSSI smoothing, durable gateway buffering, direct incident linkage from SOS, and retirement of the messaging worker's delivery duties remain open. See [bench setup](docs/PERSONNEL_BENCH.md).
+
 ## Follow-ups (2026-11-28)
 
 | Item | Implementation and verification | Limits |

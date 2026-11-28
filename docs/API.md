@@ -156,3 +156,7 @@ Worker env `FORESIGHT_WORKER_BODY_LIMIT` (default 8 MB). Hosted uploads are capp
 Worker job kind `ventilation` (engine `ventilation-hardycross-1.0.0`). Inputs come from the published mine model: tunnel `resistance` (N s²/m⁸), fan `fixedDutyM3s` or `curve:[{q,p}]` (flow in m³/s, pressure rise in Pa), door `resistance` (added when closed), tunnel width/height/profile for speed and volume. Missing values block the run and are listed.
 
 A fan duty override replaces the curve with fixed flow. Signed natural pressure follows the drawn tunnel direction and only applies to open airways without a fixed-flow constraint. Results report applied `naturalPressurePa` and flag curve operating points outside the entered range or in reverse flow.
+
+## Personnel telemetry bench API
+
+Supervisor operations: `POST /api/workspace/personnel/devices` provisions a receiver (`code, source, zoneId`) or wearable (`code, source, personId`) with a `kind` discriminator. `POST /api/workspace/personnel/alerts/:id/acknowledge` records the actor/time without closing the SOS. An opt-in fictional workspace can post synthetic packets to `/api/workspace/personnel/demo`. Physical packets use a separate mine-scoped bearer endpoint. See [the bench guide](PERSONNEL_BENCH.md) for the schemas and replay behavior.

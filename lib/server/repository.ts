@@ -218,6 +218,7 @@ export async function idempotent<T>(
   key: string,
   input: unknown,
   fn: () => T | Promise<T>,
+  budget = { category: "mutations", maximum: 2000 },
 ): Promise<T> {
   if (!/^[a-zA-Z0-9_-]{12,120}$/.test(key))
     throw new DomainError(
@@ -243,7 +244,7 @@ export async function idempotent<T>(
         );
       return JSON.parse(existing.result_json);
     }
-    await useBudget(ctx, "mutations", 2000);
+    await useBudget(ctx, budget.category, budget.maximum);
     // Serialize the workspace's mutations so reviewed assessments see a consistent
     // observation set even when two different submissions arrive simultaneously.
     await lock(`workspace:${ctx.workspaceId}`);

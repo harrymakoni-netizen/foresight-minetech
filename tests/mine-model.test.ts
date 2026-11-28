@@ -109,6 +109,27 @@ test("escape scenarios: preflight blocks missing inputs; an unreachable worker i
   assert.equal(run.data.result, null);
   assert.equal((run.data.peopleSnapshot as unknown[]).length, 3);
   await assert.rejects(() => sc.startEscapeRun({ ...ctx, role: "reporter" }, planned), /supervisor or administrator/);
+  const [person] = await repo.list(ctx, "person");
+  const shiftStart = new Date(Date.now() - 5_000).toISOString();
+  const checkIn = await repo.insert(ctx, "check-in", {
+    personId: person.id, personName: person.data.name, shaftId: "east-incline", shaftName: "East incline",
+    declaredZoneId: "zone-b", timeIn: shiftStart, status: "declared-underground",
+  }, "zone-b");
+  const telemetry = await import("../lib/server/personnel.ts");
+  await telemetry.provisionPersonnelDevice(ctx, { kind: "receiver", code: "north-bench", source: "physical", zoneId: "zone-c" });
+  await telemetry.provisionPersonnelDevice(ctx, { kind: "wearable", code: "bench-tag", source: "physical", personId: person.id });
+  const event = { mineId: ctx.workspaceId, receiverId: "north-bench", deviceId: "bench-tag", eventId: "first",
+    type: "observation", sequence: 1, observedAt: new Date().toISOString() };
+  await telemetry.ingestPersonnel(ctx, event, "physical");
+  const frozen = await sc.startEscapeRun(ctx, body);
+  let snapshot = frozen.data.peopleSnapshot as { checkInId: string; zoneId: string; observation: { zoneId: string; status: string; observedAt: string } }[];
+  assert.equal(snapshot[0].checkInId, checkIn.id);
+  assert.equal(snapshot[0].zoneId, "zone-b");
+  assert.equal(snapshot[0].observation.zoneId, "zone-c");
+  assert.equal(snapshot[0].observation.status, "last-known");
+  await telemetry.ingestPersonnel(ctx, { ...event, eventId: "next", sequence: 2, observedAt: new Date(Date.now() + 1000).toISOString() }, "physical");
+  snapshot = (await repo.get(ctx, frozen.id)).data.peopleSnapshot as typeof snapshot;
+  assert.equal(snapshot[0].observation.observedAt, event.observedAt);
   delete process.env.FORESIGHT_SIMULATOR_URL;
 });
 test("demo reset publishes the training template as a new revision and deletes nothing", async () => {

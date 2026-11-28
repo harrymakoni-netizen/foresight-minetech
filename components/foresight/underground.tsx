@@ -3,6 +3,7 @@
 // alerts with per-message delivery status, gateway and scheduler health.
 // Wording rule: "declared underground", never "is underground".
 import { useEffect, useState } from "react";
+import { PersonnelMonitor } from "./personnel-monitor";
 import { AlertTriangle, MessageSquare, Radio, Siren, UserPlus, Users } from "lucide-react";
 import { queue, queued, sync, type Queued } from "@/lib/client/queue";
 import {
@@ -171,6 +172,7 @@ export function UndergroundNow({ data, post, refresh, notify }: ViewProps) {
           <button onClick={() => void sync(data.workspace.id).then(refresh)}>Sync now</button>
         </div>
       )}
+      <PersonnelMonitor data={data} post={post} refresh={refresh} notify={notify} zone="" />
       <div className="fs-shafts">
         {shafts.map((s) => {
           const here = current

@@ -30,6 +30,7 @@ export function PlanView({
   model,
   counts = {},
   selected,
+  focusZone,
   onSelect,
   onPlanClick,
   closed,
@@ -43,6 +44,7 @@ export function PlanView({
   model: MineModel;
   counts?: Record<string, number>;
   selected?: string | null;
+  focusZone?: string | null;
   onSelect?: (id: string) => void;
   onPlanClick?: (x: number, y: number) => void;
   closed?: Set<string>;
@@ -51,7 +53,7 @@ export function PlanView({
   baseMap?: PlanBaseMap | null;
   marks?: PlanMark[];
   label: string;
-  height?: number;
+  height?: number | string;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const b = useMemo(() => {
@@ -106,8 +108,10 @@ export function PlanView({
         const a = j(t.from), c = j(t.to);
         if (!a || !c) return null;
         const isClosed = closed?.has(t.id);
+        const focused = model.zones.some((zone) => zone.id === focusZone && zone.tunnelIds.includes(t.id));
         return (
           <g key={t.id}>
+            {focused && <line x1={sx(a.x)} y1={sy(a.y)} x2={sx(c.x)} y2={sy(c.y)} stroke="#b66914" strokeOpacity={0.35} strokeWidth={unit * 3} strokeLinecap="round" />}
             <line
               x1={sx(a.x)} y1={sy(a.y)} x2={sx(c.x)} y2={sy(c.y)}
               stroke={isClosed ? "#b42318" : colour(t.id)}

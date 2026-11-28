@@ -33,7 +33,7 @@ export type WorkspaceData = {
     visionMessage?: string;
     directUploads?: boolean;
   };
-  features?: { vision: boolean };
+  features?: { vision: boolean; personnelDemo?: boolean };
   messaging?: MessagingState;
 };
 export type Shaft = { id: string; number: number; name: string; zoneIds: string[] };

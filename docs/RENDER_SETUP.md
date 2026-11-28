@@ -68,3 +68,5 @@ project (Production and Preview) and redeploy. Then in the app:
   it, and both the messaging-service and gateway heartbeats were written.
 - If a build fails, open the service → **Events/Logs** in Render and look at the
   last red lines of the build log.
+
+The personnel bench prototype runs on the local LAN with a persistent local server and database. The hosted Render setup is separate from this mode. See [personnel bench setup](PERSONNEL_BENCH.md).

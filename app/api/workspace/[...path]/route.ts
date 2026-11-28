@@ -1,3 +1,4 @@
+import { acknowledgePersonnelAlert, ingestPersonnel, provisionPersonnelDevice } from "@/lib/server/personnel";
 import { after } from "next/server";
 import { ConfigurationError } from "@/lib/server/configuration";
 import { jsonBody } from "@/lib/server/http";
@@ -193,6 +194,7 @@ export async function GET(request: Request, route: RouteContext) {
           },
           features: {
             vision: process.env.FORESIGHT_FEATURE_VISION === "1",
+            personnelDemo: process.env.FORESIGHT_PERSONNEL_DEMO === "1",
           },
           legacy: {
             replayFiles: [
@@ -397,6 +399,7 @@ export async function POST(request: Request, route: RouteContext) {
         "base-maps",
         "subsidence-marks",
         "ai-policy",
+        "personnel",
       ].includes(path[0]) || path[2] === "review";
     const ctx = await context(request, review ? "review" : "submit");
     if (path[0] === "assets") return await assetsPost(ctx, request);
@@ -496,7 +499,14 @@ export async function POST(request: Request, route: RouteContext) {
       );
       return Response.json({ outcomes });
     }
+    if (path[0] === "personnel" && path[1] === "demo") {
+      if (process.env.FORESIGHT_PERSONNEL_DEMO !== "1")
+        throw new DomainError(404, "NOT_FOUND", "Demo telemetry is disabled.");
+      return Response.json(await ingestPersonnel(ctx, body, "demo"));
+    }
     const result = await idempotent(ctx, key, { path, body }, async () => {
+      if (path[0] === "personnel" && path[1] === "devices") return await provisionPersonnelDevice(ctx, body);
+      if (path[0] === "personnel" && path[1] === "alerts" && path[3] === "acknowledge") return await acknowledgePersonnelAlert(ctx, path[2]);
       if (path[0] === "snapshots") {
         const snapshot = await createSnapshot(ctx);
         return {
