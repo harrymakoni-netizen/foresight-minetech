@@ -100,6 +100,16 @@ test("demo story: WhatsApp check-in → report → scenario → time to act → 
   await expect(results).toContainText("reached at 1 h 40 min; closes T6, T4");
   await page.getByRole("button", { name: /Route floods: 1 h 40 min/ }).click();
   await expect(page.getByRole("img", { name: /Scenario playback at 1 h 40 min/ })).toBeVisible();
+  const cutaway = page.getByRole("button", { name: "Underground cutaway" });
+  await cutaway.click();
+  await expect(cutaway).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Vertical exaggeration")).toBeDisabled();
+  await expect(page.getByLabel("Vertical exaggeration")).toHaveValue("1");
+  await expect(page.locator(".fs-3d-clock")).toContainText("2 tunnel(s) closed");
+  await expect(page.locator(".fs-3d canvas")).toBeVisible();
+  await expect(page.locator(".fs-3d-labels").getByText("T6 · Sump access · closed")).toBeVisible();
+  await page.getByRole("button", { name: "3D", exact: true }).click();
+  await expect(page.getByLabel("Vertical exaggeration")).toHaveValue("3");
 
   // 4. Time to act reports the latest tested backup start with its search range.
   await page.getByRole("button", { name: "Find latest backup start" }).click();

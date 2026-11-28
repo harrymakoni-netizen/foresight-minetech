@@ -11,7 +11,7 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import type { MineModel } from "@/lib/domain/mine-model";
 
-type View = "perspective" | "top" | "section";
+type View = "perspective" | "top" | "section" | "cutaway";
 /** Scenario state at one moment, applied without rebuilding the scene. */
 export type Playback = {
   /** `shaft` places a person in a shaft column instead of in a tunnel: fraction 0 = station, 1 = surface. */
@@ -26,6 +26,63 @@ export type Playback = {
   sumps?: Record<string, { levelM: number; dangerLevelM: number | null }>;
   clock?: string;
 };
+// Open the camera-facing wall and roof so the floor and playback remain visible.
+function cutawayGeometry(width: number, height: number, length: number, arched: boolean) {
+  const half = width / 2;
+  const roof = Math.min(half, height);
+  const wall = arched ? height - roof : height;
+  const profile = [new THREE.Vector2(half, 0), new THREE.Vector2(-half, 0)];
+  if (wall > 0) profile.push(new THREE.Vector2(-half, wall));
+  if (arched) {
+    for (let step = 1; step <= 8; step++) {
+      const angle = Math.PI - (step / 8) * Math.PI / 2;
+      profile.push(new THREE.Vector2(Math.cos(angle) * half, wall + Math.sin(angle) * roof));
+    }
+  }
+  const positions: number[] = [], uv: number[] = [], indices: number[] = [];
+  let distance = 0;
+  profile.forEach(({ x, y }, i) => {
+    if (i > 0) distance += profile[i].distanceTo(profile[i - 1]);
+    positions.push(x, y - height / 2, 0, x, y - height / 2, length);
+    uv.push(distance, 0, distance, length);
+    if (i > 0) {
+      const offset = 2 * i;
+      indices.push(offset - 2, offset, offset - 1, offset - 1, offset, offset + 1);
+    }
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function rockTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const image = ctx.createImageData(size, size);
+  let seed = 19;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const u = (x / size) * Math.PI * 2, v = (y / size) * Math.PI * 2;
+      const tone = 177 + 14 * Math.sin(v * 4 + 1.7 * Math.sin(u * 3)) + 10 * Math.sin(u * 3 - v * 2) + (seed >>> 27);
+      const i = (y * size + x) * 4;
+      image.data.set([tone, tone, tone, 255], i);
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(0.4, 0.4);
+  return texture;
+}
+
 type Picked = { title: string; rows: [string, string][] } | null;
 
 export default function Tunnels3D({
@@ -56,6 +113,7 @@ export default function Tunnels3D({
   const api = useRef<{ view: (v: View) => void }>({ view: () => {} });
   const [error, setError] = useState("");
   const [view, setView] = useState<View>("perspective");
+  const cutaway = view === "cutaway";
   const [exaggerate, setExaggerate] = useState(3);
   const [layers, setLayers] = useState({ surface: true, labels: true, rock: true });
   const [spin, setSpin] = useState(false);
@@ -105,27 +163,32 @@ export default function Tunnels3D({
     el.appendChild(labelRenderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0d1b27);
+    scene.background = new THREE.Color(0x10161b);
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.5, 50000);
-    scene.add(new THREE.HemisphereLight(0xdfe9f3, 0x2a1d12, 1.6));
-    const sun = new THREE.DirectionalLight(0xfff3e0, 2.2);
+    scene.add(new THREE.HemisphereLight(0xdfe9f3, 0x2a1d12, cutaway ? 1.0 : 0.95));
+    const sun = new THREE.DirectionalLight(0xfff3e0, cutaway ? 1.35 : 1.7);
     sun.position.set(300, 600, 200);
     scene.add(sun);
     const lamp = new THREE.PointLight(0xffc27a, 1.2, 0, 0);
     scene.add(lamp);
 
-    const ex = exaggerate;
+    const ex = cutaway ? 1 : exaggerate;
     const byId = new Map(model.junctions.map((j) => [j.id, j]));
+    const focusSump = model.sumps.find((s) => !!playbackRef.current?.sumps?.[s.id]) ?? model.sumps[0];
+    const focusJunction = focusSump && byId.get(focusSump.junction);
+    const focusLabels = new Map<string, { tag: CSS2DObject; name: string }>();
     // Plan x → three x, plan y → three -z, elevation (× exaggeration) → three y.
     const P = (x: number, y: number, z: number | null) => new THREE.Vector3(x, (z ?? 0) * ex, -y);
     const world = new THREE.Group();
     const pickable: THREE.Object3D[] = [];
     const tunnelMeshes = new Map<string, { mesh: THREE.Mesh; base: THREE.Color; pa: THREE.Vector3; pb: THREE.Vector3 }>();
     const arrowSets = new Map<string, { group: THREE.Group; q: number; f: number }>();
-    const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number }>();
+    const sumpWater = new Map<string, { mesh: THREE.Mesh; floor: number; depth: number; dangerLevel: number | null; initialLevel: number | null }>();
     const shaftColumns = new Map<string, { top: THREE.Vector3; bottom: THREE.Vector3 }>();
     const cages = new Map<string, { mesh: THREE.Mesh; tag: CSS2DObject }>(); // key: exitId or exitId#index
     const disposables: { dispose: () => void }[] = [];
+    const stone = rockTexture();
+    if (stone) disposables.push(stone);
     const mat = (o: THREE.MeshStandardMaterialParameters) => {
       const m = new THREE.MeshStandardMaterial(o);
       disposables.push(m);
@@ -151,22 +214,10 @@ export default function Tunnels3D({
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     const spanX = maxX - minX + pad * 2, spanY = maxY - minY + pad * 2;
 
-    // Tunnels: arched or box cross-section extruded along the centreline.
-    const section = (w: number, h: number, arched: boolean) => {
-      const s = new THREE.Shape();
-      s.moveTo(-w / 2, 0);
-      s.lineTo(w / 2, 0);
-      if (arched) {
-        const wall = Math.max(0.1, h - w / 2);
-        s.lineTo(w / 2, wall);
-        s.absarc(0, wall, w / 2, 0, Math.PI, false);
-      } else {
-        s.lineTo(w / 2, h);
-        s.lineTo(-w / 2, h);
-      }
-      s.lineTo(-w / 2, 0);
-      return s;
-    };
+    // Open drive sections reveal the floor and far wall in the overview.
+    const lampHousing = new THREE.BoxGeometry(1.5, 0.4, 0.6);
+    const lampLens = mat({ color: 0xffcf87, emissive: new THREE.Color(0xffb95f), emissiveIntensity: 1.5 });
+    disposables.push(lampHousing);
     for (const t of model.tunnels) {
       const a = byId.get(t.from), b = byId.get(t.to);
       if (!a || !b) continue;
@@ -176,19 +227,31 @@ export default function Tunnels3D({
       const known = t.width !== null && t.height !== null;
       // Cross-sections are scaled up so a few-metre drive stays visible on a
       // mine-scale view; the scale note in the legend says so.
-      const vis = Math.max(1, Math.min(spanX, spanY) / 110);
+      const vis = cutaway ? 1 : Math.max(1, Math.min(spanX, spanY) / 110);
       const w = (t.width ?? 3) * vis, h = (t.height ?? 3) * vis;
-      const geometry = new THREE.ExtrudeGeometry(section(w, h, t.profile === "arched"), { depth: length, bevelEnabled: false, curveSegments: 10 });
-      geometry.translate(0, -h / 2, 0);
+      const geometry = cutawayGeometry(w, h, length, t.profile === "arched");
+      // In the default oblique camera, expose the wall facing the viewer.
+      const direction = pb.clone().sub(pa);
+      if (!cutaway && direction.z * 0.63 - direction.x * 0.7 < 0) geometry.scale(-1, 1, 1);
       disposables.push(geometry);
       const flooded = highlight?.has(t.id);
       const base = new THREE.Color(flooded ? 0xd92d20 : colour(t.id));
+      if (!flooded) base.lerp(new THREE.Color(0x77736c), cutaway ? 0.75 : 0.78);
       const mesh = new THREE.Mesh(
         geometry,
-        mat({ color: base, emissive: base.clone().multiplyScalar(0.25), roughness: 0.55, metalness: 0.05, transparent: !known, opacity: known ? 1 : 0.35 }),
+        mat({ color: base, emissive: base.clone().multiplyScalar(0.25), map: stone, side: THREE.DoubleSide, roughness: 0.9, metalness: 0.05, transparent: !known, opacity: known ? 1 : 0.35 }),
       );
       mesh.position.copy(pa);
       mesh.lookAt(pb);
+      if (!cutaway && known && length > 20) {
+        const side = direction.z * 0.63 - direction.x * 0.7 < 0 ? 1 : -1;
+        const spacing = Math.max(18, length / 5);
+        for (let z = spacing / 2; z < length; z += spacing) {
+          const fixture = new THREE.Mesh(lampHousing, lampLens);
+          fixture.position.set(side * w * 0.43, h * 0.15, z);
+          mesh.add(fixture);
+        }
+      }
       mesh.userData.pick = {
         title: `${t.id} · ${t.name || "Tunnel"}`,
         rows: [
@@ -204,9 +267,14 @@ export default function Tunnels3D({
       world.add(mesh);
       pickable.push(mesh);
       tunnelMeshes.set(t.id, { mesh, base, pa: pa.clone(), pb: pb.clone() });
+      if (cutaway && focusSump?.closesTunnelIds.includes(t.id)) {
+        const name = `${t.id} · ${t.name || "Tunnel"}`;
+        const tag = label(name, pa.clone().lerp(pb, 0.5).add(new THREE.Vector3(0, h / 2 + 1, 0)), "minor");
+        focusLabels.set(t.id, { tag, name });
+      }
     }
     // Junction nodes.
-    const nodeGeo = new THREE.SphereGeometry(Math.max(1.2, Math.min(spanX, spanY) / 160), 16, 12);
+    const nodeGeo = new THREE.SphereGeometry(cutaway ? 0.28 : Math.max(1.2, Math.min(spanX, spanY) / 160), 16, 12);
     disposables.push(nodeGeo);
     const nodeMat = mat({ color: 0xe8edf2, roughness: 0.4 });
     for (const j of model.junctions) {
@@ -216,7 +284,7 @@ export default function Tunnels3D({
       world.add(m);
       pickable.push(m);
       const featured = model.exits.some((e) => e.junction === j.id) || model.refuges.some((r) => r.junction === j.id) || model.sumps.some((x) => x.junction === j.id);
-      if (j.name && !featured) label(j.name, m.position.clone().add(new THREE.Vector3(0, 6, 0)), "minor");
+      if (j.name && !featured && !cutaway) label(j.name, m.position.clone().add(new THREE.Vector3(0, 6, 0)), "minor");
     }
 
     // Exits: shaft with headframe, inclines/adits with a portal marker.
@@ -234,7 +302,32 @@ export default function Tunnels3D({
         shaft.position.set(top.x, (top.y + bottom.y) / 2, top.z);
         world.add(shaft);
         // Headframe: two legs and a sheave beam at the collar.
-        const steel = mat({ color: 0x2d3e4e, metalness: 0.6, roughness: 0.35 });
+        const steel = mat({ color: 0x967044, metalness: 0.45, roughness: 0.48 });
+        if (!cutaway && top.y > bottom.y) {
+          const guideGeometry = new THREE.BoxGeometry(0.55, depth, 0.55);
+          const frameGeometry = new THREE.TorusGeometry(4.15, 0.18, 5, 16);
+          disposables.push(guideGeometry, frameGeometry);
+          for (const dx of [-2.7, 2.7]) {
+            for (const dz of [-2.7, 2.7]) {
+              const guide = new THREE.Mesh(guideGeometry, steel);
+              guide.position.copy(shaft.position).add(new THREE.Vector3(dx, 0, dz));
+              world.add(guide);
+            }
+          }
+          const spacing = Math.max(12, depth / 14);
+          for (let y = bottom.y + spacing / 2; y < top.y; y += spacing) {
+            const frame = new THREE.Mesh(frameGeometry, steel);
+            frame.rotation.x = Math.PI / 2;
+            frame.position.set(top.x, y, top.z);
+            const fixture = new THREE.Mesh(lampHousing, lampLens);
+            fixture.position.set(2.7, 0, 2.7);
+            frame.add(fixture);
+            world.add(frame);
+          }
+          const stationLight = new THREE.PointLight(0xffbc73, 1200, 34, 2);
+          stationLight.position.copy(bottom).add(new THREE.Vector3(0, 7, 0));
+          world.add(stationLight);
+        }
         const hf = Math.max(22, spanX / 12);
         for (const dx of [-5, 5]) {
           const leg = new THREE.Mesh(new THREE.BoxGeometry(2, hf, 2), steel);
@@ -316,15 +409,23 @@ export default function Tunnels3D({
       const j = byId.get(s.junction);
       if (!j) continue;
       const at = P(j.x, j.y, j.z);
-      const pit = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 10, 28, 1, true), mat({ color: 0x5b6b78, side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
+      const depth = cutaway && s.levelVolume.length > 0 ? s.levelVolume[s.levelVolume.length - 1].levelM || 10 : 10;
+      const radius = cutaway ? 4 : 9;
+      const floor = at.y - (cutaway ? depth + 1 : 12);
+      const pit = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 32, 1, true), mat({ color: 0x535b60, side: THREE.DoubleSide, transparent: true, opacity: 0.46, depthWrite: false, roughness: 0.85 }));
       disposables.push(pit.geometry);
-      pit.position.copy(at).add(new THREE.Vector3(0, -7, 0));
+      pit.position.copy(at).setY(floor + depth / 2);
       world.add(pit);
-      const water = new THREE.Mesh(new THREE.CylinderGeometry(8.6, 8.6, 4, 28), mat({ color: 0x2f7fd0, emissive: new THREE.Color(0x0b2f55), transparent: true, opacity: 0.8 }));
+      const water = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.95, radius * 0.95, 4, 32), mat({ color: 0x2586ad, emissive: new THREE.Color(0x0b2f55), transparent: true, opacity: 0.88, roughness: 0.23, metalness: 0.16 }));
       disposables.push(water.geometry);
       water.position.copy(at).add(new THREE.Vector3(0, -10, 0));
       water.userData.water = true;
-      sumpWater.set(s.id, { mesh: water, floor: at.y - 12 });
+      const upper = s.levelVolume.findIndex((point) => s.initialVolumeM3 !== null && point.volumeM3 >= s.initialVolumeM3);
+      const low = s.levelVolume[upper - 1], high = s.levelVolume[upper];
+      const initialLevel = low && high && s.initialVolumeM3 !== null && high.volumeM3 > low.volumeM3
+        ? THREE.MathUtils.lerp(low.levelM, high.levelM, (s.initialVolumeM3 - low.volumeM3) / (high.volumeM3 - low.volumeM3))
+        : (high?.volumeM3 === s.initialVolumeM3 ? high.levelM : null);
+      sumpWater.set(s.id, { mesh: water, floor, depth, dangerLevel: s.dangerLevelM, initialLevel });
       const pumps = model.pumps.filter((p) => p.sumpId === s.id);
       water.userData.pick = {
         title: s.name,
@@ -338,7 +439,28 @@ export default function Tunnels3D({
       } satisfies Picked;
       world.add(water);
       pickable.push(water);
-      label(`${s.name}${pumps.length ? " · " + pumps.map((p) => p.id).join(", ") : ""}`, at.clone().add(new THREE.Vector3(0, -22, 0)), "water");
+      label(`${s.name}${pumps.length ? " · " + pumps.map((p) => p.id).join(", ") : ""}`, at.clone().add(new THREE.Vector3(0, cutaway ? 5 : -22, 0)), "water");
+      if (cutaway && pumps.length) {
+        const steel = mat({ color: 0x3e6877, roughness: 0.43, metalness: 0.54 });
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, depth, 12), steel);
+        pipe.position.copy(pit.position).add(new THREE.Vector3(0, 0, -radius * 0.7));
+        world.add(pipe);
+        disposables.push(pipe.geometry);
+        const motor = new THREE.CylinderGeometry(0.65, 0.65, 1.8, 16);
+        const plinth = new THREE.BoxGeometry(2.0, 0.3, 1.6);
+        const concrete = mat({ color: 0x565451, roughness: 0.95 });
+        disposables.push(motor, plinth);
+        for (const [i, pump] of pumps.entries()) {
+          const body = new THREE.Mesh(motor, steel);
+          body.rotation.z = Math.PI / 2;
+          body.position.copy(at).add(new THREE.Vector3((i - (pumps.length - 1) / 2) * 2.1, 0.65, -radius * 0.7));
+          body.userData.pick = { title: pump.name, rows: [["Capacity", pump.capacityM3h === null ? "Not entered" : `${pump.capacityM3h} m³/h`]] } satisfies Picked;
+          const base = new THREE.Mesh(plinth, concrete);
+          base.position.copy(body.position).add(new THREE.Vector3(0, -0.8, 0));
+          world.add(body, base);
+          pickable.push(body);
+        }
+      }
     }
     const along = (tunnelId: string, f = 0.5) => {
       const t = model.tunnels.find((x) => x.id === tunnelId);
@@ -379,6 +501,7 @@ export default function Tunnels3D({
       const pts = z.tunnelIds.map((id) => along(id)).filter((p): p is THREE.Vector3 => !!p);
       if (!pts.length) continue;
       const mid = pts.reduce((a, b) => a.add(b), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+      if (cutaway) continue;
       const el2 = label(z.name, mid.add(new THREE.Vector3(0, 16, 0)), "zone");
       (el2.element as HTMLElement).style.borderColor = colour(z.tunnelIds[0]);
     }
@@ -390,13 +513,37 @@ export default function Tunnels3D({
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(cx, 0, -cy);
     surface.add(ground);
+    const bm = baseMapRef.current;
+    // Fictional relief is a visual reference layer. The datum plane and all
+    // surface markers retain their original coordinates.
+    if (!cutaway && model.meta.fictional && !bm) {
+      const terrain = new THREE.PlaneGeometry(spanX, spanY, 60, 42);
+      terrain.rotateX(-Math.PI / 2);
+      const vertices = terrain.attributes.position;
+      const colors: number[] = [];
+      const low = new THREE.Color(0x434d38), high = new THREE.Color(0x9a8365);
+      for (let i = 0; i < vertices.count; i++) {
+        const u = vertices.getX(i) / spanX, v = vertices.getZ(i) / spanY;
+        const ridge = 0.52 + 0.24 * Math.sin(u * 13 + v * 7) * Math.cos(v * 10)
+          + 0.14 * Math.sin(u * 24 - v * 14) + 0.07 * Math.cos(v * 35 + u * 12);
+        vertices.setY(i, ridge * Math.min(spanX, spanY) * 0.055);
+        const color = low.clone().lerp(high, ridge);
+        colors.push(color.r, color.g, color.b);
+      }
+      terrain.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+      terrain.computeVertexNormals();
+      const relief = new THREE.Mesh(terrain, mat({ vertexColors: true, transparent: true, opacity: 0.3, depthWrite: false, roughness: 1 }));
+      relief.position.set(cx, 0.2, -cy);
+      surface.add(relief);
+      disposables.push(terrain);
+      ground.visible = false;
+    }
     const grid = new THREE.GridHelper(Math.max(spanX, spanY), Math.round(Math.max(spanX, spanY) / 50), 0xc9b48a, 0x6d5f45);
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.35;
     grid.position.set(cx, 0.05, -cy);
     surface.add(grid);
     // Base map: a picture laid on the surface plane at its real plan extent.
-    const bm = baseMapRef.current;
     if (bm) {
       const w = bm.east - bm.west, h = bm.north - bm.south;
       const bmMat = mat({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
@@ -433,6 +580,20 @@ export default function Tunnels3D({
     disposables.push(rockBox.geometry);
     rockBox.position.set(cx, -rockDepth / 2, -cy);
     rock.add(rockBox);
+    if (!cutaway && stone) {
+      const strataTexture = stone.clone();
+      strataTexture.repeat.set(5, 4);
+      disposables.push(strataTexture);
+      const thickness = rockDepth * 0.035;
+      const geology = [0x413a33, 0x353637, 0x554739, 0x2d3032];
+      geology.forEach((color, i) => {
+        const geometry = new THREE.BoxGeometry(spanX, thickness, spanY);
+        const layer = new THREE.Mesh(geometry, mat({ color, map: strataTexture, roughness: 1 }));
+        layer.position.set(cx, -rockDepth - thickness * (i + 0.5), -cy);
+        rock.add(layer);
+        disposables.push(geometry);
+      });
+    }
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(rockBox.geometry), new THREE.LineBasicMaterial({ color: 0x8a6d47, transparent: true, opacity: 0.35 }));
     disposables.push(edges.geometry, edges.material as THREE.Material);
     edges.position.copy(rockBox.position);
@@ -453,16 +614,16 @@ export default function Tunnels3D({
     scene.add(world);
 
     // Layer visibility.
-    surface.visible = layers.surface;
-    rock.visible = layers.rock;
+    surface.visible = !cutaway && layers.surface;
+    rock.visible = !cutaway && layers.rock;
     world.traverse((o) => {
-      if (o.userData.label) o.visible = layers.labels && (!tickLabels.includes(o as CSS2DObject) || layers.rock);
+      if (o.userData.label) o.visible = layers.labels && (!tickLabels.includes(o as CSS2DObject) || rock.visible);
     });
 
     // Scenario playback: people, closed tunnels and sump level.
     const people = new THREE.Group();
     world.add(people);
-    const personGeo = new THREE.CapsuleGeometry(Math.max(1.4, Math.min(spanX, spanY) / 150), Math.max(2.4, Math.min(spanX, spanY) / 90), 4, 10);
+    const personGeo = new THREE.CapsuleGeometry(cutaway ? 0.24 : Math.max(1.4, Math.min(spanX, spanY) / 150), cutaway ? 1.2 : Math.max(2.4, Math.min(spanX, spanY) / 90), 4, 10);
     disposables.push(personGeo);
     const toneMat = {
       walking: mat({ color: 0xf5f8fb, emissive: new THREE.Color(0x6f8aa3) }),
@@ -474,15 +635,16 @@ export default function Tunnels3D({
       .map((t) => ({ t, a: byId.get(t.from), b: byId.get(t.to) }))
       .filter((x): x is { t: (typeof model.tunnels)[number]; a: (typeof model.junctions)[number]; b: (typeof model.junctions)[number] } => !!x.a && !!x.b);
     // Engines report plan positions; elevation comes from the nearest tunnel.
-    const elevationAt = (x: number, y: number) => {
+    const elevationAt = (x: number, y: number, floor = false) => {
       let best = Infinity, z = 0;
-      for (const { a, b } of segs) {
+      for (const { t, a, b } of segs) {
         const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
         const k = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2));
         const d = Math.hypot(a.x + dx * k - x, a.y + dy * k - y);
         if (d < best) {
           best = d;
           z = (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * k;
+          if (floor) z -= (t.height ?? 3) / 2;
         }
       }
       return z;
@@ -493,7 +655,7 @@ export default function Tunnels3D({
     const groupTag = new CSS2DObject(groupDiv);
     groupTag.visible = false;
     people.add(groupTag);
-    const lift = Math.max(1, Math.min(spanX, spanY) / 110) * 1.6;
+    const lift = cutaway ? 0.84 : Math.max(1, Math.min(spanX, spanY) / 110) * 1.6;
     applyRef.current = (pb) => {
       const closed = pb?.closed || highlight || new Set<string>();
       const flows = pb?.flows;
@@ -526,18 +688,27 @@ export default function Tunnels3D({
           }
           continue;
         }
-        const c = closed.has(id) ? new THREE.Color(0xd92d20) : base;
+        const blocked = closed.has(id);
+        const c = blocked ? new THREE.Color(0xd92d20) : base;
         m.color.copy(c);
-        m.emissive.copy(c).multiplyScalar(closed.has(id) ? 0.5 : 0.25);
+        m.emissive.copy(c).multiplyScalar(blocked ? 0.5 : 0.25);
+        const route = focusLabels.get(id);
+        if (route) route.tag.element.textContent = blocked ? `${route.name} · closed` : route.name;
       }
-      for (const [id, { mesh, floor }] of sumpWater) {
+      for (const [id, { mesh, floor, depth, dangerLevel, initialLevel }] of sumpWater) {
         const sl = pb?.sumps?.[id];
-        if (!sl) continue;
-        const ratio = sl.dangerLevelM ? sl.levelM / sl.dangerLevelM : 0.4;
-        const h = Math.max(0.3, Math.min(14, ratio * 8));
+        if (!sl && !cutaway) continue;
+        const level = sl?.levelM ?? initialLevel;
+        const threshold = sl?.dangerLevelM ?? dangerLevel;
+        const danger = level !== null && threshold !== null && level >= threshold;
+        const ratio = level !== null && threshold ? level / threshold : 0.4;
+        const h = cutaway ? Math.min(depth, level ?? 0) : Math.max(0.3, Math.min(14, ratio * 8));
+        mesh.visible = h > 0;
         mesh.scale.y = h / 4;
         mesh.position.y = floor + h / 2;
-        (mesh.material as THREE.MeshStandardMaterial).color.set(ratio >= 1 ? 0xd9534f : 0x2f7fd0);
+        const water = mesh.material as THREE.MeshStandardMaterial;
+        water.color.set(cutaway ? 0x2586ad : danger ? 0xd9534f : 0x2f7fd0);
+        water.emissive.set(cutaway && danger ? 0x2a605b : 0x0b2f55);
       }
       const list = pb?.cages ?? (pb?.cage ? [{ ...pb.cage, index: 0 }] : []);
       for (const [key, c] of cages) {
@@ -579,7 +750,7 @@ export default function Tunnels3D({
           const angle = k * 2.399963;
           const r = 6 + (k % 5) * 0.8;
           entry.mesh.position.lerpVectors(col.bottom, col.top, p.shaft.fraction).add(new THREE.Vector3(Math.cos(angle) * r, lift, Math.sin(angle) * r));
-        } else entry.mesh.position.copy(P(p.x, p.y, elevationAt(p.x, p.y))).add(new THREE.Vector3(0, lift, 0));
+        } else entry.mesh.position.copy(P(p.x, p.y, elevationAt(p.x, p.y, cutaway))).add(new THREE.Vector3(0, lift, 0));
         // Name tags only for people cut off, and only while few enough to read;
         // otherwise one group tag is shown.
         const cutCount = (pb?.people || []).filter((q) => q.tone === "cut-off").length;
@@ -593,7 +764,7 @@ export default function Tunnels3D({
       const cut = (pb?.people || []).filter((q) => q.tone === "cut-off");
       if (cut.length > 2 && layersRef.current.labels) {
         const mid = cut
-          .map((q) => P(q.x, q.y, elevationAt(q.x, q.y)))
+          .map((q) => P(q.x, q.y, elevationAt(q.x, q.y, cutaway)))
           .reduce((a, b) => a.add(b), new THREE.Vector3())
           .multiplyScalar(1 / cut.length);
         groupTag.position.copy(mid).add(new THREE.Vector3(0, lift * 4, 0));
@@ -616,15 +787,64 @@ export default function Tunnels3D({
     orbit.enableDamping = true;
     orbit.dampingFactor = 0.08;
     orbit.maxDistance = radius * 4;
+    const focusTunnel = model.tunnels
+      .filter((t) => t.from === focusJunction?.id || t.to === focusJunction?.id)
+      .map((t) => tunnelMeshes.get(t.id))
+      .find((t) => t !== undefined) ?? tunnelMeshes.values().next().value;
+    const focus = focusTunnel ? focusTunnel.pa.clone().lerp(focusTunnel.pb, 0.5)
+      : focusJunction ? P(focusJunction.x, focusJunction.y, focusJunction.z) : center.clone();
+    const side = new THREE.Vector3(1, 0, 0);
+    if (focusTunnel) side.applyQuaternion(focusTunnel.mesh.quaternion).setY(0).normalize();
+    const forward = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), side);
+    if (cutaway && focusTunnel && stone) {
+      // Illustrative section beneath the workings, kept below both the local
+      // drive and the sump so the open view never hides the playback.
+      const length = focusTunnel.pa.distanceTo(focusTunnel.pb);
+      const span = THREE.MathUtils.clamp(length * 2, 50, 180);
+      const sumpFloor = focusSump && sumpWater.get(focusSump.id)?.floor;
+      const sectionTop = Math.min(focusTunnel.pa.y - 4, focusTunnel.pb.y - 4, sumpFloor ?? Infinity) - 1;
+      const strataTexture = stone.clone();
+      strataTexture.repeat.set(7, 3);
+      disposables.push(strataTexture);
+      const bed = new THREE.Group();
+      bed.position.set(focus.x, sectionTop, focus.z);
+      bed.rotation.y = Math.atan2(side.x, side.z);
+      let belowTop = 0;
+      for (const { thickness, color } of [
+        { thickness: 2.2, color: 0x453d37 },
+        { thickness: 3.6, color: 0x312e2d },
+        { thickness: 1.4, color: 0x514239 },
+        { thickness: 2.8, color: 0x282a2d },
+      ]) {
+        const geometry = new THREE.BoxGeometry(span, thickness, span * 0.75);
+        const stratum = new THREE.Mesh(geometry, mat({ color, map: strataTexture, roughness: 1 }));
+        stratum.position.y = -belowTop - thickness / 2;
+        bed.add(stratum);
+        disposables.push(geometry);
+        belowTop += thickness;
+      }
+      bed.visible = layers.rock;
+      world.add(bed);
+    }
+    const closePosition = () => {
+      const length = focusTunnel ? focusTunnel.pa.distanceTo(focusTunnel.pb) : 0;
+      const halfView = THREE.MathUtils.clamp(length * 0.65, 17, 60);
+      const usableAspect = camera.aspect < 0.8 ? camera.aspect * 0.84 : Math.min(1, camera.aspect);
+      const distance = halfView / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * usableAspect);
+      return focus.clone().addScaledVector(side, distance * 0.78)
+        .addScaledVector(forward, distance * 0.27).add(new THREE.Vector3(0, distance * 0.56, 0));
+    };
     let tween: { from: THREE.Vector3; to: THREE.Vector3; t: number } | null = null;
     const go = (v: View, instant = false) => {
+      const fitRadius = radius * Math.max(1, 1.15 / camera.aspect);
       const to =
-        v === "top"
-          ? center.clone().add(new THREE.Vector3(0, radius * 1.2, 0.01))
+        v === "cutaway" ? closePosition()
+        : v === "top"
+          ? center.clone().add(new THREE.Vector3(0, fitRadius * 1.2, 0.01))
           : v === "section"
-            ? center.clone().add(new THREE.Vector3(0, 0, radius * 1.1))
-            : center.clone().add(new THREE.Vector3(radius * 0.55, radius * 0.5, radius * 0.8));
-      orbit.target.copy(center);
+            ? center.clone().add(new THREE.Vector3(0, 0, fitRadius * 1.1))
+            : center.clone().add(new THREE.Vector3(fitRadius * 0.63, fitRadius * 0.47, fitRadius * 0.7));
+      orbit.target.copy(v === "cutaway" ? focus : center);
       if (instant) {
         camera.position.copy(to);
         orbit.update();
@@ -643,7 +863,7 @@ export default function Tunnels3D({
       const r = renderer.domElement.getBoundingClientRect();
       pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(pointer, camera);
-      const hit = ray.intersectObjects(pickable, false)[0];
+      const hit = ray.intersectObjects(pickable.filter((object) => object.visible), false)[0];
       setPicked(hit ? (hit.object.userData.pick as Picked) : null);
     };
     labelRenderer.domElement.addEventListener("pointerdown", onDown);
@@ -708,7 +928,7 @@ export default function Tunnels3D({
     };
     // view is applied through api.current.view without rebuilding the scene.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, countsKey, overlayKey, exaggerate, layers]);
+  }, [model, countsKey, overlayKey, exaggerate, layers, cutaway]);
 
   useEffect(() => {
     const onChange = () => setFull(document.fullscreenElement === frame.current);
@@ -718,7 +938,7 @@ export default function Tunnels3D({
 
   const pick = (v: View) => {
     setView(v);
-    api.current.view(v);
+    if ((v === "cutaway") === cutaway) api.current.view(v);
   };
   if (error) return fallback ? <>{fallback}</> : <p role="status">{error}</p>;
   return (
@@ -730,6 +950,7 @@ export default function Tunnels3D({
               ["perspective", "3D"],
               ["top", "From above"],
               ["section", "Side section"],
+              ["cutaway", "Underground cutaway"],
             ] as const
           ).map(([v, l]) => (
             <button key={v} aria-pressed={view === v} onClick={() => pick(v)}>
@@ -739,7 +960,7 @@ export default function Tunnels3D({
         </div>
         <label className="fs-3d-select">
           Depth ×
-          <select value={exaggerate} onChange={(e) => setExaggerate(Number(e.target.value))} aria-label="Vertical exaggeration">
+          <select value={cutaway ? 1 : exaggerate} disabled={cutaway} onChange={(e) => setExaggerate(Number(e.target.value))} aria-label="Vertical exaggeration">
             {[1, 2, 3, 5].map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -750,12 +971,12 @@ export default function Tunnels3D({
         {(
           [
             ["surface", "Surface"],
-            ["rock", "Rock and depth"],
+            ["rock", cutaway ? "Rock section" : "Rock and depth"],
             ["labels", "Labels"],
           ] as const
         ).map(([k, l]) => (
           <label key={k} className="fs-3d-check">
-            <input type="checkbox" checked={layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} /> {l}
+            <input type="checkbox" checked={cutaway && k === "surface" ? false : layers[k]} disabled={cutaway && k === "surface"} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} /> {l}
           </label>
         ))}
         <label className="fs-3d-check">
@@ -799,9 +1020,10 @@ export default function Tunnels3D({
       )}
       </div>
       <p className="fs-help">
-        Drag to orbit, right-drag to pan, scroll to zoom, click a tunnel or feature for its entered values. Depth is
-        exaggerated ×{exaggerate} and tunnel cross-sections are enlarged so they stay visible; the surface is a flat
-        reference plane at 0 m (not surveyed terrain). Faded tunnels have no entered size.
+        Drag to orbit, right-drag to pan, scroll to zoom. Click a feature for its entered values.{" "}
+        {cutaway
+          ? "Cutaway uses entered tunnel sizes and elevations at ×1 depth. Rock and equipment are illustrative. Faded tunnels have no entered size."
+          : `Depth is exaggerated ×${exaggerate} and tunnel cross-sections are enlarged. ${model.meta.fictional && !baseMap ? "Surface relief, rock layers, and fixtures are illustrative." : "The surface reference is the datum plane at 0 m. Rock layers and fixtures are illustrative."} Faded tunnels have no entered size.`}
       </p>
     </div>
   );
