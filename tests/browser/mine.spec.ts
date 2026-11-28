@@ -38,3 +38,23 @@ test("mine plan, 3D, table and editor with live preflight", async ({ page }) => 
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Draft saved" })).toBeVisible();
 });
+
+test("fan curve entry: a curve with a duty is warned about, flows that do not increase block publishing", async ({ page }) => {
+  await page.goto("/#mine");
+  await page.getByRole("tab", { name: "Edit" }).click();
+  const fresh = page.getByRole("button", { name: /New draft from revision/ });
+  if (await fresh.count()) await fresh.click();
+  await expect(page.getByRole("img", { name: /Editable plan, draft revision/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Tunnel T13/ }).click();
+  const curve = page.getByLabel(/Pressure–quantity curve/);
+  await curve.fill("0, 300\n40, 0");
+  await curve.blur();
+  await expect(page.getByText(/has both a curve and a fixed duty/)).toBeVisible();
+  await curve.fill("0, 300\n0, 100");
+  await curve.blur();
+  await expect(page.getByText(/curve flows must increase strictly/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Save and publish/ })).toBeDisabled();
+  await curve.fill("");
+  await curve.blur();
+  await expect(page.getByText(/curve flows must increase strictly/)).toHaveCount(0);
+});
